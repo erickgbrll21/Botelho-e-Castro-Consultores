@@ -79,10 +79,9 @@ export default async function EmpresaDetalhe({
   }
 
   const empresa: any = data;
-  const grupoNome =
-    empresa.grupos_empresariais?.[0]?.nome ??
-    empresa.grupo_empresarial ??
-    "—";
+  const gruposRel = empresa.grupos_empresariais;
+  // Supabase can return an object or an array depending on the query result type
+  const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || empresa.grupo_empresarial || "Sem grupo vinculado";
   const responsaveis = empresa.responsaveis_internos?.[0];
   const servicos = empresa.servicos_contratados?.[0];
   const socios = empresa.quadro_socios ?? [];
@@ -124,10 +123,10 @@ export default async function EmpresaDetalhe({
                   {empresa.dominio}
                 </span>
               )}
-              {grupoNome !== "—" && (
-                <span className="flex items-center gap-1.5 font-medium text-neutral-300 shrink-0">
-                  <ChartBarIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  {grupoNome}
+              {grupoNome !== "Sem grupo vinculado" && (
+                <span className="flex items-center gap-1.5 font-medium text-amber-200 shrink-0">
+                  <ChartBarIcon className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-500" />
+                  Grupo: {grupoNome}
                 </span>
               )}
             </div>
@@ -273,7 +272,9 @@ export default async function EmpresaDetalhe({
             <div className="space-y-4 text-sm">
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Grupo Empresarial</p>
-                <p className="font-medium text-neutral-100">{grupoNome}</p>
+                <p className={clsx("font-medium", grupoNome === "Sem grupo vinculado" ? "text-neutral-500 italic" : "text-amber-200")}>
+                  {grupoNome}
+                </p>
               </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Responsável Fiscal</p>

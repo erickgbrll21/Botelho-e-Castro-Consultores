@@ -139,15 +139,8 @@ export default async function DashboardPage({
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {empresas.map((empresa) => {
-              const grupoNome =
-                (
-                  empresa as {
-                    grupos_empresariais?: { nome?: string }[] | null;
-                    grupo_empresarial?: string | null;
-                  }
-                ).grupos_empresariais?.[0]?.nome ??
-                empresa.grupo_empresarial ??
-                "—";
+              const gruposRel = empresa.grupos_empresariais;
+              const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || empresa.grupo_empresarial || "—";
               const responsaveis = empresa.responsaveis_internos?.[0];
               const servicos = empresa.servicos_contratados?.[0];
 
