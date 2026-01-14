@@ -180,51 +180,43 @@ export default async function UsuariosPage() {
           <table className="min-w-full text-sm">
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
-                <th className="py-3 pr-4 font-medium">Nome</th>
-                <th className="py-3 pr-4 font-medium">E-mail</th>
-                <th className="py-3 pr-4 font-medium">Cargo</th>
-                <th className="py-3 pr-4 font-medium">Tipo</th>
-                <th className="py-3 pr-4 font-medium">Status</th>
-                <th className="py-3 pr-4 font-medium">Criado em</th>
+                <th className="py-3 pr-4 font-medium">Usuário</th>
+                <th className="py-3 pr-4 font-medium hidden sm:table-cell">Tipo / Status</th>
+                <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
               {usuarios.map((usuario) => (
                 <tr key={usuario.id} className="align-top">
-                  <td className="py-3 pr-4 font-semibold text-neutral-50">
-                    {usuario.nome}
+                  <td className="py-4 pr-4">
+                    <p className="font-semibold text-neutral-50 leading-tight">{usuario.nome}</p>
+                    <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{usuario.email}</p>
+                    <div className="flex sm:hidden gap-2 mt-2">
+                      <Pill
+                        label={usuario.tipo_usuario === "admin" ? "Admin" : "User"}
+                        tone={usuario.tipo_usuario === "admin" ? "warning" : "neutral"}
+                      />
+                      <Pill
+                        label={usuario.ativo ? "Ativo" : "Inativo"}
+                        tone={usuario.ativo ? "success" : "critical"}
+                      />
+                    </div>
                   </td>
-                  <td className="py-3 pr-4 text-neutral-200">{usuario.email}</td>
-                  <td className="py-3 pr-4 text-neutral-300">
-                    {usuario.cargo ?? "—"}
+                  <td className="py-4 pr-4 hidden sm:table-cell">
+                    <div className="flex flex-col gap-2 items-start">
+                      <Pill
+                        label={usuario.tipo_usuario === "admin" ? "Administrador" : "Usuário"}
+                        tone={usuario.tipo_usuario === "admin" ? "warning" : "neutral"}
+                      />
+                      <Pill
+                        label={usuario.ativo ? "Ativo" : "Inativo"}
+                        tone={usuario.ativo ? "success" : "critical"}
+                      />
+                    </div>
                   </td>
-                  <td className="py-3 pr-4">
-                    <Pill
-                      label={
-                        usuario.tipo_usuario === "admin"
-                          ? "Administrador"
-                          : "Usuário"
-                      }
-                      tone={usuario.tipo_usuario === "admin" ? "warning" : "neutral"}
-                    />
+                  <td className="py-4 pr-4 text-right">
+                    <DeleteUserButton userId={usuario.id} action={deleteUser} />
                   </td>
-                  <td className="py-3 pr-4">
-                    <Pill
-                      label={usuario.ativo ? "Ativo" : "Inativo"}
-                      tone={usuario.ativo ? "success" : "critical"}
-                    />
-                  </td>
-                  <td className="py-3 pr-4 text-neutral-300">
-                    {usuario.created_at
-                      ? new Intl.DateTimeFormat("pt-BR", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(new Date(usuario.created_at))
-                      : "—"}
-                  </td>
-                <td className="py-3 pr-4 text-right">
-                  <DeleteUserButton userId={usuario.id} action={deleteUser} />
-                </td>
                 </tr>
               ))}
             </tbody>

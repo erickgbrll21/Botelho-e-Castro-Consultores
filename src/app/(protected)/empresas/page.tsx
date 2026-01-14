@@ -612,19 +612,19 @@ export default async function EmpresasPage({
           <table className="min-w-full text-sm">
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
-                <th className="py-3 pr-4 font-medium">Nome da Empresa</th>
-                <th className="py-3 pr-4 font-medium">Data de Inscrição</th>
+                <th className="py-3 pr-4 font-medium">Razão Social</th>
+                <th className="py-3 pr-4 font-medium hidden sm:table-cell">Data de Inscrição</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
               {empresas.map((empresa) => (
-                <tr key={empresa.id} className="align-middle">
+                <tr key={empresa.id} className="align-top">
                   <td className="py-4 pr-4">
-                    <p className="font-semibold text-neutral-50">{empresa.razao_social}</p>
-                    <p className="text-xs text-neutral-500">{empresa.cnpj}</p>
+                    <p className="font-semibold text-neutral-50 leading-tight">{empresa.razao_social}</p>
+                    <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{empresa.cnpj}</p>
                   </td>
-                  <td className="py-4 pr-4 text-neutral-300">
+                  <td className="py-4 pr-4 text-neutral-300 hidden sm:table-cell">
                     {empresa.created_at
                       ? new Intl.DateTimeFormat("pt-BR", {
                           dateStyle: "medium",
@@ -632,10 +632,10 @@ export default async function EmpresasPage({
                         }).format(new Date(empresa.created_at))
                       : "—"}
                   </td>
-                  <td className="py-4 pr-4 text-right space-x-3">
+                  <td className="py-4 pr-4 text-right flex flex-col sm:flex-row justify-end items-end gap-2 sm:gap-3">
                     <a
                       href={`/empresas/${empresa.id}`}
-                      className="inline-flex items-center rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-200 transition hover:border-neutral-700 hover:bg-neutral-800"
+                      className="inline-flex items-center rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-semibold text-neutral-200 transition hover:border-neutral-700 hover:bg-neutral-800"
                     >
                       Ver detalhes
                     </a>

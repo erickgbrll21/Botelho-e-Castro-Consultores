@@ -71,31 +71,31 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Visão Geral
-          </p>
-          <h1 className="text-3xl font-semibold">Dashboard</h1>
-          <p className="text-neutral-400">
-            Dados de clientes, responsáveis internos e serviços contratados.
-          </p>
-        </div>
-        <form className="flex items-center gap-2">
-          <input
-            name="q"
-            defaultValue={term}
-            placeholder="Buscar empresa..."
-            className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-          >
-            Buscar
-          </button>
-        </form>
-      </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-[10px] md:text-xs uppercase tracking-[0.2em] md:tracking-[0.3em] text-neutral-500">
+                Visão Geral
+              </p>
+              <h1 className="text-2xl md:text-3xl font-semibold">Dashboard</h1>
+              <p className="text-xs md:text-sm text-neutral-400">
+                Dados de clientes, responsáveis internos e serviços contratados.
+              </p>
+            </div>
+            <form className="flex items-center gap-2">
+              <input
+                name="q"
+                defaultValue={term}
+                placeholder="Buscar empresa..."
+                className="w-full sm:w-auto rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                Buscar
+              </button>
+            </form>
+          </div>
 
       <div className="card-grid">
         <Card title="Empresas ativas">
@@ -137,92 +137,94 @@ export default async function DashboardPage({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {empresas.map((empresa) => {
-          const grupoNome =
-            (
-              empresa as {
-                grupos_empresariais?: { nome?: string }[] | null;
-                grupo_empresarial?: string | null;
-              }
-            ).grupos_empresariais?.[0]?.nome ??
-            empresa.grupo_empresarial ??
-            "—";
-          const responsaveis = empresa.responsaveis_internos?.[0];
-          const servicos = empresa.servicos_contratados?.[0];
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {empresas.map((empresa) => {
+              const grupoNome =
+                (
+                  empresa as {
+                    grupos_empresariais?: { nome?: string }[] | null;
+                    grupo_empresarial?: string | null;
+                  }
+                ).grupos_empresariais?.[0]?.nome ??
+                empresa.grupo_empresarial ??
+                "—";
+              const responsaveis = empresa.responsaveis_internos?.[0];
+              const servicos = empresa.servicos_contratados?.[0];
 
-          return (
-            <a
-              key={empresa.id}
-              href={`/empresas/${empresa.id}`}
-              className="glass-panel group flex flex-col justify-between rounded-2xl p-5 transition-all hover:border-neutral-100 hover:bg-neutral-900/50"
-            >
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white">
-                      {empresa.razao_social}
-                    </h3>
-                    <p className="text-xs text-neutral-500">{empresa.cnpj}</p>
-                  </div>
-                  <Pill
-                    label={empresa.tipo_unidade ?? "—"}
-                    tone="neutral"
-                  />
-                </div>
+              return (
+                <a
+                  key={empresa.id}
+                  href={`/empresas/${empresa.id}`}
+                  className="glass-panel group flex flex-col justify-between rounded-2xl p-4 md:p-5 transition-all hover:border-neutral-100 hover:bg-neutral-900/50"
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white text-sm md:text-base">
+                          {empresa.razao_social}
+                        </h3>
+                        <p className="text-[10px] md:text-xs text-neutral-500 truncate">{empresa.cnpj}</p>
+                      </div>
+                      <div className="shrink-0">
+                        <Pill
+                          label={empresa.tipo_unidade ?? "—"}
+                          tone="neutral"
+                        />
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-y-3 text-xs">
-                  <div>
-                    <p className="text-neutral-500">Grupo</p>
-                    <p className="truncate font-medium text-neutral-300">
-                      {grupoNome}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-neutral-500">Responsável</p>
-                    <p className="truncate font-medium text-neutral-300">
-                      {responsaveis?.responsavel_comercial ?? "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-neutral-500">Atividade</p>
-                    <p className="truncate font-medium text-neutral-300">
-                      {empresa.atividade ?? "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-neutral-500">Processos</p>
-                    <p className="font-medium text-neutral-300">
-                      {empresa.processos_ativos ?? 0} ativos
-                    </p>
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-[10px] md:text-xs">
+                      <div className="min-w-0">
+                        <p className="text-neutral-500 uppercase tracking-tighter">Grupo</p>
+                        <p className="truncate font-medium text-neutral-300">
+                          {grupoNome}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-neutral-500 uppercase tracking-tighter">Responsável</p>
+                        <p className="truncate font-medium text-neutral-300">
+                          {responsaveis?.responsavel_comercial ?? "—"}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-neutral-500 uppercase tracking-tighter">Atividade</p>
+                        <p className="truncate font-medium text-neutral-300">
+                          {empresa.atividade ?? "—"}
+                        </p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-neutral-500 uppercase tracking-tighter">Processos</p>
+                        <p className="font-medium text-neutral-300 truncate">
+                          {empresa.processos_ativos ?? 0} ativos
+                        </p>
+                      </div>
+                    </div>
 
-                <div className="flex flex-wrap gap-1 border-t border-neutral-800/50 pt-3">
-                  {servicos?.contabilidade && (
-                    <Pill label="Contábil" tone="success" />
-                  )}
-                  {servicos?.juridico && (
-                    <Pill label="Jurídico" tone="warning" />
-                  )}
-                  {servicos?.planejamento_tributario && (
-                    <Pill label="Planej." tone="neutral" />
-                  )}
-                  {!servicos?.contabilidade && !servicos?.juridico && !servicos?.planejamento_tributario && (
-                    <p className="text-[10px] text-neutral-600 italic">Sem serviços ativos</p>
-                  )}
-                </div>
-              </div>
+                    <div className="flex flex-wrap gap-1 border-t border-neutral-800/50 pt-3">
+                      {servicos?.contabilidade && (
+                        <Pill label="Contábil" tone="success" />
+                      )}
+                      {servicos?.juridico && (
+                        <Pill label="Jurídico" tone="warning" />
+                      )}
+                      {servicos?.planejamento_tributario && (
+                        <Pill label="Planej." tone="neutral" />
+                      )}
+                      {!servicos?.contabilidade && !servicos?.juridico && !servicos?.planejamento_tributario && (
+                        <p className="text-[10px] text-neutral-600 italic">Sem serviços ativos</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="mt-4 flex items-center justify-between text-[10px] text-neutral-500 uppercase tracking-wider">
-                <span>{empresa.cidade ?? "Local não inf."}</span>
-                <span className="opacity-0 transition-opacity group-hover:opacity-100">
-                  Ver detalhes →
-                </span>
-              </div>
-            </a>
-          );
-        })}
+                  <div className="mt-4 flex items-center justify-between text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
+                    <span className="truncate max-w-[100px]">{empresa.cidade ?? "Local não inf."}</span>
+                    <span className="opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
+                      Ver detalhes →
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
 
         {empresas.length === 0 && (
           <div className="col-span-full py-12 text-center">

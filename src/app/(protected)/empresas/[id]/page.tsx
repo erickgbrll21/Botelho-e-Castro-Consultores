@@ -90,48 +90,50 @@ export default async function EmpresaDetalhe({
   return (
     <div className="space-y-8">
       {/* Header Profile Section */}
-      <div className="glass-panel flex flex-col items-start justify-between gap-6 rounded-3xl p-8 md:flex-row md:items-center">
-        <div className="flex flex-1 items-center gap-6">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-neutral-900 border border-neutral-800">
-            <BuildingOffice2Icon className="h-10 w-10 text-neutral-400" />
+      <div className="glass-panel flex flex-col items-start justify-between gap-6 rounded-3xl p-6 md:p-8 md:flex-row md:items-center">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6 w-full md:w-auto">
+          <div className="flex h-16 w-16 md:h-20 md:w-20 shrink-0 items-center justify-center rounded-2xl bg-neutral-900 border border-neutral-800">
+            <BuildingOffice2Icon className="h-8 w-8 md:h-10 md:w-10 text-neutral-400" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-3xl font-bold tracking-tight text-white">
+              <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white truncate">
                 {empresa.razao_social}
               </h1>
-              <Pill label={empresa.tipo_unidade ?? "—"} tone="neutral" />
-              {profile?.tipo_usuario === "admin" && (
-                <a
-                  href={`/empresas/${id}/edit`}
-                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-1 text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"
-                >
-                  <PencilIcon className="h-3 w-3" />
-                  Editar
-                </a>
-              )}
+              <div className="flex gap-2 shrink-0">
+                <Pill label={empresa.tipo_unidade ?? "—"} tone="neutral" />
+                {profile?.tipo_usuario === "admin" && (
+                  <a
+                    href={`/empresas/${id}/edit`}
+                    className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"
+                  >
+                    <PencilIcon className="h-3 w-3" />
+                    Editar
+                  </a>
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-neutral-400">
-              <span className="flex items-center gap-1.5">
-                <IdentificationIcon className="h-4 w-4" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-neutral-400">
+              <span className="flex items-center gap-1.5 shrink-0">
+                <IdentificationIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 {empresa.cnpj}
               </span>
               {empresa.dominio && (
-                <span className="flex items-center gap-1.5">
-                  <GlobeAltIcon className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <GlobeAltIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   {empresa.dominio}
                 </span>
               )}
               {grupoNome !== "—" && (
-                <span className="flex items-center gap-1.5 font-medium text-neutral-300">
-                  <ChartBarIcon className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 font-medium text-neutral-300 shrink-0">
+                  <ChartBarIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
                   {grupoNome}
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Pill
             label={empresa.atividade ?? "Não informada"}
             tone={empresa.atividade === "Serviço" ? "success" : "warning"}

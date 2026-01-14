@@ -39,6 +39,15 @@ body {
   gap: 1rem;
 }
 
+@keyframes slide-down {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-in {
+  animation: slide-down 0.2s ease-out;
+}
+
 @media (min-width: 768px) {
   .card-grid {
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
