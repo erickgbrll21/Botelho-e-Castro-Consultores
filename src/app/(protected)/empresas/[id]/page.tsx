@@ -94,9 +94,9 @@ export default async function EmpresaDetalhe({
           <div className="flex h-16 w-16 md:h-20 md:w-20 shrink-0 items-center justify-center rounded-2xl bg-neutral-900 border border-neutral-800">
             <BuildingOffice2Icon className="h-8 w-8 md:h-10 md:w-10 text-neutral-400" />
           </div>
-          <div className="space-y-1 min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white truncate">
+          <div className="space-y-1 min-w-0 flex-1 w-full">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white break-words max-w-full">
                 {empresa.razao_social}
               </h1>
               <div className="flex gap-2 shrink-0">
@@ -112,7 +112,7 @@ export default async function EmpresaDetalhe({
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-neutral-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs md:text-sm text-neutral-400">
               <span className="flex items-center gap-1.5 shrink-0">
                 <IdentificationIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 {empresa.cnpj}
