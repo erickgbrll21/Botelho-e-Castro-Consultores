@@ -123,7 +123,6 @@ async function createGrupo(formData: FormData) {
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
   const nome = String(formData.get("nome") ?? "").trim();
-  const descricao = String(formData.get("descricao") ?? "").trim();
 
   if (!nome) {
     throw new Error("Nome do grupo é obrigatório.");
@@ -131,7 +130,6 @@ async function createGrupo(formData: FormData) {
 
   const { error } = await (supabase.from("grupos_empresariais") as any).insert({
     nome,
-    descricao: descricao || null,
   });
 
   if (error) {
@@ -528,8 +526,8 @@ export default async function EmpresasPage({
         action={<Pill label="Gestão de grupos" tone="neutral" />}
         className="overflow-hidden"
       >
-        <form action={createGrupo} className="grid gap-3 md:grid-cols-3 mb-4">
-          <div className="space-y-2">
+        <form action={createGrupo} className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="flex-1 space-y-2">
             <label className="text-sm text-neutral-300">Nome do grupo *</label>
             <input
               name="nome"
@@ -538,18 +536,10 @@ export default async function EmpresasPage({
               placeholder="Ex.: Grupo XPTO"
             />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm text-neutral-300">Descrição (opcional)</label>
-            <input
-              name="descricao"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Notas internas sobre o grupo"
-            />
-          </div>
-          <div className="md:col-span-3 flex justify-end">
+          <div className="flex items-end">
             <button
               type="submit"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              className="w-full sm:w-auto rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
             >
               Adicionar grupo
             </button>
@@ -560,8 +550,7 @@ export default async function EmpresasPage({
           <table className="min-w-full text-sm">
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
-                <th className="py-3 pr-4 font-medium">Grupo</th>
-                <th className="py-3 pr-4 font-medium">Descrição</th>
+                <th className="py-3 pr-4 font-medium">Nome do Grupo</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
@@ -570,9 +559,6 @@ export default async function EmpresasPage({
                 <tr key={grupo.id}>
                   <td className="py-3 pr-4 font-semibold text-neutral-50">
                     {grupo.nome}
-                  </td>
-                  <td className="py-3 pr-4 text-neutral-300">
-                    {grupo.descricao ?? "—"}
                   </td>
                   <td className="py-3 pr-4 text-right">
                     <form action={deleteGrupo} className="inline">
