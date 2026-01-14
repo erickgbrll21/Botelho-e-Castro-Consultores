@@ -269,8 +269,12 @@ export default async function EmpresaDetalhe({
             </dl>
           </Card>
 
-          <Card title="Informações Fiscais" action={<ClipboardDocumentCheckIcon className="h-4 w-4 text-neutral-500" />}>
+          <Card title="Informações Institucionais" action={<ClipboardDocumentCheckIcon className="h-4 w-4 text-neutral-500" />}>
             <div className="space-y-4 text-sm">
+              <div>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Grupo Empresarial</p>
+                <p className="font-medium text-neutral-100">{grupoNome}</p>
+              </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Responsável Fiscal</p>
                 <p className="font-medium text-neutral-200">{empresa.responsavel_fiscal ?? "—"}</p>
