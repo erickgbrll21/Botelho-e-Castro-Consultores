@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAdminProfile } from "@/lib/auth";
+import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 
 async function createCliente(formData: FormData) {
@@ -37,7 +37,7 @@ async function createCliente(formData: FormData) {
   ).trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
-  const processos_ativos = Number(formData.get("processos_ativos") ?? 0);
+  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
 
   const responsavel_comercial = String(
     formData.get("responsavel_comercial") ?? ""
@@ -51,13 +51,25 @@ async function createCliente(formData: FormData) {
   const responsavel_planejamento_tributario = String(
     formData.get("responsavel_planejamento_tributario") ?? ""
   ).trim();
+  const responsavel_dp = String(formData.get("responsavel_dp") ?? "").trim();
+  const responsavel_financeiro = String(formData.get("responsavel_financeiro") ?? "").trim();
 
   const socio_nome = String(formData.get("socio_nome") ?? "").trim();
   const socio_percentual = Number(formData.get("socio_percentual") ?? 100);
 
-  const serv_contabilidade = formData.get("serv_contabilidade") === "on";
-  const serv_juridico = formData.get("serv_juridico") === "on";
-  const serv_planejamento = formData.get("serv_planejamento") === "on";
+  // Serviços Contábeis
+  const contabil_fiscal = formData.get("contabil_fiscal") === "on";
+  const contabil_contabilidade = formData.get("contabil_contabilidade") === "on";
+  const contabil_dp = formData.get("contabil_dp") === "on";
+  const contabil_pericia = formData.get("contabil_pericia") === "on";
+  const contabil_legalizacao = formData.get("contabil_legalizacao") === "on";
+
+  // Serviços Jurídicos
+  const juridico_civel = formData.get("juridico_civel") === "on";
+  const juridico_trabalhista = formData.get("juridico_trabalhista") === "on";
+  const juridico_licitacao = formData.get("juridico_licitacao") === "on";
+  const juridico_penal = formData.get("juridico_penal") === "on";
+  const juridico_empresarial = formData.get("juridico_empresarial") === "on";
 
   if (!razao_social || !cnpj) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
@@ -85,7 +97,7 @@ async function createCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
-      processos_ativos: Number.isNaN(processos_ativos) ? 0 : processos_ativos,
+      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
     })
     .select("id")
     .maybeSingle();
@@ -101,13 +113,23 @@ async function createCliente(formData: FormData) {
     responsavel_juridico: responsavel_juridico || null,
     responsavel_planejamento_tributario:
       responsavel_planejamento_tributario || null,
+    responsavel_dp: responsavel_dp || null,
+    responsavel_financeiro: responsavel_financeiro || null,
   });
 
   await (supabase.from("servicos_contratados") as any).insert({
     cliente_id: cliente.id,
-    contabilidade: serv_contabilidade,
-    juridico: serv_juridico,
-    planejamento_tributario: serv_planejamento,
+    contabil_fiscal,
+    contabil_contabilidade,
+    contabil_dp,
+    contabil_pericia,
+    contabil_legalizacao,
+    juridico_civel,
+    juridico_trabalhista,
+    juridico_licitacao,
+    juridico_penal,
+    juridico_empresarial,
+    planejamento_societario_tributario,
   });
 
   if (socio_nome) {
@@ -119,7 +141,6 @@ async function createCliente(formData: FormData) {
   }
 
   await revalidatePath("/clientes");
-  // return { ok: true, cliente_id: cliente.id };
 }
 
 async function createGrupo(formData: FormData) {
@@ -141,7 +162,6 @@ async function createGrupo(formData: FormData) {
   }
 
   await revalidatePath("/clientes");
-  // return { ok: true };
 }
 
 async function deleteGrupo(formData: FormData) {
@@ -170,7 +190,6 @@ async function deleteGrupo(formData: FormData) {
   }
 
   await revalidatePath("/clientes");
-  // return { ok: true, deleted: grupo_id };
 }
 
 async function deleteCliente(formData: FormData) {
@@ -190,17 +209,20 @@ async function deleteCliente(formData: FormData) {
 
   await revalidatePath("/clientes");
   await revalidatePath("/dashboard");
-  // return { ok: true, deleted: cliente_id };
 }
 
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; grupo?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { q } = await searchParams;
+  const profile = await getCurrentProfile();
+  const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
+  
+  const { q, grupo: grupoFiltro } = await searchParams;
   const term = q?.trim() ?? "";
+  const grupoId = grupoFiltro?.trim() ?? "";
 
   const { data: gruposData } = await supabase
     .from("grupos_economicos")
@@ -208,7 +230,7 @@ export default async function ClientesPage({
     .order("nome", { ascending: true });
   const grupos: any[] = gruposData ?? [];
 
-  const clientesQuery = supabase
+  let clientesQuery = supabase
     .from("clientes")
     .select(
       `
@@ -232,17 +254,25 @@ export default async function ClientesPage({
         data_abertura_cliente,
         data_entrada_contabilidade,
         regime_tributario,
-        processos_ativos,
-        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario),
-        servicos_contratados (contabilidade, juridico, planejamento_tributario),
+        contato_nome,
+        contato_telefone,
+        valor_contrato,
+        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
+        servicos_contratados (*),
         created_at
       `
     )
     .order("razao_social", { ascending: true });
 
-  const { data: dataClientes } = await (term
-    ? clientesQuery.ilike("razao_social", `%${term}%`)
-    : clientesQuery);
+  if (term) {
+    clientesQuery = clientesQuery.ilike("razao_social", `%${term}%`);
+  }
+
+  if (grupoId) {
+    clientesQuery = clientesQuery.eq("grupo_id", grupoId);
+  }
+
+  const { data: dataClientes } = await clientesQuery;
   const clientes: any[] = dataClientes ?? [];
 
   return (
@@ -258,6 +288,18 @@ export default async function ClientesPage({
           </p>
         </div>
         <form className="flex items-center gap-2">
+          <select
+            name="grupo"
+            defaultValue={grupoId}
+            className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+          >
+            <option value="">Todos os grupos</option>
+            {grupos.map((grupo) => (
+              <option key={grupo.id} value={grupo.id}>
+                {grupo.nome}
+              </option>
+            ))}
+          </select>
           <input
             name="q"
             defaultValue={term}
@@ -329,14 +371,6 @@ export default async function ClientesPage({
               <option value="Matriz">Matriz</option>
               <option value="Filial">Filial</option>
             </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável Fiscal</label>
-            <input
-              name="responsavel_fiscal"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Nome do responsável"
-            />
           </div>
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Cidade</label>
@@ -432,6 +466,19 @@ export default async function ClientesPage({
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
             />
           </div>
+          {showContractValue && (
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
+              <input
+                name="valor_contrato"
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="R$ 0,00"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Data de abertura</label>
             <input
@@ -472,15 +519,6 @@ export default async function ClientesPage({
               placeholder="(00) 00000-0000"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Processos ativos</label>
-            <input
-              name="processos_ativos"
-              type="number"
-              min="0"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
 
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Responsável comercial (quem fechou)</label>
@@ -488,6 +526,14 @@ export default async function ClientesPage({
               name="responsavel_comercial"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               placeholder="Ex.: Dr. Otávio"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm text-neutral-300">Responsável Fiscal</label>
+            <input
+              name="responsavel_fiscal"
+              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              placeholder="Nome do responsável"
             />
           </div>
           <div className="space-y-2">
@@ -515,22 +561,92 @@ export default async function ClientesPage({
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-neutral-300">Serviços contratados</p>
-            <label className="flex items-center gap-2 text-sm text-neutral-200">
-              <input type="checkbox" name="serv_contabilidade" className="accent-white" />
-              Contabilidade
-            </label>
-            <label className="flex items-center gap-2 text-sm text-neutral-200">
-              <input type="checkbox" name="serv_juridico" className="accent-white" />
-              Jurídico
-            </label>
-            <label className="flex items-center gap-2 text-sm text-neutral-200">
-              <input type="checkbox" name="serv_planejamento" className="accent-white" />
-              Planejamento Tributário
-            </label>
+            <label className="text-sm text-neutral-300">Responsável Depto. Pessoal</label>
+            <input
+              name="responsavel_dp"
+              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              placeholder="Nome do responsável"
+            />
           </div>
 
-          <div className="flex items-end">
+          <div className="space-y-2">
+            <label className="text-sm text-neutral-300">Responsável Financeiro</label>
+            <input
+              name="responsavel_financeiro"
+              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              placeholder="Nome do responsável"
+            />
+          </div>
+
+          <div className="md:col-span-2 space-y-4 border-t border-neutral-800 pt-4">
+            <p className="font-semibold text-neutral-200">Serviços Contratados</p>
+            
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-amber-500 uppercase tracking-wider">1. Serviço Contábil</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="contabil_fiscal" className="accent-amber-500 h-4 w-4" />
+                    Fiscal
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="contabil_contabilidade" className="accent-amber-500 h-4 w-4" />
+                    Contabilidade
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="contabil_dp" className="accent-amber-500 h-4 w-4" />
+                    Departamento Pessoal
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="contabil_pericia" className="accent-amber-500 h-4 w-4" />
+                    Perícia
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="contabil_legalizacao" className="accent-amber-500 h-4 w-4" />
+                    Legalização
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-blue-500 uppercase tracking-wider">2. Jurídico</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="juridico_civel" className="accent-blue-500 h-4 w-4" />
+                    Cível
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="juridico_trabalhista" className="accent-blue-500 h-4 w-4" />
+                    Trabalhista
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="juridico_licitacao" className="accent-blue-500 h-4 w-4" />
+                    Licitação
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="juridico_penal" className="accent-blue-500 h-4 w-4" />
+                    Penal
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="juridico_empresarial" className="accent-blue-500 h-4 w-4" />
+                    Empresarial
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-emerald-500 uppercase tracking-wider">3. Planejamento</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                    <input type="checkbox" name="planejamento_societario_tributario" className="accent-emerald-500 h-4 w-4" />
+                    Societário e Tributário
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="md:col-span-2 flex items-end pt-4">
             <button
               type="submit"
               className="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
@@ -619,6 +735,7 @@ export default async function ClientesPage({
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Razão Social</th>
+                <th className="py-3 pr-4 font-medium hidden md:table-cell">Grupo</th>
                 <th className="py-3 pr-4 font-medium hidden sm:table-cell">Data de Inscrição</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
@@ -629,6 +746,9 @@ export default async function ClientesPage({
                   <td className="py-4 pr-4">
                     <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
+                  </td>
+                  <td className="py-4 pr-4 text-neutral-300 hidden md:table-cell">
+                    {cliente.grupos_economicos?.nome ?? "—"}
                   </td>
                   <td className="py-4 pr-4 text-neutral-300 hidden sm:table-cell">
                     {cliente.created_at
@@ -656,7 +776,7 @@ export default async function ClientesPage({
               {clientes.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={3}
+                    colSpan={4}
                     className="py-6 text-center text-sm text-neutral-400"
                   >
                     Nenhum cliente encontrado para este filtro.

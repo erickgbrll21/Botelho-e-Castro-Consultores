@@ -12,6 +12,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   ArrowRightOnRectangleIcon,
+  UserIcon,
 } from "@heroicons/react/24/outline";
 import type { UserRole } from "@/types/database";
 
@@ -26,6 +27,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/clientes", label: "Clientes", icon: BuildingOffice2Icon },
   { href: "/usuarios", label: "Usuários", icon: UsersIcon, adminOnly: true },
+  { href: "/perfil", label: "Meu Perfil", icon: UserIcon },
 ];
 
 export function MobileNav({ role, signOutAction }: MobileNavProps) {
@@ -73,7 +75,7 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
 
           <nav className="flex flex-col gap-2">
             {links
-              .filter((link) => !link.adminOnly || role === "admin")
+              .filter((link) => !link.adminOnly || ["admin", "diretor", "financeiro"].includes(role))
               .map((link) => {
                 const isActive = pathname === link.href;
                 const Icon = link.icon;

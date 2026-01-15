@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth";
+import { getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import {
   BuildingOffice2Icon,
   GlobeAltIcon,
@@ -40,52 +40,50 @@ export default async function ClienteDetalhe({
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
+  const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
 
-  const { data, error } = await supabase
+  const { data: clienteData, error: clienteError } = await supabase
     .from("clientes")
-    .select(
-      `
-        id,
-        razao_social,
-        cnpj,
-        dominio,
-        tipo_unidade,
-        responsavel_fiscal,
-        cidade,
-        estado,
-        atividade,
-        constituicao,
-        inscricao_estadual,
-        inscricao_municipal,
-        grupo_economico,
-        grupo_id,
-        grupos_economicos ( nome ),
-        socio_responsavel_pj,
-        capital_social,
-        data_abertura_cliente,
-        data_entrada_contabilidade,
-        regime_tributario,
-        processos_ativos,
-        contato_nome,
-        contato_telefone,
-        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario),
-        servicos_contratados (contabilidade, juridico, planejamento_tributario),
-        quadro_socios (nome_socio, percentual_participacao)
-      `
-    )
+    .select(`
+      *,
+      grupos_economicos ( nome ),
+      responsaveis_internos (*),
+      servicos_contratados (*),
+      quadro_socios (*)
+    `)
     .eq("id", id)
     .maybeSingle();
 
-  if (!data || error) {
+  if (!clienteData || clienteError) {
     notFound();
   }
 
-  const cliente: any = data;
+  const cliente = clienteData as any;
   const gruposRel = cliente.grupos_economicos;
-  // Supabase can return an object or an array depending on the query result type
-  const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || cliente.grupo_economico || "Sem grupo vinculado";
-  const responsaveis = cliente.responsaveis_internos?.[0];
-  const servicos = cliente.servicos_contratados?.[0];
+  const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || 
+                    (typeof cliente.grupo_economico === 'string' ? cliente.grupo_economico : null) || 
+                    "Sem grupo vinculado";
+  const responsaveis = (cliente.responsaveis_internos && Array.isArray(cliente.responsaveis_internos)) 
+    ? cliente.responsaveis_internos[0] 
+    : (cliente.responsaveis_internos || {});
+  const servicos = Array.isArray(cliente.servicos_contratados)
+    ? cliente.servicos_contratados[0]
+    : cliente.servicos_contratados;
+
+  const hasContabil = servicos?.contabil_fiscal || 
+                      servicos?.contabil_contabilidade || 
+                      servicos?.contabil_dp || 
+                      servicos?.contabil_pericia || 
+                      servicos?.contabil_legalizacao;
+
+  const hasJuridico = servicos?.juridico_civel || 
+                      servicos?.juridico_trabalhista || 
+                      servicos?.juridico_licitacao || 
+                      servicos?.juridico_penal || 
+                      servicos?.juridico_empresarial;
+
+  const hasPlanejamento = servicos?.planejamento_societario_tributario;
+
   const socios = cliente.quadro_socios ?? [];
 
   return (
@@ -103,7 +101,7 @@ export default async function ClienteDetalhe({
               </h1>
               <div className="flex gap-2 shrink-0">
                 <Pill label={cliente.tipo_unidade ?? "—"} tone="neutral" />
-                {profile?.tipo_usuario === "admin" && (
+                {["admin", "diretor", "financeiro"].includes(profile?.tipo_usuario as string) && (
                   <a
                     href={`/clientes/${id}/edit`}
                     className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"
@@ -158,12 +156,14 @@ export default async function ClienteDetalhe({
                     {formatCurrency(cliente.capital_social)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs text-neutral-500 uppercase tracking-wider">Processos Ativos</p>
-                  <p className="text-2xl font-semibold text-neutral-50">
-                    {cliente.processos_ativos ?? 0}
-                  </p>
-                </div>
+                {showContractValue && (
+                  <div>
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
+                    <p className="text-2xl font-semibold text-amber-200">
+                      {formatCurrency(cliente.valor_contrato)}
+                    </p>
+                  </div>
+                )}
               </div>
             </Card>
 
@@ -182,33 +182,41 @@ export default async function ClienteDetalhe({
           </div>
 
           <Card title="Serviços Ativos" className="bg-neutral-900/20">
-            <div className="flex flex-wrap gap-3">
-              <div className={clsx(
-                "flex-1 min-w-[140px] rounded-xl border p-4 transition-colors",
-                servicos?.contabilidade ? "bg-emerald-500/5 border-emerald-500/20" : "bg-neutral-900/40 border-neutral-800"
-              )}>
-                <p className="text-xs text-neutral-500 mb-1">Contábil</p>
-                <p className={clsx("font-semibold", servicos?.contabilidade ? "text-emerald-400" : "text-neutral-600")}>
-                  {servicos?.contabilidade ? "Ativo" : "Inativo"}
-                </p>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">1. Serviço Contábil</p>
+                <div className="flex flex-wrap gap-2">
+                  {servicos?.contabil_fiscal && <Pill label="Fiscal" tone="success" />}
+                  {servicos?.contabil_contabilidade && <Pill label="Contabilidade" tone="success" />}
+                  {servicos?.contabil_dp && <Pill label="Depto. Pessoal" tone="success" />}
+                  {servicos?.contabil_pericia && <Pill label="Perícia" tone="success" />}
+                  {servicos?.contabil_legalizacao && <Pill label="Legalização" tone="success" />}
+                  {!hasContabil && (
+                    <p className="text-xs text-neutral-600 italic">Nenhum serviço contábil ativo</p>
+                  )}
+                </div>
               </div>
-              <div className={clsx(
-                "flex-1 min-w-[140px] rounded-xl border p-4 transition-colors",
-                servicos?.juridico ? "bg-amber-500/5 border-amber-500/20" : "bg-neutral-900/40 border-neutral-800"
-              )}>
-                <p className="text-xs text-neutral-500 mb-1">Jurídico</p>
-                <p className={clsx("font-semibold", servicos?.juridico ? "text-amber-400" : "text-neutral-600")}>
-                  {servicos?.juridico ? "Ativo" : "Inativo"}
-                </p>
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-blue-500 uppercase tracking-widest">2. Jurídico</p>
+                <div className="flex flex-wrap gap-2">
+                  {servicos?.juridico_civel && <Pill label="Cível" tone="warning" />}
+                  {servicos?.juridico_trabalhista && <Pill label="Trabalhista" tone="warning" />}
+                  {servicos?.juridico_licitacao && <Pill label="Licitação" tone="warning" />}
+                  {servicos?.juridico_penal && <Pill label="Penal" tone="warning" />}
+                  {servicos?.juridico_empresarial && <Pill label="Empresarial" tone="warning" />}
+                  {!hasJuridico && (
+                    <p className="text-xs text-neutral-600 italic">Nenhum serviço jurídico ativo</p>
+                  )}
+                </div>
               </div>
-              <div className={clsx(
-                "flex-1 min-w-[140px] rounded-xl border p-4 transition-colors",
-                servicos?.planejamento_tributario ? "bg-blue-500/5 border-blue-500/20" : "bg-neutral-900/40 border-neutral-800"
-              )}>
-                <p className="text-xs text-neutral-500 mb-1">Planejamento</p>
-                <p className={clsx("font-semibold", servicos?.planejamento_tributario ? "text-blue-400" : "text-neutral-600")}>
-                  {servicos?.planejamento_tributario ? "Ativo" : "Inativo"}
-                </p>
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest">3. Planejamento</p>
+                <div className="flex flex-wrap gap-2">
+                  {servicos?.planejamento_societario_tributario && <Pill label="Societário e Tributário" tone="success" />}
+                  {!hasPlanejamento && (
+                    <p className="text-xs text-neutral-600 italic">Nenhum planejamento ativo</p>
+                  )}
+                </div>
               </div>
             </div>
           </Card>
@@ -265,6 +273,18 @@ export default async function ClienteDetalhe({
                 <dt className="text-[10px] text-neutral-500 uppercase tracking-wider">Planej. Tributário</dt>
                 <dd className="text-sm font-semibold text-neutral-200">
                   {responsaveis?.responsavel_planejamento_tributario ?? "—"}
+                </dd>
+              </div>
+              <div className="border-l-2 border-neutral-800 pl-3">
+                <dt className="text-[10px] text-neutral-500 uppercase tracking-wider">Depto. Pessoal</dt>
+                <dd className="text-sm font-semibold text-neutral-200">
+                  {responsaveis?.responsavel_dp ?? "—"}
+                </dd>
+              </div>
+              <div className="border-l-2 border-neutral-800 pl-3">
+                <dt className="text-[10px] text-neutral-500 uppercase tracking-wider">Financeiro</dt>
+                <dd className="text-sm font-semibold text-neutral-200">
+                  {responsaveis?.responsavel_financeiro ?? "—"}
                 </dd>
               </div>
             </dl>

@@ -8,6 +8,7 @@ import {
   HomeIcon,
   BuildingOffice2Icon,
   UsersIcon,
+  UserIcon,
 } from "@heroicons/react/24/outline";
 import type { UserRole } from "@/types/database";
 
@@ -19,6 +20,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/clientes", label: "Clientes", icon: BuildingOffice2Icon },
   { href: "/usuarios", label: "Usuários", icon: UsersIcon, adminOnly: true },
+  { href: "/perfil", label: "Meu Perfil", icon: UserIcon },
 ];
 
 export function Sidebar({ role }: SidebarProps) {
@@ -41,7 +43,7 @@ export function Sidebar({ role }: SidebarProps) {
       </div>
       <nav className="space-y-1">
         {links
-          .filter((link) => !link.adminOnly || role === "admin")
+          .filter((link) => !link.adminOnly || ["admin", "diretor", "financeiro"].includes(role))
           .map((link) => {
             const isActive = pathname === link.href;
             const Icon = link.icon;

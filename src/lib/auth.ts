@@ -43,7 +43,7 @@ export async function getCurrentProfile(): Promise<
 export async function requireAdminProfile() {
   const profile = await getCurrentProfile();
 
-  if (!profile || profile.tipo_usuario !== "admin") {
+  if (!profile || !["admin", "diretor", "financeiro"].includes(profile.tipo_usuario)) {
     redirect("/dashboard");
   }
 
@@ -51,9 +51,13 @@ export async function requireAdminProfile() {
 }
 
 export function assertAdmin(profile: { tipo_usuario: UserRole }) {
-  if (profile.tipo_usuario !== "admin") {
+  if (!["admin", "diretor", "financeiro"].includes(profile.tipo_usuario)) {
     throw new Error("Ação permitida apenas para administradores.");
   }
+}
+
+export function canSeeContractValue(role: UserRole) {
+  return ["diretor", "financeiro"].includes(role);
 }
 
 export function getServiceRoleClient() {

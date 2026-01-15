@@ -5,16 +5,19 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; grupo?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { q } = await searchParams;
+  const { q, grupo: grupoFiltro } = await searchParams;
   const term = q?.trim() ?? "";
+  const grupoId = grupoFiltro?.trim() ?? "";
 
-  const { data: gruposData } = await supabase
+  const { data: gruposLista } = await supabase
     .from("grupos_economicos")
-    .select("id");
-  const totalGrupos = gruposData?.length ?? 0;
+    .select("id, nome")
+    .order("nome", { ascending: true });
+  const gruposFiltro = gruposLista ?? [];
+  const totalGrupos = gruposLista?.length ?? 0;
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -52,22 +55,23 @@ export default async function DashboardPage({
         data_abertura_cliente,
         data_entrada_contabilidade,
         regime_tributario,
-        processos_ativos,
-        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario),
-        servicos_contratados (contabilidade, juridico, planejamento_tributario),
+        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
+        servicos_contratados (*),
         quadro_socios (nome_socio, percentual_participacao)
       `
     )
     .order("razao_social", { ascending: true });
 
-  const { data: dataClientes } = await (term
-    ? clientesQuery.ilike("razao_social", `%${term}%`)
-    : clientesQuery);
-  const clientes: any[] = dataClientes ?? [];
+  let finalQuery = clientesQuery;
+  if (term) {
+    finalQuery = finalQuery.ilike("razao_social", `%${term}%`);
+  }
+  if (grupoId) {
+    finalQuery = finalQuery.eq("grupo_id", grupoId);
+  }
 
-  const totalProcessos =
-    clientes.reduce((acc, cliente) => acc + (cliente.processos_ativos ?? 0), 0) ||
-    0;
+  const { data: dataClientes } = await finalQuery;
+  const clientes: any[] = dataClientes ?? [];
 
   return (
     <div className="space-y-6">
@@ -82,6 +86,18 @@ export default async function DashboardPage({
               </p>
             </div>
             <form className="flex items-center gap-2">
+              <select
+                name="grupo"
+                defaultValue={grupoId}
+                className="hidden sm:block rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              >
+                <option value="">Todos os grupos</option>
+                {gruposFiltro.map((grupo) => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.nome}
+                  </option>
+                ))}
+              </select>
               <input
                 name="q"
                 defaultValue={term}
@@ -110,12 +126,6 @@ export default async function DashboardPage({
           <p className="text-3xl font-semibold">{entradasMes ?? 0}</p>
           <p className="text-xs text-neutral-400">
             Criadas desde o primeiro dia do mês atual
-          </p>
-        </Card>
-        <Card title="Processos em andamento">
-          <p className="text-3xl font-semibold">{totalProcessos}</p>
-          <p className="text-xs text-neutral-400">
-            Quantidade total de processos ativos
           </p>
         </Card>
         <Card title="Serviços mais contratados">
@@ -185,25 +195,27 @@ export default async function DashboardPage({
                           {cliente.atividade ?? "—"}
                         </p>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-neutral-500 uppercase tracking-tighter">Processos</p>
-                        <p className="font-medium text-neutral-300 truncate">
-                          {cliente.processos_ativos ?? 0} ativos
-                        </p>
-                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-1 border-t border-neutral-800/50 pt-3">
-                      {servicos?.contabilidade && (
+                      {(cliente.servicos_contratados?.[0]?.contabil_fiscal || 
+                        cliente.servicos_contratados?.[0]?.contabil_contabilidade || 
+                        cliente.servicos_contratados?.[0]?.contabil_dp || 
+                        cliente.servicos_contratados?.[0]?.contabil_pericia || 
+                        cliente.servicos_contratados?.[0]?.contabil_legalizacao) && (
                         <Pill label="Contábil" tone="success" />
                       )}
-                      {servicos?.juridico && (
+                      {(cliente.servicos_contratados?.[0]?.juridico_civel || 
+                        cliente.servicos_contratados?.[0]?.juridico_trabalhista || 
+                        cliente.servicos_contratados?.[0]?.juridico_licitacao || 
+                        cliente.servicos_contratados?.[0]?.juridico_penal || 
+                        cliente.servicos_contratados?.[0]?.juridico_empresarial) && (
                         <Pill label="Jurídico" tone="warning" />
                       )}
-                      {servicos?.planejamento_tributario && (
-                        <Pill label="Planej." tone="neutral" />
+                      {cliente.servicos_contratados?.[0]?.planejamento_societario_tributario && (
+                        <Pill label="Planejamento" tone="neutral" />
                       )}
-                      {!servicos?.contabilidade && !servicos?.juridico && !servicos?.planejamento_tributario && (
+                      {!cliente.servicos_contratados?.[0] && (
                         <p className="text-[10px] text-neutral-600 italic">Sem serviços ativos</p>
                       )}
                     </div>

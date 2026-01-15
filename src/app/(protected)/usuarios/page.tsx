@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { DeleteUserButton } from "@/components/users/delete-user-button";
+import type { UserRole } from "@/types/database";
 import {
   getServiceRoleClient,
   requireAdminProfile,
@@ -18,8 +19,7 @@ async function createUser(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const nome = String(formData.get("nome") ?? "");
   const cargo = formData.get("cargo") ? String(formData.get("cargo")) : null;
-  const tipo_usuario =
-    formData.get("tipo_usuario") === "admin" ? "admin" : "user";
+  const tipo_usuario = String(formData.get("tipo_usuario") ?? "user") as UserRole;
 
   if (!email || !password || !nome) {
     throw new Error("Preencha todos os campos obrigatórios.");
@@ -50,7 +50,6 @@ async function createUser(formData: FormData) {
   });
 
   await revalidatePath("/usuarios");
-  // return { ok: true, created_by: adminProfile.id };
 }
 
 async function deleteUser(formData: FormData) {
@@ -69,7 +68,6 @@ async function deleteUser(formData: FormData) {
   }
 
   await revalidatePath("/usuarios");
-  // return { ok: true, deleted: userId };
 }
 
 export default async function UsuariosPage() {
@@ -146,8 +144,10 @@ export default async function UsuariosPage() {
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 defaultValue="user"
               >
-                <option value="user">Usuário (visualização)</option>
-                <option value="admin">Administrador</option>
+                <option value="user">Usuário (Comum)</option>
+                <option value="admin">Administrador (TI)</option>
+                <option value="diretor">Diretor</option>
+                <option value="financeiro">Financeiro</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -193,8 +193,22 @@ export default async function UsuariosPage() {
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{usuario.email}</p>
                     <div className="flex sm:hidden gap-2 mt-2">
                       <Pill
-                        label={usuario.tipo_usuario === "admin" ? "Admin" : "User"}
-                        tone={usuario.tipo_usuario === "admin" ? "warning" : "neutral"}
+                        label={
+                          usuario.tipo_usuario === "admin"
+                            ? "Admin"
+                            : usuario.tipo_usuario === "diretor"
+                            ? "Diretor"
+                            : usuario.tipo_usuario === "financeiro"
+                            ? "Financ."
+                            : "User"
+                        }
+                        tone={
+                          ["admin", "diretor", "financeiro"].includes(
+                            usuario.tipo_usuario
+                          )
+                            ? "warning"
+                            : "neutral"
+                        }
                       />
                       <Pill
                         label={usuario.ativo ? "Ativo" : "Inativo"}
@@ -205,8 +219,22 @@ export default async function UsuariosPage() {
                   <td className="py-4 pr-4 hidden sm:table-cell">
                     <div className="flex flex-col gap-2 items-start">
                       <Pill
-                        label={usuario.tipo_usuario === "admin" ? "Administrador" : "Usuário"}
-                        tone={usuario.tipo_usuario === "admin" ? "warning" : "neutral"}
+                        label={
+                          usuario.tipo_usuario === "admin"
+                            ? "Administrador"
+                            : usuario.tipo_usuario === "diretor"
+                            ? "Diretor"
+                            : usuario.tipo_usuario === "financeiro"
+                            ? "Financeiro"
+                            : "Usuário"
+                        }
+                        tone={
+                          ["admin", "diretor", "financeiro"].includes(
+                            usuario.tipo_usuario
+                          )
+                            ? "warning"
+                            : "neutral"
+                        }
                       />
                       <Pill
                         label={usuario.ativo ? "Ativo" : "Inativo"}

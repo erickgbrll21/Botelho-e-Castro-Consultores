@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAdminProfile } from "@/lib/auth";
+import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 
 async function updateCliente(formData: FormData) {
   "use server";
@@ -33,16 +33,29 @@ async function updateCliente(formData: FormData) {
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
-  const processos_ativos = Number(formData.get("processos_ativos") ?? 0);
+  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
 
   const responsavel_comercial = String(formData.get("responsavel_comercial") ?? "").trim();
   const responsavel_contabil = String(formData.get("responsavel_contabil") ?? "").trim();
   const responsavel_juridico = String(formData.get("responsavel_juridico") ?? "").trim();
   const responsavel_planejamento_tributario = String(formData.get("responsavel_planejamento_tributario") ?? "").trim();
+  const responsavel_dp = String(formData.get("responsavel_dp") ?? "").trim();
+  const responsavel_financeiro = String(formData.get("responsavel_financeiro") ?? "").trim();
 
-  const serv_contabilidade = formData.get("serv_contabilidade") === "on";
-  const serv_juridico = formData.get("serv_juridico") === "on";
-  const serv_planejamento = formData.get("serv_planejamento") === "on";
+  // Serviços Contábeis
+  const contabil_fiscal = formData.get("contabil_fiscal") === "on";
+  const contabil_contabilidade = formData.get("contabil_contabilidade") === "on";
+  const contabil_dp = formData.get("contabil_dp") === "on";
+  const contabil_pericia = formData.get("contabil_pericia") === "on";
+  const contabil_legalizacao = formData.get("contabil_legalizacao") === "on";
+
+  // Serviços Jurídicos
+  const juridico_civel = formData.get("juridico_civel") === "on";
+  const juridico_trabalhista = formData.get("juridico_trabalhista") === "on";
+  const juridico_licitacao = formData.get("juridico_licitacao") === "on";
+  const juridico_penal = formData.get("juridico_penal") === "on";
+  const juridico_empresarial = formData.get("juridico_empresarial") === "on";
+  const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
 
   if (!razao_social || !cnpj) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
@@ -70,7 +83,7 @@ async function updateCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
-      processos_ativos: Number.isNaN(processos_ativos) ? 0 : processos_ativos,
+      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
     })
     .eq("id", id);
 
@@ -86,15 +99,25 @@ async function updateCliente(formData: FormData) {
       responsavel_contabil: responsavel_contabil || null,
       responsavel_juridico: responsavel_juridico || null,
       responsavel_planejamento_tributario: responsavel_planejamento_tributario || null,
+      responsavel_dp: responsavel_dp || null,
+      responsavel_financeiro: responsavel_financeiro || null,
     }, { onConflict: 'cliente_id' });
 
   // Update servicos_contratados
   await (supabase.from("servicos_contratados") as any)
     .upsert({
       cliente_id: id,
-      contabilidade: serv_contabilidade,
-      juridico: serv_juridico,
-      planejamento_tributario: serv_planejamento,
+      contabil_fiscal,
+      contabil_contabilidade,
+      contabil_dp,
+      contabil_pericia,
+      contabil_legalizacao,
+      juridico_civel,
+      juridico_trabalhista,
+      juridico_licitacao,
+      juridico_penal,
+      juridico_empresarial,
+      planejamento_societario_tributario,
     }, { onConflict: 'cliente_id' });
 
   revalidatePath(`/clientes/${id}`);
@@ -145,7 +168,9 @@ export default async function EditClientePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdminProfile();
+  const profile = await getCurrentProfile();
+  const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
+  
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
@@ -355,6 +380,19 @@ export default async function EditClientePage({
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
+              {showContractValue && (
+                <div className="space-y-2">
+                  <label className="text-sm text-neutral-300">Valor do Contrato (mensal)</label>
+                  <input
+                    name="valor_contrato"
+                    type="number"
+                    step="0.01"
+                    defaultValue={cliente.valor_contrato}
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm text-neutral-300">Pessoa de contato</label>
                 <input
@@ -368,15 +406,6 @@ export default async function EditClientePage({
                 <input
                   name="contato_telefone"
                   defaultValue={cliente.contato_telefone}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Processos Ativos</label>
-                <input
-                  name="processos_ativos"
-                  type="number"
-                  defaultValue={cliente.processos_ativos}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -417,38 +446,143 @@ export default async function EditClientePage({
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Responsável Depto. Pessoal</label>
+                <input
+                  name="responsavel_dp"
+                  defaultValue={responsaveis.responsavel_dp}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Responsável Financeiro</label>
+                <input
+                  name="responsavel_financeiro"
+                  defaultValue={responsaveis.responsavel_financeiro}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                />
+              </div>
             </div>
           </Card>
 
           <Card title="Serviços Contratados">
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2 text-sm text-neutral-200">
-                <input 
-                  type="checkbox" 
-                  name="serv_contabilidade" 
-                  defaultChecked={servicos.contabilidade}
-                  className="accent-white h-4 w-4" 
-                />
-                Contabilidade
-              </label>
-              <label className="flex items-center gap-2 text-sm text-neutral-200">
-                <input 
-                  type="checkbox" 
-                  name="serv_juridico" 
-                  defaultChecked={servicos.juridico}
-                  className="accent-white h-4 w-4" 
-                />
-                Jurídico
-              </label>
-              <label className="flex items-center gap-2 text-sm text-neutral-200">
-                <input 
-                  type="checkbox" 
-                  name="serv_planejamento" 
-                  defaultChecked={servicos.planejamento_tributario}
-                  className="accent-white h-4 w-4" 
-                />
-                Planejamento Tributário
-              </label>
+            <div className="grid gap-8 md:grid-cols-3">
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-amber-500 uppercase tracking-widest border-b border-amber-500/20 pb-2">1. Serviço Contábil</p>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="contabil_fiscal" 
+                      defaultChecked={servicos.contabil_fiscal}
+                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-amber-400 transition-colors">Fiscal</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="contabil_contabilidade" 
+                      defaultChecked={servicos.contabil_contabilidade}
+                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-amber-400 transition-colors">Contabilidade</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="contabil_dp" 
+                      defaultChecked={servicos.contabil_dp}
+                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-amber-400 transition-colors">Depto. Pessoal</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="contabil_pericia" 
+                      defaultChecked={servicos.contabil_pericia}
+                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-amber-400 transition-colors">Perícia</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="contabil_legalizacao" 
+                      defaultChecked={servicos.contabil_legalizacao}
+                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-amber-400 transition-colors">Legalização</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-blue-500 uppercase tracking-widest border-b border-blue-500/20 pb-2">2. Jurídico</p>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="juridico_civel" 
+                      defaultChecked={servicos.juridico_civel}
+                      className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-blue-400 transition-colors">Cível</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="juridico_trabalhista" 
+                      defaultChecked={servicos.juridico_trabalhista}
+                      className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-blue-400 transition-colors">Trabalhista</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="juridico_licitacao" 
+                      defaultChecked={servicos.juridico_licitacao}
+                      className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-blue-400 transition-colors">Licitação</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="juridico_penal" 
+                      defaultChecked={servicos.juridico_penal}
+                      className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-blue-400 transition-colors">Penal</span>
+                  </label>
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="juridico_empresarial" 
+                      defaultChecked={servicos.juridico_empresarial}
+                      className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-blue-400 transition-colors">Empresarial</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-emerald-500 uppercase tracking-widest border-b border-emerald-500/20 pb-2">3. Planejamento</p>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input 
+                      type="checkbox" 
+                      name="planejamento_societario_tributario" 
+                      defaultChecked={servicos.planejamento_societario_tributario}
+                      className="accent-emerald-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
+                    />
+                    <span className="group-hover:text-emerald-400 transition-colors">Societário e Tributário</span>
+                  </label>
+                </div>
+              </div>
             </div>
           </Card>
 

@@ -1,38 +1,36 @@
-## Botelho e Castro Consultores — Dashboard Interno
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Aplicação Next.js + Tailwind focada em segurança e RBAC com Supabase Auth e policies (RLS). Somente administradores criam usuários e clientes. Nenhum dado é exibido sem autenticação.
+## Getting Started
 
-### Como rodar localmente
+First, run the development server:
 
 ```bash
-cd web
-cp env.example .env.local # ajuste as variáveis
-npm install
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
 ### Variáveis obrigatórias
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (somente no servidor, para criar usuários)
-- `DATABASE_URL` (opcional, conexão direta para ferramentas de migração)
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-### Banco e RLS no Supabase
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-1) Aplique o SQL em `supabase/migrations/0001_init.sql` via SQL Editor ou CLI.
-2) Desabilite auto-cadastro (Email signup) no Auth; só admins criam contas.
-3) Crie usuários via service role (painel `/usuarios` usa esta chave).
+## Learn More
 
-### Rotas principais
+To learn more about Next.js, take a look at the following resources:
 
-- `/login` — acesso com e-mail/senha criado por administrador.
-- `/dashboard` — cards, busca e tabela de clientes com responsabilidades e serviços.
-- `/clientes/[id]` — detalhes da cliente, quadro societário e responsáveis.
-- `/usuarios` — gestão de usuários (apenas admin; requer `SUPABASE_SERVICE_ROLE_KEY`).
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-### Segurança
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-- RLS cobrindo todas as tabelas: admins têm controle total; usuários só leem clientes às quais foram atribuídos via `cliente_usuarios`.
-- `middleware.ts` protege todas as rotas e redireciona não autenticados.
-- Service role nunca exposto ao cliente; usado apenas em server actions.
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
