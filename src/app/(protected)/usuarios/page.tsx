@@ -128,7 +128,7 @@ export default async function UsuariosPage() {
                 type="email"
                 required
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                placeholder="email@empresa.com"
+                placeholder="email@cliente.com"
               />
             </div>
             <div className="space-y-2">

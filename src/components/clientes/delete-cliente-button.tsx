@@ -3,11 +3,11 @@
 import { useTransition } from "react";
 
 type Props = {
-  empresaId: string;
+  clienteId: string;
   action: (formData: FormData) => Promise<void>;
 };
 
-export function DeleteEmpresaButton({ empresaId, action }: Props) {
+export function DeleteClienteButton({ clienteId, action }: Props) {
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -17,7 +17,7 @@ export function DeleteEmpresaButton({ empresaId, action }: Props) {
       }}
       className="inline"
     >
-      <input type="hidden" name="empresa_id" value={empresaId} />
+      <input type="hidden" name="cliente_id" value={clienteId} />
       <button
         type="submit"
         disabled={isPending}

@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile } from "@/lib/auth";
 
-async function updateEmpresa(formData: FormData) {
+async function updateCliente(formData: FormData) {
   "use server";
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
@@ -24,8 +24,8 @@ async function updateEmpresa(formData: FormData) {
   const inscricao_municipal = String(formData.get("inscricao_municipal") ?? "").trim();
   const socio_responsavel_pj = String(formData.get("socio_responsavel_pj") ?? "").trim();
   const capital_social = Number(formData.get("capital_social") ?? 0);
-  const data_abertura_empresa = formData.get("data_abertura_empresa")
-    ? String(formData.get("data_abertura_empresa"))
+  const data_abertura_cliente = formData.get("data_abertura_cliente")
+    ? String(formData.get("data_abertura_cliente"))
     : null;
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
@@ -47,7 +47,7 @@ async function updateEmpresa(formData: FormData) {
   }
 
   const { error: updateError } = await (supabase
-    .from("empresas") as any)
+    .from("clientes") as any)
     .update({
       razao_social,
       cnpj,
@@ -63,7 +63,7 @@ async function updateEmpresa(formData: FormData) {
       inscricao_municipal: inscricao_municipal || null,
       socio_responsavel_pj: socio_responsavel_pj || null,
       capital_social: Number.isNaN(capital_social) ? null : capital_social,
-      data_abertura_empresa,
+      data_abertura_cliente,
       data_entrada_contabilidade,
       regime_tributario: regime_tributario || null,
       processos_ativos: Number.isNaN(processos_ativos) ? 0 : processos_ativos,
@@ -77,48 +77,48 @@ async function updateEmpresa(formData: FormData) {
   // Update responsaveis_internos
   await (supabase.from("responsaveis_internos") as any)
     .upsert({
-      empresa_id: id,
+      cliente_id: id,
       responsavel_comercial: responsavel_comercial || null,
       responsavel_contabil: responsavel_contabil || null,
       responsavel_juridico: responsavel_juridico || null,
       responsavel_planejamento_tributario: responsavel_planejamento_tributario || null,
-    }, { onConflict: 'empresa_id' });
+    }, { onConflict: 'cliente_id' });
 
   // Update servicos_contratados
   await (supabase.from("servicos_contratados") as any)
     .upsert({
-      empresa_id: id,
+      cliente_id: id,
       contabilidade: serv_contabilidade,
       juridico: serv_juridico,
       planejamento_tributario: serv_planejamento,
-    }, { onConflict: 'empresa_id' });
+    }, { onConflict: 'cliente_id' });
 
-  revalidatePath(`/empresas/${id}`);
-  revalidatePath("/empresas");
+  revalidatePath(`/clientes/${id}`);
+  revalidatePath("/clientes");
   revalidatePath("/dashboard");
-  redirect(`/empresas/${id}`);
+  redirect(`/clientes/${id}`);
 }
 
 async function addSocio(formData: FormData) {
   "use server";
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const empresa_id = String(formData.get("empresa_id"));
+  const cliente_id = String(formData.get("cliente_id"));
   const nome_socio = String(formData.get("nome_socio")).trim();
   const percentual_participacao = Number(formData.get("percentual_participacao"));
 
   if (!nome_socio) throw new Error("Nome do sócio é obrigatório.");
 
   const { error } = await (supabase.from("quadro_socios") as any).insert({
-    empresa_id,
+    cliente_id,
     nome_socio,
     percentual_participacao,
   });
 
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/empresas/${empresa_id}/edit`);
-  revalidatePath(`/empresas/${empresa_id}`);
+  revalidatePath(`/clientes/${cliente_id}/edit`);
+  revalidatePath(`/clientes/${cliente_id}`);
 }
 
 async function removeSocio(formData: FormData) {
@@ -126,17 +126,17 @@ async function removeSocio(formData: FormData) {
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
   const id = String(formData.get("socio_id"));
-  const empresa_id = String(formData.get("empresa_id"));
+  const cliente_id = String(formData.get("cliente_id"));
 
   const { error } = await (supabase.from("quadro_socios") as any).delete().eq("id", id);
 
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/empresas/${empresa_id}/edit`);
-  revalidatePath(`/empresas/${empresa_id}`);
+  revalidatePath(`/clientes/${cliente_id}/edit`);
+  revalidatePath(`/clientes/${cliente_id}`);
 }
 
-export default async function EditEmpresaPage({
+export default async function EditClientePage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -145,8 +145,8 @@ export default async function EditEmpresaPage({
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
-  const { data: dataEmpresa, error } = await supabase
-    .from("empresas")
+  const { data: dataCliente, error } = await supabase
+    .from("clientes")
     .select(`
       *,
       responsaveis_internos (*),
@@ -156,17 +156,17 @@ export default async function EditEmpresaPage({
     .eq("id", id)
     .maybeSingle();
 
-  if (!dataEmpresa || error) {
+  if (!dataCliente || error) {
     notFound();
   }
 
-  const empresa: any = dataEmpresa;
-  const responsaveis = empresa.responsaveis_internos?.[0] || {};
-  const servicos = empresa.servicos_contratados?.[0] || {};
-  const socios = empresa.quadro_socios || [];
+  const cliente: any = dataCliente;
+  const responsaveis = cliente.responsaveis_internos?.[0] || {};
+  const servicos = cliente.servicos_contratados?.[0] || {};
+  const socios = cliente.quadro_socios || [];
 
   const { data: gruposData } = await supabase
-    .from("grupos_empresariais")
+    .from("grupos_economicos")
     .select("id, nome")
     .order("nome", { ascending: true });
   const grupos = gruposData ?? [];
@@ -176,11 +176,11 @@ export default async function EditEmpresaPage({
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">Administração</p>
-          <h1 className="text-3xl font-semibold">Editar Empresa</h1>
-          <p className="text-neutral-400">Alterando dados de {empresa.razao_social}</p>
+          <h1 className="text-3xl font-semibold">Editar Cliente</h1>
+          <p className="text-neutral-400">Alterando dados de {cliente.razao_social}</p>
         </div>
         <a 
-          href={`/empresas/${id}`}
+          href={`/clientes/${id}`}
           className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-800"
         >
           Cancelar
@@ -188,7 +188,7 @@ export default async function EditEmpresaPage({
       </div>
 
       <div className="space-y-6">
-        <form action={updateEmpresa} className="space-y-6">
+        <form action={updateCliente} className="space-y-6">
           <input type="hidden" name="id" value={id} />
           
           <Card title="Dados Básicos">
@@ -198,7 +198,7 @@ export default async function EditEmpresaPage({
                 <input
                   name="razao_social"
                   required
-                  defaultValue={empresa.razao_social}
+                  defaultValue={cliente.razao_social}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -207,7 +207,7 @@ export default async function EditEmpresaPage({
                 <input
                   name="cnpj"
                   required
-                  defaultValue={empresa.cnpj}
+                  defaultValue={cliente.cnpj}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -215,15 +215,15 @@ export default async function EditEmpresaPage({
                 <label className="text-sm text-neutral-300">Domínio</label>
                 <input
                   name="dominio"
-                  defaultValue={empresa.dominio}
+                  defaultValue={cliente.dominio}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Grupo Empresarial</label>
+                <label className="text-sm text-neutral-300">Grupo de Clientes</label>
                 <select
                   name="grupo_id"
-                  defaultValue={empresa.grupo_id || ""}
+                  defaultValue={cliente.grupo_id || ""}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 >
                   <option value="">Nenhum grupo</option>
@@ -243,7 +243,7 @@ export default async function EditEmpresaPage({
                 <label className="text-sm text-neutral-300">Unidade</label>
                 <select
                   name="tipo_unidade"
-                  defaultValue={empresa.tipo_unidade || ""}
+                  defaultValue={cliente.tipo_unidade || ""}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 >
                   <option value="">Selecionar</option>
@@ -255,7 +255,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Cidade</label>
               <input
                 name="cidade"
-                defaultValue={empresa.cidade}
+                defaultValue={cliente.cidade}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
             </div>
@@ -263,7 +263,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Estado (UF)</label>
               <input
                 name="estado"
-                defaultValue={empresa.estado}
+                defaultValue={cliente.estado}
                 maxLength={2}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
@@ -272,7 +272,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Atividade</label>
               <select
                 name="atividade"
-                defaultValue={empresa.atividade || ""}
+                defaultValue={cliente.atividade || ""}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               >
                 <option value="">Selecionar</option>
@@ -285,7 +285,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Constituição</label>
               <select
                 name="constituicao"
-                defaultValue={empresa.constituicao ? "Sim" : "Não"}
+                defaultValue={cliente.constituicao ? "Sim" : "Não"}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               >
                 <option value="Sim">Sim</option>
@@ -301,7 +301,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Inscrição Estadual</label>
               <input
                 name="inscricao_estadual"
-                defaultValue={empresa.inscricao_estadual}
+                defaultValue={cliente.inscricao_estadual}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
             </div>
@@ -309,7 +309,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Inscrição Municipal</label>
               <input
                 name="inscricao_municipal"
-                defaultValue={empresa.inscricao_municipal}
+                defaultValue={cliente.inscricao_municipal}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
             </div>
@@ -317,7 +317,7 @@ export default async function EditEmpresaPage({
               <label className="text-sm text-neutral-300">Responsável Fiscal</label>
               <input
                 name="responsavel_fiscal"
-                defaultValue={empresa.responsavel_fiscal}
+                defaultValue={cliente.responsavel_fiscal}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
             </div>
@@ -325,7 +325,7 @@ export default async function EditEmpresaPage({
                 <label className="text-sm text-neutral-300">Regime Tributário</label>
                 <input
                   name="regime_tributario"
-                  defaultValue={empresa.regime_tributario}
+                  defaultValue={cliente.regime_tributario}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -338,7 +338,7 @@ export default async function EditEmpresaPage({
                 <label className="text-sm text-neutral-300">Sócio Responsável PJ</label>
                 <input
                   name="socio_responsavel_pj"
-                  defaultValue={empresa.socio_responsavel_pj}
+                  defaultValue={cliente.socio_responsavel_pj}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -347,7 +347,7 @@ export default async function EditEmpresaPage({
                 <input
                   name="capital_social"
                   type="number"
-                  defaultValue={empresa.capital_social}
+                  defaultValue={cliente.capital_social}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -356,7 +356,7 @@ export default async function EditEmpresaPage({
                 <input
                   name="processos_ativos"
                   type="number"
-                  defaultValue={empresa.processos_ativos}
+                  defaultValue={cliente.processos_ativos}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -437,9 +437,9 @@ export default async function EditEmpresaPage({
               <div className="space-y-2">
                 <label className="text-sm text-neutral-300">Data de Abertura</label>
                 <input
-                  name="data_abertura_empresa"
+                  name="data_abertura_cliente"
                   type="date"
-                  defaultValue={empresa.data_abertura_empresa}
+                  defaultValue={cliente.data_abertura_cliente}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -448,7 +448,7 @@ export default async function EditEmpresaPage({
                 <input
                   name="data_entrada_contabilidade"
                   type="date"
-                  defaultValue={empresa.data_entrada_contabilidade}
+                  defaultValue={cliente.data_entrada_contabilidade}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -476,7 +476,7 @@ export default async function EditEmpresaPage({
                   </div>
                   <form action={removeSocio}>
                     <input type="hidden" name="socio_id" value={socio.id} />
-                    <input type="hidden" name="empresa_id" value={id} />
+                    <input type="hidden" name="cliente_id" value={id} />
                     <button type="submit" className="text-red-500 hover:text-red-400 text-xs font-semibold">Remover</button>
                   </form>
                 </div>
@@ -486,7 +486,7 @@ export default async function EditEmpresaPage({
             <div className="border-t border-neutral-800 pt-4">
               <p className="text-sm font-semibold mb-3">Adicionar novo sócio</p>
               <form action={addSocio} className="grid gap-3 sm:grid-cols-3">
-                <input type="hidden" name="empresa_id" value={id} />
+                <input type="hidden" name="cliente_id" value={id} />
                 <input 
                   name="nome_socio" 
                   placeholder="Nome completo" 

@@ -32,7 +32,7 @@ function formatDate(value: string | null | undefined) {
   );
 }
 
-export default async function EmpresaDetalhe({
+export default async function ClienteDetalhe({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -42,7 +42,7 @@ export default async function EmpresaDetalhe({
   const profile = await getCurrentProfile();
 
   const { data, error } = await supabase
-    .from("empresas")
+    .from("clientes")
     .select(
       `
         id,
@@ -57,12 +57,12 @@ export default async function EmpresaDetalhe({
         constituicao,
         inscricao_estadual,
         inscricao_municipal,
-        grupo_empresarial,
+        grupo_economico,
         grupo_id,
-        grupos_empresariais ( nome ),
+        grupos_economicos ( nome ),
         socio_responsavel_pj,
         capital_social,
-        data_abertura_empresa,
+        data_abertura_cliente,
         data_entrada_contabilidade,
         regime_tributario,
         processos_ativos,
@@ -78,13 +78,13 @@ export default async function EmpresaDetalhe({
     notFound();
   }
 
-  const empresa: any = data;
-  const gruposRel = empresa.grupos_empresariais;
+  const cliente: any = data;
+  const gruposRel = cliente.grupos_economicos;
   // Supabase can return an object or an array depending on the query result type
-  const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || empresa.grupo_empresarial || "Sem grupo vinculado";
-  const responsaveis = empresa.responsaveis_internos?.[0];
-  const servicos = empresa.servicos_contratados?.[0];
-  const socios = empresa.quadro_socios ?? [];
+  const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || cliente.grupo_economico || "Sem grupo vinculado";
+  const responsaveis = cliente.responsaveis_internos?.[0];
+  const servicos = cliente.servicos_contratados?.[0];
+  const socios = cliente.quadro_socios ?? [];
 
   return (
     <div className="space-y-8">
@@ -97,13 +97,13 @@ export default async function EmpresaDetalhe({
           <div className="space-y-1 min-w-0 flex-1 w-full">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white break-words max-w-full">
-                {empresa.razao_social}
+                {cliente.razao_social}
               </h1>
               <div className="flex gap-2 shrink-0">
-                <Pill label={empresa.tipo_unidade ?? "—"} tone="neutral" />
+                <Pill label={cliente.tipo_unidade ?? "—"} tone="neutral" />
                 {profile?.tipo_usuario === "admin" && (
                   <a
-                    href={`/empresas/${id}/edit`}
+                    href={`/clientes/${id}/edit`}
                     className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"
                   >
                     <PencilIcon className="h-3 w-3" />
@@ -115,12 +115,12 @@ export default async function EmpresaDetalhe({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs md:text-sm text-neutral-400">
               <span className="flex items-center gap-1.5 shrink-0">
                 <IdentificationIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                {empresa.cnpj}
+                {cliente.cnpj}
               </span>
-              {empresa.dominio && (
+              {cliente.dominio && (
                 <span className="flex items-center gap-1.5 shrink-0">
                   <GlobeAltIcon className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  {empresa.dominio}
+                  {cliente.dominio}
                 </span>
               )}
               {grupoNome !== "Sem grupo vinculado" && (
@@ -134,11 +134,11 @@ export default async function EmpresaDetalhe({
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Pill
-            label={empresa.atividade ?? "Não informada"}
-            tone={empresa.atividade === "Serviço" ? "success" : "warning"}
+            label={cliente.atividade ?? "Não informada"}
+            tone={cliente.atividade === "Serviço" ? "success" : "warning"}
           />
           <Pill
-            label={empresa.regime_tributario ?? "Regime não inf."}
+            label={cliente.regime_tributario ?? "Regime não inf."}
             tone="neutral"
           />
         </div>
@@ -153,13 +153,13 @@ export default async function EmpresaDetalhe({
                 <div>
                   <p className="text-xs text-neutral-500 uppercase tracking-wider">Capital Social</p>
                   <p className="text-2xl font-semibold text-neutral-50">
-                    {formatCurrency(empresa.capital_social)}
+                    {formatCurrency(cliente.capital_social)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-neutral-500 uppercase tracking-wider">Processos Ativos</p>
                   <p className="text-2xl font-semibold text-neutral-50">
-                    {empresa.processos_ativos ?? 0}
+                    {cliente.processos_ativos ?? 0}
                   </p>
                 </div>
               </div>
@@ -169,11 +169,11 @@ export default async function EmpresaDetalhe({
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
                   <span className="text-sm text-neutral-400">Abertura</span>
-                  <span className="text-sm font-medium text-neutral-200">{formatDate(empresa.data_abertura_empresa)}</span>
+                  <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_abertura_cliente)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-neutral-400">Entrada Contab.</span>
-                  <span className="text-sm font-medium text-neutral-200">{formatDate(empresa.data_entrada_contabilidade)}</span>
+                  <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_entrada_contabilidade)}</span>
                 </div>
               </div>
             </Card>
@@ -271,28 +271,28 @@ export default async function EmpresaDetalhe({
           <Card title="Informações Institucionais" action={<ClipboardDocumentCheckIcon className="h-4 w-4 text-neutral-500" />}>
             <div className="space-y-4 text-sm">
               <div>
-                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Grupo Empresarial</p>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Grupo de Clientes</p>
                 <p className={clsx("font-medium", grupoNome === "Sem grupo vinculado" ? "text-neutral-500 italic" : "text-amber-200")}>
                   {grupoNome}
                 </p>
               </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Responsável Fiscal</p>
-                <p className="font-medium text-neutral-200">{empresa.responsavel_fiscal ?? "—"}</p>
+                <p className="font-medium text-neutral-200">{cliente.responsavel_fiscal ?? "—"}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Insc. Estadual</p>
-                  <p className="font-medium text-neutral-200">{empresa.inscricao_estadual ?? "—"}</p>
+                  <p className="font-medium text-neutral-200">{cliente.inscricao_estadual ?? "—"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Insc. Municipal</p>
-                  <p className="font-medium text-neutral-200">{empresa.inscricao_municipal ?? "—"}</p>
+                  <p className="font-medium text-neutral-200">{cliente.inscricao_municipal ?? "—"}</p>
                 </div>
               </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Constituição</p>
-                <p className="font-medium text-neutral-200">{empresa.constituicao === true ? "Sim" : empresa.constituicao === false ? "Não" : "—"}</p>
+                <p className="font-medium text-neutral-200">{cliente.constituicao === true ? "Sim" : cliente.constituicao === false ? "Não" : "—"}</p>
               </div>
             </div>
           </Card>
@@ -304,10 +304,10 @@ export default async function EmpresaDetalhe({
               </div>
               <div>
                 <p className="text-sm font-semibold text-neutral-200">
-                  {empresa.cidade ?? "Cidade não inf."}
+                  {cliente.cidade ?? "Cidade não inf."}
                 </p>
                 <p className="text-xs text-neutral-500">
-                  {empresa.estado ? `Estado: ${empresa.estado}` : "UF não inf."}
+                  {cliente.estado ? `Estado: ${cliente.estado}` : "UF não inf."}
                 </p>
               </div>
             </div>

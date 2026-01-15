@@ -11,14 +11,14 @@ create table if not exists public.usuarios (
   created_at timestamptz default now()
 );
 
-create table if not exists public.empresas (
+create table if not exists public.clientes (
   id uuid primary key default uuid_generate_v4(),
   razao_social text not null,
   cnpj text not null unique,
-  grupo_empresarial text null,
+  grupo_economico text null,
   socio_responsavel_pj text null,
   capital_social numeric(18,2) null,
-  data_abertura_empresa date null,
+  data_abertura_cliente date null,
   data_entrada_contabilidade date null,
   regime_tributario text null,
   processos_ativos integer default 0,
@@ -27,14 +27,14 @@ create table if not exists public.empresas (
 
 create table if not exists public.quadro_socios (
   id uuid primary key default uuid_generate_v4(),
-  empresa_id uuid references public.empresas(id) on delete cascade,
+  cliente_id uuid references public.clientes(id) on delete cascade,
   nome_socio text not null,
   percentual_participacao numeric(5,2) null
 );
 
 create table if not exists public.responsaveis_internos (
   id uuid primary key default uuid_generate_v4(),
-  empresa_id uuid references public.empresas(id) on delete cascade,
+  cliente_id uuid references public.clientes(id) on delete cascade,
   responsavel_comercial text null,
   responsavel_contabil text null,
   responsavel_juridico text null,
@@ -43,17 +43,17 @@ create table if not exists public.responsaveis_internos (
 
 create table if not exists public.servicos_contratados (
   id uuid primary key default uuid_generate_v4(),
-  empresa_id uuid references public.empresas(id) on delete cascade,
+  cliente_id uuid references public.clientes(id) on delete cascade,
   contabilidade boolean default false,
   juridico boolean default false,
   planejamento_tributario boolean default false
 );
 
-create table if not exists public.empresa_usuarios (
+create table if not exists public.cliente_usuarios (
   id uuid primary key default uuid_generate_v4(),
-  empresa_id uuid not null references public.empresas(id) on delete cascade,
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
   usuario_id uuid not null references public.usuarios(id) on delete cascade,
-  unique (empresa_id, usuario_id)
+  unique (cliente_id, usuario_id)
 );
 
 -- Funções auxiliares
@@ -70,7 +70,7 @@ as $$
   );
 $$;
 
-create or replace function public.auth_has_empresa_access(target_empresa uuid)
+create or replace function public.auth_has_cliente_access(target_cliente uuid)
 returns boolean
 language sql
 security definer
@@ -80,19 +80,19 @@ as $$
     auth_is_admin()
     or exists (
       select 1
-      from public.empresa_usuarios eu
+      from public.cliente_usuarios eu
       where eu.usuario_id = auth.uid()
-        and eu.empresa_id = target_empresa
+        and eu.cliente_id = target_cliente
     );
 $$;
 
 -- RLS
 alter table public.usuarios enable row level security;
-alter table public.empresas enable row level security;
+alter table public.clientes enable row level security;
 alter table public.quadro_socios enable row level security;
 alter table public.responsaveis_internos enable row level security;
 alter table public.servicos_contratados enable row level security;
-alter table public.empresa_usuarios enable row level security;
+alter table public.cliente_usuarios enable row level security;
 
 -- Usuários
 create policy "admins gerenciam usuarios"
@@ -106,17 +106,17 @@ create policy "usuario visualiza proprio registro"
   for select
   using (auth.uid() = id or auth_is_admin());
 
--- Empresas
-create policy "admins gerenciam empresas"
-  on public.empresas
+-- Clientes
+create policy "admins gerenciam clientes"
+  on public.clientes
   for all
   using (auth_is_admin())
   with check (auth_is_admin());
 
-create policy "usuario vê apenas empresas atribuídas"
-  on public.empresas
+create policy "usuario vê apenas clientes atribuídas"
+  on public.clientes
   for select
-  using (auth_has_empresa_access(id));
+  using (auth_has_cliente_access(id));
 
 -- Quadro de sócios
 create policy "admins gerenciam socios"
@@ -125,10 +125,10 @@ create policy "admins gerenciam socios"
   using (auth_is_admin())
   with check (auth_is_admin());
 
-create policy "usuario vê socios da empresa"
+create policy "usuario vê socios da cliente"
   on public.quadro_socios
   for select
-  using (auth_has_empresa_access(empresa_id));
+  using (auth_has_cliente_access(cliente_id));
 
 -- Responsáveis internos
 create policy "admins gerenciam responsaveis"
@@ -137,10 +137,10 @@ create policy "admins gerenciam responsaveis"
   using (auth_is_admin())
   with check (auth_is_admin());
 
-create policy "usuario vê responsaveis da empresa"
+create policy "usuario vê responsaveis da cliente"
   on public.responsaveis_internos
   for select
-  using (auth_has_empresa_access(empresa_id));
+  using (auth_has_cliente_access(cliente_id));
 
 -- Serviços contratados
 create policy "admins gerenciam serviços"
@@ -149,14 +149,14 @@ create policy "admins gerenciam serviços"
   using (auth_is_admin())
   with check (auth_is_admin());
 
-create policy "usuario vê serviços da empresa"
+create policy "usuario vê serviços da cliente"
   on public.servicos_contratados
   for select
-  using (auth_has_empresa_access(empresa_id));
+  using (auth_has_cliente_access(cliente_id));
 
--- Relação empresa-usuario
+-- Relação cliente-usuario
 create policy "apenas admin gerencia acessos"
-  on public.empresa_usuarios
+  on public.cliente_usuarios
   for all
   using (auth_is_admin())
   with check (auth_is_admin());

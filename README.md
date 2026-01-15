@@ -27,12 +27,12 @@ npm run dev
 ### Rotas principais
 
 - `/login` — acesso com e-mail/senha criado por administrador.
-- `/dashboard` — cards, busca e tabela de empresas com responsabilidades e serviços.
-- `/empresas/[id]` — detalhes da empresa, quadro societário e responsáveis.
+- `/dashboard` — cards, busca e tabela de clientes com responsabilidades e serviços.
+- `/clientes/[id]` — detalhes da cliente, quadro societário e responsáveis.
 - `/usuarios` — gestão de usuários (apenas admin; requer `SUPABASE_SERVICE_ROLE_KEY`).
 
 ### Segurança
 
-- RLS cobrindo todas as tabelas: admins têm controle total; usuários só leem empresas às quais foram atribuídos via `empresa_usuarios`.
+- RLS cobrindo todas as tabelas: admins têm controle total; usuários só leem clientes às quais foram atribuídos via `cliente_usuarios`.
 - `middleware.ts` protege todas as rotas e redireciona não autenticados.
 - Service role nunca exposto ao cliente; usado apenas em server actions.

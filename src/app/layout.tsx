@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Botelho e Castro | Painel",
+  title: "Botelho e Castro Consultores | Painel",
   description:
     "Dashboard interno seguro para Botelho e Castro Consultores.",
 };

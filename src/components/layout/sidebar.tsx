@@ -17,7 +17,7 @@ type SidebarProps = {
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { href: "/empresas", label: "Empresas", icon: BuildingOffice2Icon },
+  { href: "/clientes", label: "Clientes", icon: BuildingOffice2Icon },
   { href: "/usuarios", label: "Usuários", icon: UsersIcon, adminOnly: true },
 ];
 

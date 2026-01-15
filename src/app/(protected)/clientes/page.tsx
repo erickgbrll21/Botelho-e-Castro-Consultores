@@ -3,9 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile } from "@/lib/auth";
-import { DeleteEmpresaButton } from "@/components/empresas/delete-empresa-button";
+import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 
-async function createEmpresa(formData: FormData) {
+async function createCliente(formData: FormData) {
   "use server";
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
@@ -26,8 +26,8 @@ async function createEmpresa(formData: FormData) {
     formData.get("socio_responsavel_pj") ?? ""
   ).trim();
   const capital_social = Number(formData.get("capital_social") ?? 0);
-  const data_abertura_empresa = formData.get("data_abertura_empresa")
-    ? String(formData.get("data_abertura_empresa"))
+  const data_abertura_cliente = formData.get("data_abertura_cliente")
+    ? String(formData.get("data_abertura_cliente"))
     : null;
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
@@ -61,8 +61,8 @@ async function createEmpresa(formData: FormData) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
   }
 
-  const { data: empresa, error } = await (supabase
-    .from("empresas") as any)
+  const { data: cliente, error } = await (supabase
+    .from("clientes") as any)
     .insert({
       razao_social,
       cnpj,
@@ -78,7 +78,7 @@ async function createEmpresa(formData: FormData) {
       inscricao_municipal: inscricao_municipal || null,
       socio_responsavel_pj: socio_responsavel_pj || null,
       capital_social: Number.isNaN(capital_social) ? null : capital_social,
-      data_abertura_empresa,
+      data_abertura_cliente,
       data_entrada_contabilidade,
       regime_tributario: regime_tributario || null,
       processos_ativos: Number.isNaN(processos_ativos) ? 0 : processos_ativos,
@@ -86,12 +86,12 @@ async function createEmpresa(formData: FormData) {
     .select("id")
     .maybeSingle();
 
-  if (error || !empresa?.id) {
-    throw new Error(error?.message ?? "Não foi possível criar a empresa.");
+  if (error || !cliente?.id) {
+    throw new Error(error?.message ?? "Não foi possível criar a cliente.");
   }
 
   await (supabase.from("responsaveis_internos") as any).insert({
-    empresa_id: empresa.id,
+    cliente_id: cliente.id,
     responsavel_comercial: responsavel_comercial || null,
     responsavel_contabil: responsavel_contabil || null,
     responsavel_juridico: responsavel_juridico || null,
@@ -100,7 +100,7 @@ async function createEmpresa(formData: FormData) {
   });
 
   await (supabase.from("servicos_contratados") as any).insert({
-    empresa_id: empresa.id,
+    cliente_id: cliente.id,
     contabilidade: serv_contabilidade,
     juridico: serv_juridico,
     planejamento_tributario: serv_planejamento,
@@ -108,14 +108,14 @@ async function createEmpresa(formData: FormData) {
 
   if (socio_nome) {
     await (supabase.from("quadro_socios") as any).insert({
-      empresa_id: empresa.id,
+      cliente_id: cliente.id,
       nome_socio: socio_nome,
       percentual_participacao: socio_percentual,
     });
   }
 
-  await revalidatePath("/empresas");
-  // return { ok: true, empresa_id: empresa.id };
+  await revalidatePath("/clientes");
+  // return { ok: true, cliente_id: cliente.id };
 }
 
 async function createGrupo(formData: FormData) {
@@ -128,7 +128,7 @@ async function createGrupo(formData: FormData) {
     throw new Error("Nome do grupo é obrigatório.");
   }
 
-  const { error } = await (supabase.from("grupos_empresariais") as any).insert({
+  const { error } = await (supabase.from("grupos_economicos") as any).insert({
     nome,
   });
 
@@ -136,7 +136,7 @@ async function createGrupo(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await revalidatePath("/empresas");
+  await revalidatePath("/clientes");
   // return { ok: true };
 }
 
@@ -150,14 +150,14 @@ async function deleteGrupo(formData: FormData) {
     throw new Error("ID do grupo é obrigatório.");
   }
 
-  // Remove vínculo das empresas antes de excluir o grupo
+  // Remove vínculo das clientes antes de excluir o grupo
   await (supabase
-    .from("empresas") as any)
+    .from("clientes") as any)
     .update({ grupo_id: null })
     .eq("grupo_id", grupo_id);
 
   const { error } = await (supabase
-    .from("grupos_empresariais") as any)
+    .from("grupos_economicos") as any)
     .delete()
     .eq("id", grupo_id);
 
@@ -165,31 +165,31 @@ async function deleteGrupo(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await revalidatePath("/empresas");
+  await revalidatePath("/clientes");
   // return { ok: true, deleted: grupo_id };
 }
 
-async function deleteEmpresa(formData: FormData) {
+async function deleteCliente(formData: FormData) {
   "use server";
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const empresa_id = String(formData.get("empresa_id") ?? "").trim();
+  const cliente_id = String(formData.get("cliente_id") ?? "").trim();
 
-  if (!empresa_id) {
-    throw new Error("ID da empresa é obrigatório.");
+  if (!cliente_id) {
+    throw new Error("ID da cliente é obrigatório.");
   }
 
-  const { error } = await (supabase.from("empresas") as any).delete().eq("id", empresa_id);
+  const { error } = await (supabase.from("clientes") as any).delete().eq("id", cliente_id);
   if (error) {
     throw new Error(error.message);
   }
 
-  await revalidatePath("/empresas");
+  await revalidatePath("/clientes");
   await revalidatePath("/dashboard");
-  // return { ok: true, deleted: empresa_id };
+  // return { ok: true, deleted: cliente_id };
 }
 
-export default async function EmpresasPage({
+export default async function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<{ q?: string }>;
@@ -199,13 +199,13 @@ export default async function EmpresasPage({
   const term = q?.trim() ?? "";
 
   const { data: gruposData } = await supabase
-    .from("grupos_empresariais")
+    .from("grupos_economicos")
     .select("id, nome, descricao")
     .order("nome", { ascending: true });
   const grupos: any[] = gruposData ?? [];
 
-  const empresasQuery = supabase
-    .from("empresas")
+  const clientesQuery = supabase
+    .from("clientes")
     .select(
       `
         id,
@@ -220,12 +220,12 @@ export default async function EmpresasPage({
         constituicao,
         inscricao_estadual,
         inscricao_municipal,
-        grupo_empresarial,
+        grupo_economico,
         grupo_id,
-        grupos_empresariais ( nome ),
+        grupos_economicos ( nome ),
         socio_responsavel_pj,
         capital_social,
-        data_abertura_empresa,
+        data_abertura_cliente,
         data_entrada_contabilidade,
         regime_tributario,
         processos_ativos,
@@ -236,28 +236,28 @@ export default async function EmpresasPage({
     )
     .order("razao_social", { ascending: true });
 
-  const { data: dataEmpresas } = await (term
-    ? empresasQuery.ilike("razao_social", `%${term}%`)
-    : empresasQuery);
-  const empresas: any[] = dataEmpresas ?? [];
+  const { data: dataClientes } = await (term
+    ? clientesQuery.ilike("razao_social", `%${term}%`)
+    : clientesQuery);
+  const clientes: any[] = dataClientes ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Empresas
+            Clientes
           </p>
           <h1 className="text-3xl font-semibold">Cadastro e consulta</h1>
           <p className="text-neutral-400">
-            Administradores podem cadastrar; usuários veem apenas empresas permitidas.
+            Administradores podem cadastrar; usuários veem apenas clientes permitidos.
           </p>
         </div>
         <form className="flex items-center gap-2">
           <input
             name="q"
             defaultValue={term}
-            placeholder="Buscar empresa..."
+            placeholder="Buscar cliente..."
             className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
           />
           <button
@@ -270,11 +270,11 @@ export default async function EmpresasPage({
       </div>
 
       <Card
-        title="Cadastrar nova empresa (apenas administradores)"
+        title="Cadastrar novo cliente (apenas administradores)"
         className="border-amber-500/30"
         action={<Pill label="Restrito a admins" tone="critical" />}
       >
-        <form action={createEmpresa} className="grid gap-4 md:grid-cols-2">
+        <form action={createCliente} className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Razão social *</label>
             <input
@@ -301,7 +301,7 @@ export default async function EmpresasPage({
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Grupo empresarial</label>
+            <label className="text-sm text-neutral-300">Grupo Econômico</label>
             <select
               name="grupo_id"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
@@ -431,7 +431,7 @@ export default async function EmpresasPage({
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Data de abertura</label>
             <input
-              name="data_abertura_empresa"
+              name="data_abertura_cliente"
               type="date"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
             />
@@ -515,14 +515,14 @@ export default async function EmpresasPage({
               type="submit"
               className="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
             >
-              Cadastrar empresa
+              Cadastrar cliente
             </button>
           </div>
         </form>
       </Card>
 
       <Card
-        title="Grupos de empresas"
+        title="Grupos de clientes"
         action={<Pill label="Gestão de grupos" tone="neutral" />}
         className="overflow-hidden"
       >
@@ -586,7 +586,7 @@ export default async function EmpresasPage({
       </Card>
 
       <Card
-        title="Empresas"
+        title="Clientes"
         action={
           <p className="text-xs text-neutral-400">
             Só administradores podem cadastrar e editar dados.
@@ -604,42 +604,42 @@ export default async function EmpresasPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
-              {empresas.map((empresa) => (
-                <tr key={empresa.id} className="align-top">
+              {clientes.map((cliente) => (
+                <tr key={cliente.id} className="align-top">
                   <td className="py-4 pr-4">
-                    <p className="font-semibold text-neutral-50 leading-tight">{empresa.razao_social}</p>
-                    <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{empresa.cnpj}</p>
+                    <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
+                    <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
                   </td>
                   <td className="py-4 pr-4 text-neutral-300 hidden sm:table-cell">
-                    {empresa.created_at
+                    {cliente.created_at
                       ? new Intl.DateTimeFormat("pt-BR", {
                           dateStyle: "medium",
                           timeStyle: "short",
-                        }).format(new Date(empresa.created_at))
+                        }).format(new Date(cliente.created_at))
                       : "—"}
                   </td>
                   <td className="py-4 pr-4 text-right flex flex-col sm:flex-row justify-end items-end gap-2 sm:gap-3">
                     <a
-                      href={`/empresas/${empresa.id}`}
+                      href={`/clientes/${cliente.id}`}
                       className="inline-flex items-center rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-semibold text-neutral-200 transition hover:border-neutral-700 hover:bg-neutral-800"
                     >
                       Ver detalhes
                     </a>
-                    <DeleteEmpresaButton
-                      empresaId={empresa.id}
-                      action={deleteEmpresa}
+                    <DeleteClienteButton
+                      clienteId={cliente.id}
+                      action={deleteCliente}
                     />
                   </td>
                 </tr>
               ))}
 
-              {empresas.length === 0 ? (
+              {clientes.length === 0 ? (
                 <tr>
                   <td
                     colSpan={3}
                     className="py-6 text-center text-sm text-neutral-400"
                   >
-                    Nenhuma empresa encontrada para este filtro.
+                    Nenhum cliente encontrado para este filtro.
                   </td>
                 </tr>
               ) : null}
