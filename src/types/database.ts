@@ -54,6 +54,8 @@ export interface Database {
           data_entrada_contabilidade: string | null;
           regime_tributario: string | null;
           processos_ativos: number | null;
+          contato_nome: string | null;
+          contato_telefone: string | null;
           created_at: string | null;
         };
         Insert: Omit<Database["public"]["Tables"]["clientes"]["Row"], "id"> & {

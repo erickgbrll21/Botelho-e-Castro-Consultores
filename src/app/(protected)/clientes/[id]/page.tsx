@@ -66,6 +66,8 @@ export default async function ClienteDetalhe({
         data_entrada_contabilidade,
         regime_tributario,
         processos_ativos,
+        contato_nome,
+        contato_telefone,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario),
         servicos_contratados (contabilidade, juridico, planejamento_tributario),
         quadro_socios (nome_socio, percentual_participacao)
@@ -293,6 +295,19 @@ export default async function ClienteDetalhe({
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Constituição</p>
                 <p className="font-medium text-neutral-200">{cliente.constituicao === true ? "Sim" : cliente.constituicao === false ? "Não" : "—"}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="Contato do Cliente" action={<UserIcon className="h-4 w-4 text-neutral-500" />}>
+            <div className="space-y-3">
+              <div>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Pessoa de Contato</p>
+                <p className="font-medium text-neutral-200">{cliente.contato_nome ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Telefone</p>
+                <p className="font-medium text-neutral-200">{cliente.contato_telefone ?? "—"}</p>
               </div>
             </div>
           </Card>
