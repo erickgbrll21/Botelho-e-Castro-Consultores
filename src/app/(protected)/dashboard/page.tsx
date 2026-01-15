@@ -16,7 +16,7 @@ export default async function DashboardPage({
     .from("grupos_economicos")
     .select("id, nome")
     .order("nome", { ascending: true });
-  const gruposFiltro = gruposLista ?? [];
+  const gruposFiltro: any[] = gruposLista ?? [];
   const totalGrupos = gruposLista?.length ?? 0;
 
   const now = new Date();

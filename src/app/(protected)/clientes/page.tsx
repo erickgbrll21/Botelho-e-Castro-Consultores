@@ -70,6 +70,7 @@ async function createCliente(formData: FormData) {
   const juridico_licitacao = formData.get("juridico_licitacao") === "on";
   const juridico_penal = formData.get("juridico_penal") === "on";
   const juridico_empresarial = formData.get("juridico_empresarial") === "on";
+  const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
 
   if (!razao_social || !cnpj) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
