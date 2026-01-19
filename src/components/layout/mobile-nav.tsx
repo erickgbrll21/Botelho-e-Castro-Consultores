@@ -56,7 +56,7 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
         <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 p-6 animate-in duration-200">
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col items-start gap-1">
-              <Image
+              <img
                 src="/design-logo.svg"
                 alt="Design Complementar"
                 width={150}

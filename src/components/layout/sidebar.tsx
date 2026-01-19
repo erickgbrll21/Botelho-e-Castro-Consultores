@@ -29,13 +29,12 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="hidden md:flex w-60 flex-col gap-6 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-4">
       <div className="flex flex-col items-start gap-2">
-        <Image
+        <img
           src="/design-logo.svg"
           alt="Design Complementar"
           width={220}
           height={70}
           className="h-auto w-full max-w-[220px] object-contain opacity-80"
-          priority
         />
         <Image
           src="/logo-bcc.svg"
