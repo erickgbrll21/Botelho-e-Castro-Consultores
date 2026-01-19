@@ -248,13 +248,13 @@ async function deleteCliente(formData: FormData) {
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; grupo?: string }>;
+  searchParams: Promise<{ q?: string; grupo?: string; editGrupo?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
-  const { q, grupo: grupoFiltro } = await searchParams;
+  const { q, grupo: grupoFiltro, editGrupo: editGrupoId } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
 
@@ -263,6 +263,8 @@ export default async function ClientesPage({
     .select("id, nome, descricao, valor_contrato")
     .order("nome", { ascending: true });
   const grupos: any[] = gruposData ?? [];
+
+  const editingGrupo = editGrupoId ? grupos.find(g => g.id === editGrupoId) : null;
 
   let clientesQuery = supabase
     .from("clientes")
@@ -694,16 +696,26 @@ export default async function ClientesPage({
       </Card>
 
       <Card
-        title="Grupos de clientes"
-        action={<Pill label="Gestão de grupos" tone="neutral" />}
+        title={editingGrupo ? `Editar Grupo: ${editingGrupo.nome}` : "Grupos de clientes"}
+        action={
+          editingGrupo ? (
+            <a href="/clientes" className="text-xs text-neutral-400 hover:text-white transition-colors underline">
+              Cancelar edição e criar novo
+            </a>
+          ) : (
+            <Pill label="Gestão de grupos" tone="neutral" />
+          )
+        }
         className="overflow-hidden"
       >
-        <form action={createGrupo} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <form action={editingGrupo ? updateGrupo : createGrupo} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          {editingGrupo && <input type="hidden" name="grupo_id" value={editingGrupo.id} />}
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Nome do grupo *</label>
             <input
               name="nome"
               required
+              defaultValue={editingGrupo?.nome ?? ""}
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               placeholder="Ex.: Grupo XPTO"
             />
@@ -714,6 +726,7 @@ export default async function ClientesPage({
               name="valor_contrato"
               type="number"
               step="0.01"
+              defaultValue={editingGrupo?.valor_contrato ?? ""}
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               placeholder="R$ 0,00"
             />
@@ -723,7 +736,7 @@ export default async function ClientesPage({
               type="submit"
               className="w-full rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
             >
-              Adicionar grupo
+              {editingGrupo ? "Salvar Alterações" : "Adicionar grupo"}
             </button>
           </div>
         </form>
@@ -746,7 +759,13 @@ export default async function ClientesPage({
                   <td className="py-3 pr-4 text-neutral-300">
                     {grupo.valor_contrato ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.valor_contrato) : "—"}
                   </td>
-                  <td className="py-3 pr-4 text-right">
+                  <td className="py-3 pr-4 text-right flex justify-end gap-2">
+                    <a
+                      href={`?editGrupo=${grupo.id}`}
+                      className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
+                    >
+                      Editar
+                    </a>
                     <form action={deleteGrupo} className="inline">
                       <input type="hidden" name="grupo_id" value={grupo.id} />
                       <button
