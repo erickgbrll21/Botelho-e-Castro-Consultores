@@ -164,12 +164,15 @@ export default async function ClienteDetalhe({
                 {showContractValue && (
                   <div className="space-y-4">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
-                        <p className="text-2xl font-semibold text-amber-200">
-                          {formatCurrency(cliente.valor_contrato)}
-                        </p>
-                      </div>
+                      {!cliente.cobranca_por_grupo && (
+                        <div>
+                          <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
+                          <p className="text-2xl font-semibold text-amber-200">
+                            {formatCurrency(cliente.valor_contrato)}
+                          </p>
+                        </div>
+                      )}
+                      {cliente.cobranca_por_grupo && <div />}
                       <div className="text-right">
                         <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Cobrança por Grupo</p>
                         <Pill 
