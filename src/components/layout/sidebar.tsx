@@ -37,6 +37,14 @@ export function Sidebar({ role }: SidebarProps) {
           className="h-auto w-full max-w-[220px] max-h-20 object-contain"
           priority
         />
+        <Image
+          src="/design-logo.svg"
+          alt="Design Complementar"
+          width={220}
+          height={70}
+          className="h-auto w-full max-w-[220px] object-contain opacity-80"
+          priority
+        />
         <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
           Painel Interno
         </p>
