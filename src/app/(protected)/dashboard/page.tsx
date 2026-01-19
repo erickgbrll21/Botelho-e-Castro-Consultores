@@ -54,6 +54,7 @@ export default async function DashboardPage({
         capital_social,
         data_abertura_cliente,
         data_entrada_contabilidade,
+        data_saida,
         regime_tributario,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),

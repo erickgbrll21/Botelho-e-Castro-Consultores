@@ -30,6 +30,9 @@ async function updateCliente(formData: FormData) {
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
     : null;
+  const data_saida = formData.get("data_saida")
+    ? String(formData.get("data_saida"))
+    : null;
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
@@ -81,6 +84,7 @@ async function updateCliente(formData: FormData) {
       capital_social: Number.isNaN(capital_social) ? null : capital_social,
       data_abertura_cliente,
       data_entrada_contabilidade,
+      data_saida,
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
@@ -617,6 +621,15 @@ export default async function EditClientePage({
                   name="data_entrada_contabilidade"
                   type="date"
                   defaultValue={cliente.data_entrada_contabilidade}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Data de Saída</label>
+                <input
+                  name="data_saida"
+                  type="date"
+                  defaultValue={cliente.data_saida}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>

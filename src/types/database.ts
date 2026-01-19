@@ -75,6 +75,7 @@ export interface Database {
           capital_social: number | null
           data_abertura_cliente: string | null
           data_entrada_contabilidade: string | null
+          data_saida: string | null
           regime_tributario: string | null
           contato_nome: string | null
           contato_telefone: string | null
@@ -101,6 +102,7 @@ export interface Database {
           capital_social?: number | null
           data_abertura_cliente?: string | null
           data_entrada_contabilidade?: string | null
+          data_saida?: string | null
           regime_tributario?: string | null
           contato_nome?: string | null
           contato_telefone?: string | null
@@ -127,6 +129,7 @@ export interface Database {
           capital_social?: number | null
           data_abertura_cliente?: string | null
           data_entrada_contabilidade?: string | null
+          data_saida?: string | null
           regime_tributario?: string | null
           contato_nome?: string | null
           contato_telefone?: string | null

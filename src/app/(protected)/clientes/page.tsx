@@ -32,6 +32,9 @@ async function createCliente(formData: FormData) {
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
     : null;
+  const data_saida = formData.get("data_saida")
+    ? String(formData.get("data_saida"))
+    : null;
   const regime_tributario = String(
     formData.get("regime_tributario") ?? ""
   ).trim();
@@ -95,6 +98,7 @@ async function createCliente(formData: FormData) {
       capital_social: Number.isNaN(capital_social) ? null : capital_social,
       data_abertura_cliente,
       data_entrada_contabilidade,
+      data_saida,
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
@@ -255,6 +259,7 @@ export default async function ClientesPage({
         capital_social,
         data_abertura_cliente,
         data_entrada_contabilidade,
+        data_saida,
         regime_tributario,
         contato_nome,
         contato_telefone,

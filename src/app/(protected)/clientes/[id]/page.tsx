@@ -177,9 +177,13 @@ export default async function ClienteDetalhe({
                   <span className="text-sm text-neutral-400">Abertura</span>
                   <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_abertura_cliente)}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
                   <span className="text-sm text-neutral-400">Entrada Contab.</span>
                   <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_entrada_contabilidade)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-neutral-400">Saída</span>
+                  <span className="text-sm font-medium text-red-400">{formatDate(cliente.data_saida)}</span>
                 </div>
               </div>
             </Card>
