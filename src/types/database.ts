@@ -83,6 +83,7 @@ export interface Database {
           contato_nome: string | null
           contato_telefone: string | null
           valor_contrato: number | null
+          cobranca_por_grupo: boolean
           ativo: boolean
           created_at: string
         }
@@ -110,6 +111,7 @@ export interface Database {
           contato_nome?: string | null
           contato_telefone?: string | null
           valor_contrato?: number | null
+          cobranca_por_grupo?: boolean
           ativo?: boolean
           created_at?: string
         }
@@ -137,6 +139,7 @@ export interface Database {
           contato_nome?: string | null
           contato_telefone?: string | null
           valor_contrato?: number | null
+          cobranca_por_grupo?: boolean
           ativo?: boolean
           created_at?: string
         }

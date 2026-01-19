@@ -41,6 +41,7 @@ async function createCliente(formData: FormData) {
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
   const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
 
   const responsavel_comercial = String(
     formData.get("responsavel_comercial") ?? ""
@@ -103,6 +104,7 @@ async function createCliente(formData: FormData) {
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
       valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      cobranca_por_grupo,
       ativo: true,
     })
     .select("id")
@@ -294,6 +296,7 @@ export default async function ClientesPage({
         contato_nome,
         contato_telefone,
         valor_contrato,
+        cobranca_por_grupo,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),
         created_at
@@ -505,17 +508,29 @@ export default async function ClientesPage({
             />
           </div>
           {showContractValue && (
-            <div className="space-y-2">
-              <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
-              <input
-                name="valor_contrato"
-                type="number"
-                min="0"
-                step="0.01"
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                placeholder="R$ 0,00"
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
+                <input
+                  name="valor_contrato"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                  placeholder="R$ 0,00"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Cobrança por Grupo?</label>
+                <select
+                  name="cobranca_por_grupo"
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                >
+                  <option value="Não">Não</option>
+                  <option value="Sim">Sim</option>
+                </select>
+              </div>
+            </>
           )}
           <div className="space-y-2">
             <label className="text-sm text-neutral-300">Data de abertura</label>
