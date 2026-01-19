@@ -12,7 +12,7 @@ export default function LoginPage() {
             alt="Design Complementar"
             width={280}
             height={80}
-            className="h-auto w-full max-w-[280px] object-contain opacity-80 mb-[-1rem]"
+            className="h-auto w-full max-w-[280px] object-contain opacity-80"
             priority
           />
           <Image
