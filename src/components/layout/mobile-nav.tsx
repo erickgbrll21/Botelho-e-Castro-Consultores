@@ -57,18 +57,18 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col items-start gap-1">
               <Image
-                src="/logo-bcc.svg"
-                alt="Botelho e Castro Consultores"
-                width={150}
-                height={50}
-                className="h-auto w-auto max-h-10 object-contain"
-              />
-              <Image
                 src="/design-logo.svg"
                 alt="Design Complementar"
                 width={150}
                 height={50}
                 className="h-auto w-auto object-contain opacity-80"
+              />
+              <Image
+                src="/logo-bcc.svg"
+                alt="Botelho e Castro Consultores"
+                width={150}
+                height={50}
+                className="h-auto w-auto max-h-10 object-contain"
               />
               <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">Painel Interno</p>
             </div>

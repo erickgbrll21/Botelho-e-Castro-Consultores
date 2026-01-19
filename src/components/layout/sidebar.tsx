@@ -30,19 +30,19 @@ export function Sidebar({ role }: SidebarProps) {
     <aside className="hidden md:flex w-60 flex-col gap-6 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 p-4">
       <div className="flex flex-col items-start gap-2">
         <Image
-          src="/logo-bcc.svg"
-          alt="Botelho e Castro Consultores"
-          width={220}
-          height={70}
-          className="h-auto w-full max-w-[220px] max-h-20 object-contain"
-          priority
-        />
-        <Image
           src="/design-logo.svg"
           alt="Design Complementar"
           width={220}
           height={70}
           className="h-auto w-full max-w-[220px] object-contain opacity-80"
+          priority
+        />
+        <Image
+          src="/logo-bcc.svg"
+          alt="Botelho e Castro Consultores"
+          width={220}
+          height={70}
+          className="h-auto w-full max-w-[220px] max-h-20 object-contain"
           priority
         />
         <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">

@@ -8,19 +8,19 @@ export default function LoginPage() {
       <div className="max-w-5xl w-full flex flex-col md:flex-row gap-10 items-center justify-between">
         <div className="space-y-4 md:max-w-sm flex flex-col items-start">
           <Image
+            src="/design-logo.svg"
+            alt="Design Complementar"
+            width={280}
+            height={80}
+            className="h-auto w-full max-w-[280px] object-contain opacity-80 mb-[-1rem]"
+            priority
+          />
+          <Image
             src="/logo-bcc.svg"
             alt="Botelho e Castro Consultores"
             width={280}
             height={80}
             className="h-auto w-full max-w-[280px] max-h-24 object-contain"
-            priority
-          />
-          <Image
-            src="/design-logo.svg"
-            alt="Design Complementar"
-            width={280}
-            height={80}
-            className="h-auto w-full max-w-[280px] object-contain opacity-80 -mt-2"
             priority
           />
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
