@@ -18,7 +18,7 @@ async function updateCliente(formData: FormData) {
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
   const cidade = String(formData.get("cidade") ?? "").trim();
   const estado = String(formData.get("estado") ?? "").trim();
-  const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Ambos" | null;
+  const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Indústria" | "Ambos" | null;
   const constituicao = formData.get("constituicao") === "Sim";
   const inscricao_estadual = String(formData.get("inscricao_estadual") ?? "").trim();
   const inscricao_municipal = String(formData.get("inscricao_municipal") ?? "").trim();
@@ -307,6 +307,7 @@ export default async function EditClientePage({
                 <option value="">Selecionar</option>
                 <option value="Serviço">Serviço</option>
                 <option value="Comércio">Comércio</option>
+                <option value="Indústria">Indústria</option>
                 <option value="Ambos">Ambos</option>
               </select>
             </div>

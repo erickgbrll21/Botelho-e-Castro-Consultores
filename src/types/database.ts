@@ -65,7 +65,7 @@ export interface Database {
           responsavel_fiscal: string | null
           cidade: string | null
           estado: string | null
-          atividade: "Serviço" | "Comércio" | "Ambos" | null
+          atividade: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null
           constituicao: boolean | null
           inscricao_estadual: string | null
           inscricao_municipal: string | null
@@ -90,7 +90,7 @@ export interface Database {
           responsavel_fiscal?: string | null
           cidade?: string | null
           estado?: string | null
-          atividade?: "Serviço" | "Comércio" | "Ambos" | null
+          atividade?: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null
           constituicao?: boolean | null
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null
@@ -115,7 +115,7 @@ export interface Database {
           responsavel_fiscal?: string | null
           cidade?: string | null
           estado?: string | null
-          atividade?: "Serviço" | "Comércio" | "Ambos" | null
+          atividade?: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null
           constituicao?: boolean | null
           inscricao_estadual?: string | null
           inscricao_municipal?: string | null

@@ -398,6 +398,7 @@ export default async function ClientesPage({
               <option value="">Selecionar</option>
               <option value="Serviço">Serviço</option>
               <option value="Comércio">Comércio</option>
+              <option value="Indústria">Indústria</option>
               <option value="Ambos">Ambos</option>
             </select>
           </div>
