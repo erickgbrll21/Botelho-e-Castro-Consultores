@@ -34,6 +34,7 @@ async function updateCliente(formData: FormData) {
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
   const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const ativo = formData.get("ativo") === "Sim";
 
   const responsavel_comercial = String(formData.get("responsavel_comercial") ?? "").trim();
   const responsavel_contabil = String(formData.get("responsavel_contabil") ?? "").trim();
@@ -84,6 +85,7 @@ async function updateCliente(formData: FormData) {
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
       valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      ativo,
     })
     .eq("id", id);
 
@@ -261,6 +263,17 @@ export default async function EditClientePage({
                       {grupo.nome}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Status do Cliente</label>
+                <select
+                  name="ativo"
+                  defaultValue={cliente.ativo !== false ? "Sim" : "Não"}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                >
+                  <option value="Sim">Ativo</option>
+                  <option value="Não">Desativado</option>
                 </select>
               </div>
             </div>

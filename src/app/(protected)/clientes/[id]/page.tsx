@@ -101,6 +101,10 @@ export default async function ClienteDetalhe({
               </h1>
               <div className="flex gap-2 shrink-0">
                 <Pill label={cliente.tipo_unidade ?? "—"} tone="neutral" />
+                <Pill 
+                  label={cliente.ativo !== false ? "Ativo" : "Desativado"} 
+                  tone={cliente.ativo !== false ? "success" : "critical"} 
+                />
                 {["admin", "diretor", "financeiro"].includes(profile?.tipo_usuario as string) && (
                   <a
                     href={`/clientes/${id}/edit`}

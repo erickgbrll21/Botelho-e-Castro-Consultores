@@ -79,6 +79,7 @@ export interface Database {
           contato_nome: string | null
           contato_telefone: string | null
           valor_contrato: number | null
+          ativo: boolean
           created_at: string
         }
         Insert: {
@@ -104,6 +105,7 @@ export interface Database {
           contato_nome?: string | null
           contato_telefone?: string | null
           valor_contrato?: number | null
+          ativo?: boolean
           created_at?: string
         }
         Update: {
@@ -129,6 +131,7 @@ export interface Database {
           contato_nome?: string | null
           contato_telefone?: string | null
           valor_contrato?: number | null
+          ativo?: boolean
           created_at?: string
         }
       }

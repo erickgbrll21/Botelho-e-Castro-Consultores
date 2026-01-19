@@ -99,6 +99,7 @@ async function createCliente(formData: FormData) {
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
       valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      ativo: true,
     })
     .select("id")
     .maybeSingle();
@@ -746,7 +747,10 @@ export default async function ClientesPage({
               {clientes.map((cliente) => (
                 <tr key={cliente.id} className="align-top">
                   <td className="py-4 pr-4">
-                    <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} title={cliente.ativo !== false ? 'Ativo' : 'Desativado'} />
+                      <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
+                    </div>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
                   </td>
                   <td className="py-4 pr-4 text-neutral-300 hidden md:table-cell">

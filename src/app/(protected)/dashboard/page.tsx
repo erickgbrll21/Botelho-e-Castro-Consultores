@@ -168,7 +168,11 @@ export default async function DashboardPage({
                         </h3>
                         <p className="text-[10px] md:text-xs text-neutral-500 truncate">{cliente.cnpj}</p>
                       </div>
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex gap-1">
+                        <Pill
+                          label={cliente.ativo !== false ? "A" : "I"}
+                          tone={cliente.ativo !== false ? "success" : "critical"}
+                        />
                         <Pill
                           label={cliente.tipo_unidade ?? "—"}
                           tone="neutral"
