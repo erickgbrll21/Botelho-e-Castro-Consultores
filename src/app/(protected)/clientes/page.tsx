@@ -154,6 +154,7 @@ async function createGrupo(formData: FormData) {
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
   const nome = String(formData.get("nome") ?? "").trim();
+  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
 
   if (!nome) {
     throw new Error("Nome do grupo é obrigatório.");
@@ -161,7 +162,34 @@ async function createGrupo(formData: FormData) {
 
   const { error } = await (supabase.from("grupos_economicos") as any).insert({
     nome,
+    valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
   });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await revalidatePath("/clientes");
+}
+
+async function updateGrupo(formData: FormData) {
+  "use server";
+  await requireAdminProfile();
+  const supabase = await createSupabaseServerClient();
+  const id = String(formData.get("grupo_id"));
+  const nome = String(formData.get("nome") ?? "").trim();
+  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+
+  if (!id || !nome) {
+    throw new Error("ID e nome do grupo são obrigatórios.");
+  }
+
+  const { error } = await (supabase.from("grupos_economicos") as any)
+    .update({
+      nome,
+      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+    })
+    .eq("id", id);
 
   if (error) {
     throw new Error(error.message);
@@ -232,7 +260,7 @@ export default async function ClientesPage({
 
   const { data: gruposData } = await supabase
     .from("grupos_economicos")
-    .select("id, nome, descricao")
+    .select("id, nome, descricao, valor_contrato")
     .order("nome", { ascending: true });
   const grupos: any[] = gruposData ?? [];
 
@@ -670,8 +698,8 @@ export default async function ClientesPage({
         action={<Pill label="Gestão de grupos" tone="neutral" />}
         className="overflow-hidden"
       >
-        <form action={createGrupo} className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="flex-1 space-y-2">
+        <form action={createGrupo} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <div className="space-y-2">
             <label className="text-sm text-neutral-300">Nome do grupo *</label>
             <input
               name="nome"
@@ -680,10 +708,20 @@ export default async function ClientesPage({
               placeholder="Ex.: Grupo XPTO"
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
+            <input
+              name="valor_contrato"
+              type="number"
+              step="0.01"
+              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              placeholder="R$ 0,00"
+            />
+          </div>
           <div className="flex items-end">
             <button
               type="submit"
-              className="w-full sm:w-auto rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              className="w-full rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
             >
               Adicionar grupo
             </button>
@@ -695,6 +733,7 @@ export default async function ClientesPage({
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Nome do Grupo</th>
+                <th className="py-3 pr-4 font-medium">Valor do Contrato</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
@@ -703,6 +742,9 @@ export default async function ClientesPage({
                 <tr key={grupo.id}>
                   <td className="py-3 pr-4 font-semibold text-neutral-50">
                     {grupo.nome}
+                  </td>
+                  <td className="py-3 pr-4 text-neutral-300">
+                    {grupo.valor_contrato ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.valor_contrato) : "—"}
                   </td>
                   <td className="py-3 pr-4 text-right">
                     <form action={deleteGrupo} className="inline">

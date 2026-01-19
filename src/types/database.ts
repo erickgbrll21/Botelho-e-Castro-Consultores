@@ -40,18 +40,21 @@ export interface Database {
           id: string
           nome: string
           descricao: string | null
+          valor_contrato: number | null
           created_at: string
         }
         Insert: {
           id?: string
           nome: string
           descricao?: string | null
+          valor_contrato?: number | null
           created_at?: string
         }
         Update: {
           id?: string
           nome?: string
           descricao?: string | null
+          valor_contrato?: number | null
           created_at?: string
         }
       }

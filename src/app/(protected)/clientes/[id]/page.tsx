@@ -46,7 +46,7 @@ export default async function ClienteDetalhe({
     .from("clientes")
     .select(`
       *,
-      grupos_economicos ( nome ),
+      grupos_economicos ( nome, valor_contrato ),
       responsaveis_internos (*),
       servicos_contratados (*),
       quadro_socios (*)
@@ -63,6 +63,7 @@ export default async function ClienteDetalhe({
   const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || 
                     (typeof cliente.grupo_economico === 'string' ? cliente.grupo_economico : null) || 
                     "Sem grupo vinculado";
+  const grupoValorContrato = Array.isArray(gruposRel) ? gruposRel[0]?.valor_contrato : gruposRel?.valor_contrato;
   const responsaveis = (cliente.responsaveis_internos && Array.isArray(cliente.responsaveis_internos)) 
     ? cliente.responsaveis_internos[0] 
     : (cliente.responsaveis_internos || {});
@@ -161,11 +162,21 @@ export default async function ClienteDetalhe({
                   </p>
                 </div>
                 {showContractValue && (
-                  <div>
-                    <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
-                    <p className="text-2xl font-semibold text-amber-200">
-                      {formatCurrency(cliente.valor_contrato)}
-                    </p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
+                      <p className="text-2xl font-semibold text-amber-200">
+                        {formatCurrency(cliente.valor_contrato)}
+                      </p>
+                    </div>
+                    {grupoValorContrato && (
+                      <div className="border-t border-neutral-800/50 pt-2">
+                        <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Valor do Grupo ({grupoNome})</p>
+                        <p className="text-lg font-medium text-amber-100/80">
+                          {formatCurrency(grupoValorContrato)}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
