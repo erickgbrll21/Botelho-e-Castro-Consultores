@@ -117,7 +117,7 @@ export default async function DashboardPage({
       <div className="card-grid">
         <Card title="Clientes ativos">
           <p className="text-3xl font-semibold">{clientes.length}</p>
-          <p className="text-xs text-neutral-400">Com acesso concedido</p>
+          <p className="text-xs text-neutral-400">Total de clientes no sistema</p>
         </Card>
         <Card title="Grupos ativos">
           <p className="text-3xl font-semibold">{totalGrupos}</p>

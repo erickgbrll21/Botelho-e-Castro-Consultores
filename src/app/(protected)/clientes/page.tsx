@@ -254,6 +254,7 @@ export default async function ClientesPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
+  const isAdmin = profile && ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
   const { q, grupo: grupoFiltro, editGrupo: editGrupoId } = await searchParams;
@@ -324,7 +325,7 @@ export default async function ClientesPage({
           </p>
           <h1 className="text-3xl font-semibold">Cadastro e consulta</h1>
           <p className="text-neutral-400">
-            Administradores podem cadastrar; usuários veem apenas clientes permitidos.
+            Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
           </p>
         </div>
         <form className="flex items-center gap-2">
@@ -355,360 +356,362 @@ export default async function ClientesPage({
         </form>
       </div>
 
-      <Card
-        title="Cadastrar novo cliente (apenas administradores)"
-        className="border-amber-500/30"
-        action={<Pill label="Restrito a admins" tone="critical" />}
-      >
-        <form action={createCliente} className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Razão social *</label>
-            <input
-              name="razao_social"
-              required
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">CNPJ *</label>
-            <input
-              name="cnpj"
-              required
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="00.000.000/0000-00"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Domínio</label>
-            <input
-              name="dominio"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Ex.: bcconsultores.adv.br"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Grupo Econômico</label>
-            <select
-              name="grupo_id"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              defaultValue=""
-            >
-              <option value="">Selecionar grupo cadastrado</option>
-              {grupos.map((grupo) => (
-                <option key={grupo.id} value={grupo.id}>
-                  {grupo.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Unidade (Matriz/Filial)</label>
-            <select
-              name="tipo_unidade"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            >
-              <option value="">Selecionar</option>
-              <option value="Matriz">Matriz</option>
-              <option value="Filial">Filial</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Cidade</label>
-            <input
-              name="cidade"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Estado (UF)</label>
-            <input
-              name="estado"
-              maxLength={2}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Ex.: SP"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Atividade</label>
-            <select
-              name="atividade"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            >
-              <option value="">Selecionar</option>
-              <option value="Serviço">Serviço</option>
-              <option value="Comércio">Comércio</option>
-              <option value="Indústria">Indústria</option>
-              <option value="Ambos">Ambos</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Constituição</label>
-            <select
-              name="constituicao"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            >
-              <option value="Sim">Sim</option>
-              <option value="Não">Não</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Inscrição Estadual</label>
-            <input
-              name="inscricao_estadual"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Inscrição Municipal</label>
-            <input
-              name="inscricao_municipal"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">
-              Sócio responsável PJ
-            </label>
-            <input
-              name="socio_responsavel_pj"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">
-              Nome do Sócio (Quadro de Sócios)
-            </label>
-            <input
-              name="socio_nome"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Ex.: João Silva"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">
-              Participação do Sócio (%)
-            </label>
-            <input
-              name="socio_percentual"
-              type="number"
-              min="0"
-              max="100"
-              defaultValue="100"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Capital social</label>
-            <input
-              name="capital_social"
-              type="number"
-              min="0"
-              step="1000"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          {showContractValue && (
-            <>
-              <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
-                <input
-                  name="valor_contrato"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                  placeholder="R$ 0,00"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Cobrança por Grupo?</label>
-                <select
-                  name="cobranca_por_grupo"
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                >
-                  <option value="Não">Não</option>
-                  <option value="Sim">Sim</option>
-                </select>
-              </div>
-            </>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Data de abertura</label>
-            <input
-              name="data_abertura_cliente"
-              type="date"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Entrada na contabilidade</label>
-            <input
-              name="data_entrada_contabilidade"
-              type="date"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Regime tributário</label>
-            <input
-              name="regime_tributario"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Simples, Lucro Presumido, Lucro Real..."
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Pessoa de contato</label>
-            <input
-              name="contato_nome"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Nome do contato"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Telefone de contato</label>
-            <input
-              name="contato_telefone"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="(00) 00000-0000"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável comercial (quem fechou)</label>
-            <input
-              name="responsavel_comercial"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Ex.: Dr. Otávio"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável Fiscal</label>
-            <input
-              name="responsavel_fiscal"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Nome do responsável"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável contábil</label>
-            <input
-              name="responsavel_contabil"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável jurídico</label>
-            <input
-              name="responsavel_juridico"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">
-              Planejamento tributário
-            </label>
-            <input
-              name="responsavel_planejamento_tributario"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável Depto. Pessoal</label>
-            <input
-              name="responsavel_dp"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Nome do responsável"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Responsável Financeiro</label>
-            <input
-              name="responsavel_financeiro"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Nome do responsável"
-            />
-          </div>
-
-          <div className="md:col-span-2 space-y-4 border-t border-neutral-800 pt-4">
-            <p className="font-semibold text-neutral-200">Serviços Contratados</p>
-            
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-amber-500 uppercase tracking-wider">1. Serviço Contábil</p>
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="contabil_fiscal" className="accent-amber-500 h-4 w-4" />
-                    Fiscal
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="contabil_contabilidade" className="accent-amber-500 h-4 w-4" />
-                    Contabilidade
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="contabil_dp" className="accent-amber-500 h-4 w-4" />
-                    Departamento Pessoal
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="contabil_pericia" className="accent-amber-500 h-4 w-4" />
-                    Perícia
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="contabil_legalizacao" className="accent-amber-500 h-4 w-4" />
-                    Legalização
-                  </label>
+      {isAdmin && (
+        <Card
+          title="Cadastrar novo cliente (apenas administradores)"
+          className="border-amber-500/30"
+          action={<Pill label="Restrito a admins" tone="critical" />}
+        >
+          <form action={createCliente} className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Razão social *</label>
+              <input
+                name="razao_social"
+                required
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">CNPJ *</label>
+              <input
+                name="cnpj"
+                required
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="00.000.000/0000-00"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Domínio</label>
+              <input
+                name="dominio"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Ex.: bcconsultores.adv.br"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Grupo Econômico</label>
+              <select
+                name="grupo_id"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                defaultValue=""
+              >
+                <option value="">Selecionar grupo cadastrado</option>
+                {grupos.map((grupo) => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Unidade (Matriz/Filial)</label>
+              <select
+                name="tipo_unidade"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              >
+                <option value="">Selecionar</option>
+                <option value="Matriz">Matriz</option>
+                <option value="Filial">Filial</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Cidade</label>
+              <input
+                name="cidade"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Estado (UF)</label>
+              <input
+                name="estado"
+                maxLength={2}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Ex.: SP"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Atividade</label>
+              <select
+                name="atividade"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              >
+                <option value="">Selecionar</option>
+                <option value="Serviço">Serviço</option>
+                <option value="Comércio">Comércio</option>
+                <option value="Indústria">Indústria</option>
+                <option value="Ambos">Ambos</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Constituição</label>
+              <select
+                name="constituicao"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              >
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Inscrição Estadual</label>
+              <input
+                name="inscricao_estadual"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Inscrição Municipal</label>
+              <input
+                name="inscricao_municipal"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">
+                Sócio responsável PJ
+              </label>
+              <input
+                name="socio_responsavel_pj"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">
+                Nome do Sócio (Quadro de Sócios)
+              </label>
+              <input
+                name="socio_nome"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Ex.: João Silva"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">
+                Participação do Sócio (%)
+              </label>
+              <input
+                name="socio_percentual"
+                type="number"
+                min="0"
+                max="100"
+                defaultValue="100"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Capital social</label>
+              <input
+                name="capital_social"
+                type="number"
+                min="0"
+                step="1000"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            {showContractValue && (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
+                  <input
+                    name="valor_contrato"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    placeholder="R$ 0,00"
+                  />
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-blue-500 uppercase tracking-wider">2. Jurídico</p>
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="juridico_civel" className="accent-blue-500 h-4 w-4" />
-                    Cível
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="juridico_trabalhista" className="accent-blue-500 h-4 w-4" />
-                    Trabalhista
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="juridico_licitacao" className="accent-blue-500 h-4 w-4" />
-                    Licitação
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="juridico_penal" className="accent-blue-500 h-4 w-4" />
-                    Penal
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="juridico_empresarial" className="accent-blue-500 h-4 w-4" />
-                    Empresarial
-                  </label>
+                <div className="space-y-2">
+                  <label className="text-sm text-neutral-300">Cobrança por Grupo?</label>
+                  <select
+                    name="cobranca_por_grupo"
+                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                  >
+                    <option value="Não">Não</option>
+                    <option value="Sim">Sim</option>
+                  </select>
                 </div>
-              </div>
+              </>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Data de abertura</label>
+              <input
+                name="data_abertura_cliente"
+                type="date"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Entrada na contabilidade</label>
+              <input
+                name="data_entrada_contabilidade"
+                type="date"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Regime tributário</label>
+              <input
+                name="regime_tributario"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Simples, Lucro Presumido, Lucro Real..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Pessoa de contato</label>
+              <input
+                name="contato_nome"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Nome do contato"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Telefone de contato</label>
+              <input
+                name="contato_telefone"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="(00) 00000-0000"
+              />
+            </div>
 
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-emerald-500 uppercase tracking-wider">3. Planejamento</p>
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                    <input type="checkbox" name="planejamento_societario_tributario" className="accent-emerald-500 h-4 w-4" />
-                    Societário e Tributário
-                  </label>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável comercial (quem fechou)</label>
+              <input
+                name="responsavel_comercial"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Ex.: Dr. Otávio"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável Fiscal</label>
+              <input
+                name="responsavel_fiscal"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Nome do responsável"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável contábil</label>
+              <input
+                name="responsavel_contabil"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável jurídico</label>
+              <input
+                name="responsavel_juridico"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">
+                Planejamento tributário
+              </label>
+              <input
+                name="responsavel_planejamento_tributario"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável Depto. Pessoal</label>
+              <input
+                name="responsavel_dp"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Nome do responsável"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Responsável Financeiro</label>
+              <input
+                name="responsavel_financeiro"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Nome do responsável"
+              />
+            </div>
+
+            <div className="md:col-span-2 space-y-4 border-t border-neutral-800 pt-4">
+              <p className="font-semibold text-neutral-200">Serviços Contratados</p>
+              
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-amber-500 uppercase tracking-wider">1. Serviço Contábil</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="contabil_fiscal" className="accent-amber-500 h-4 w-4" />
+                      Fiscal
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="contabil_contabilidade" className="accent-amber-500 h-4 w-4" />
+                      Contabilidade
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="contabil_dp" className="accent-amber-500 h-4 w-4" />
+                      Departamento Pessoal
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="contabil_pericia" className="accent-amber-500 h-4 w-4" />
+                      Perícia
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="contabil_legalizacao" className="accent-amber-500 h-4 w-4" />
+                      Legalização
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-blue-500 uppercase tracking-wider">2. Jurídico</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="juridico_civel" className="accent-blue-500 h-4 w-4" />
+                      Cível
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="juridico_trabalhista" className="accent-blue-500 h-4 w-4" />
+                      Trabalhista
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="juridico_licitacao" className="accent-blue-500 h-4 w-4" />
+                      Licitação
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="juridico_penal" className="accent-blue-500 h-4 w-4" />
+                      Penal
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="juridico_empresarial" className="accent-blue-500 h-4 w-4" />
+                      Empresarial
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-emerald-500 uppercase tracking-wider">3. Planejamento</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="planejamento_societario_tributario" className="accent-emerald-500 h-4 w-4" />
+                      Societário e Tributário
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="md:col-span-2 flex items-end pt-4">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-            >
-              Cadastrar cliente
-            </button>
-          </div>
-        </form>
-      </Card>
+            <div className="md:col-span-2 flex items-end pt-4">
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                Cadastrar cliente
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
 
       <Card
         title={editingGrupo ? `Editar Grupo: ${editingGrupo.nome}` : "Grupos de clientes"}
@@ -723,46 +726,48 @@ export default async function ClientesPage({
         }
         className="overflow-hidden"
       >
-        <form action={editingGrupo ? updateGrupo : createGrupo} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-          {editingGrupo && <input type="hidden" name="grupo_id" value={editingGrupo.id} />}
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Nome do grupo *</label>
-            <input
-              name="nome"
-              required
-              defaultValue={editingGrupo?.nome ?? ""}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="Ex.: Grupo XPTO"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
-            <input
-              name="valor_contrato"
-              type="number"
-              step="0.01"
-              defaultValue={editingGrupo?.valor_contrato ?? ""}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              placeholder="R$ 0,00"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-            >
-              {editingGrupo ? "Salvar Alterações" : "Adicionar grupo"}
-            </button>
-          </div>
-        </form>
+        {isAdmin && (
+          <form action={editingGrupo ? updateGrupo : createGrupo} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            {editingGrupo && <input type="hidden" name="grupo_id" value={editingGrupo.id} />}
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Nome do grupo *</label>
+              <input
+                name="nome"
+                required
+                defaultValue={editingGrupo?.nome ?? ""}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Ex.: Grupo XPTO"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
+              <input
+                name="valor_contrato"
+                type="number"
+                step="0.01"
+                defaultValue={editingGrupo?.valor_contrato ?? ""}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="R$ 0,00"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              >
+                {editingGrupo ? "Salvar Alterações" : "Adicionar grupo"}
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Nome do Grupo</th>
-                <th className="py-3 pr-4 font-medium">Valor do Contrato</th>
-                <th className="py-3 pr-4 font-medium text-right">Ações</th>
+                {showContractValue && <th className="py-3 pr-4 font-medium">Valor do Contrato</th>}
+                {isAdmin && <th className="py-3 pr-4 font-medium text-right">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
@@ -771,31 +776,35 @@ export default async function ClientesPage({
                   <td className="py-3 pr-4 font-semibold text-neutral-50">
                     {grupo.nome}
                   </td>
-                  <td className="py-3 pr-4 text-neutral-300">
-                    {grupo.valor_contrato ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.valor_contrato) : "—"}
-                  </td>
-                  <td className="py-3 pr-4 text-right flex justify-end gap-2">
-                    <a
-                      href={`?editGrupo=${grupo.id}`}
-                      className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
-                    >
-                      Editar
-                    </a>
-                    <form action={deleteGrupo} className="inline">
-                      <input type="hidden" name="grupo_id" value={grupo.id} />
-                      <button
-                        type="submit"
-                        className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20"
+                  {showContractValue && (
+                    <td className="py-3 pr-4 text-neutral-300">
+                      {grupo.valor_contrato ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.valor_contrato) : "—"}
+                    </td>
+                  )}
+                  {isAdmin && (
+                    <td className="py-3 pr-4 text-right flex justify-end gap-2">
+                      <a
+                        href={`?editGrupo=${grupo.id}`}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
                       >
-                        Remover
-                      </button>
-                    </form>
-                  </td>
+                        Editar
+                      </a>
+                      <form action={deleteGrupo} className="inline">
+                        <input type="hidden" name="grupo_id" value={grupo.id} />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20"
+                        >
+                          Remover
+                        </button>
+                      </form>
+                    </td>
+                  )}
                 </tr>
               ))}
               {grupos.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-4 text-center text-neutral-400">
+                  <td colSpan={isAdmin ? (showContractValue ? 3 : 2) : (showContractValue ? 2 : 1)} className="py-4 text-center text-neutral-400">
                     Nenhum grupo cadastrado ainda.
                   </td>
                 </tr>
@@ -809,7 +818,7 @@ export default async function ClientesPage({
         title="Clientes"
         action={
           <p className="text-xs text-neutral-400">
-            Só administradores podem cadastrar e editar dados.
+            {isAdmin ? "Você tem permissão para cadastrar e editar dados." : "Visualização permitida para todos os usuários."}
           </p>
         }
         className="overflow-hidden"
@@ -852,10 +861,12 @@ export default async function ClientesPage({
                     >
                       Ver detalhes
                     </a>
-                    <DeleteClienteButton
-                      clienteId={cliente.id}
-                      action={deleteCliente}
-                    />
+                    {isAdmin && (
+                      <DeleteClienteButton
+                        clienteId={cliente.id}
+                        action={deleteCliente}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}
