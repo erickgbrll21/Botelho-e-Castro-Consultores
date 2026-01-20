@@ -252,6 +252,32 @@ export interface Database {
           created_at?: string
         }
       }
+      logs_sistema: {
+        Row: {
+          id: string
+          usuario_id: string
+          usuario_nome: string
+          acao: string
+          detalhes: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          usuario_id: string
+          usuario_nome: string
+          acao: string
+          detalhes?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          usuario_id?: string
+          usuario_nome?: string
+          acao?: string
+          detalhes?: Json | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

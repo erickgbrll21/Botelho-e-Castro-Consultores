@@ -9,6 +9,7 @@ import {
   BuildingOffice2Icon,
   UsersIcon,
   UserIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import type { UserRole } from "@/types/database";
 
@@ -20,6 +21,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   { href: "/clientes", label: "Clientes", icon: BuildingOffice2Icon },
   { href: "/usuarios", label: "Usuários", icon: UsersIcon, adminOnly: true },
+  { href: "/logs", label: "Logs do Sistema", icon: DocumentTextIcon, adminOnly: true },
   { href: "/perfil", label: "Meu Perfil", icon: UserIcon },
 ];
 

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
+import { registrarLog } from "@/lib/logs";
 
 async function updateCliente(formData: FormData) {
   "use server";
@@ -128,6 +129,12 @@ async function updateCliente(formData: FormData) {
       planejamento_societario_tributario,
     }, { onConflict: 'cliente_id' });
 
+  await registrarLog("Edição de Cliente", {
+    id,
+    razao_social,
+    cnpj,
+  });
+
   revalidatePath(`/clientes/${id}`);
   revalidatePath("/clientes");
   revalidatePath("/dashboard");
@@ -152,6 +159,8 @@ async function addSocio(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
+  await registrarLog("Adição de Sócio", { cliente_id, nome_socio, percentual_participacao });
+
   revalidatePath(`/clientes/${cliente_id}/edit`);
   revalidatePath(`/clientes/${cliente_id}`);
 }
@@ -166,6 +175,8 @@ async function removeSocio(formData: FormData) {
   const { error } = await (supabase.from("quadro_socios") as any).delete().eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  await registrarLog("Remoção de Sócio", { cliente_id, socio_id: id });
 
   revalidatePath(`/clientes/${cliente_id}/edit`);
   revalidatePath(`/clientes/${cliente_id}`);

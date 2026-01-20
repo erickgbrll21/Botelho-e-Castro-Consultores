@@ -4,6 +4,7 @@ import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
+import { registrarLog } from "@/lib/logs";
 
 async function createCliente(formData: FormData) {
   "use server";
@@ -148,6 +149,12 @@ async function createCliente(formData: FormData) {
     });
   }
 
+  await registrarLog("Cadastro de Cliente", {
+    razao_social,
+    cnpj,
+    id: cliente.id,
+  });
+
   await revalidatePath("/clientes");
 }
 
@@ -170,6 +177,8 @@ async function createGrupo(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registrarLog("Criação de Grupo", { nome, valor_contrato });
 
   await revalidatePath("/clientes");
 }
@@ -196,6 +205,8 @@ async function updateGrupo(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registrarLog("Edição de Grupo", { id, nome, valor_contrato });
 
   await revalidatePath("/clientes");
 }
@@ -225,6 +236,8 @@ async function deleteGrupo(formData: FormData) {
     throw new Error(error.message);
   }
 
+  await registrarLog("Exclusão de Grupo", { grupo_id });
+
   await revalidatePath("/clientes");
 }
 
@@ -242,6 +255,8 @@ async function deleteCliente(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registrarLog("Exclusão de Cliente", { cliente_id });
 
   await revalidatePath("/clientes");
   await revalidatePath("/dashboard");

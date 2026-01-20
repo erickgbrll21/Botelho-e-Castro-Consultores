@@ -8,6 +8,7 @@ import {
   requireAdminProfile,
 } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { registrarLog } from "@/lib/logs";
 
 async function createUser(formData: FormData) {
   "use server";
@@ -49,6 +50,8 @@ async function createUser(formData: FormData) {
     ativo: true,
   });
 
+  await registrarLog("Criação de Usuário", { email, nome, tipo_usuario });
+
   await revalidatePath("/usuarios");
 }
 
@@ -66,6 +69,8 @@ async function deleteUser(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registrarLog("Exclusão de Usuário", { user_id: userId });
 
   await revalidatePath("/usuarios");
 }
