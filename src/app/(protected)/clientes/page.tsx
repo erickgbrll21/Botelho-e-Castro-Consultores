@@ -735,9 +735,9 @@ export default async function ClientesPage({
             <a href="/clientes" className="text-xs text-neutral-400 hover:text-white transition-colors underline">
               Cancelar edição e criar novo
             </a>
-          ) : (
+          ) : isAdmin ? (
             <Pill label="Gestão de grupos" tone="neutral" />
-          )
+          ) : null
         }
         className="overflow-hidden"
       >
