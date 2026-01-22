@@ -4,6 +4,7 @@ import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
+import { ImportClientesButton } from "@/components/clientes/import-clientes-button";
 import { registrarLog } from "@/lib/logs";
 
 async function createCliente(formData: FormData) {
@@ -343,32 +344,35 @@ export default async function ClientesPage({
             Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
           </p>
         </div>
-        <form className="flex items-center gap-2">
-          <select
-            name="grupo"
-            defaultValue={grupoId}
-            className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-          >
-            <option value="">Todos os grupos</option>
-            {grupos.map((grupo) => (
-              <option key={grupo.id} value={grupo.id}>
-                {grupo.nome}
-              </option>
-            ))}
-          </select>
-          <input
-            name="q"
-            defaultValue={term}
-            placeholder="Buscar cliente..."
-            className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-          >
-            Buscar
-          </button>
-        </form>
+        <div className="flex flex-col gap-4">
+          {isAdmin && <ImportClientesButton grupos={grupos} />}
+          <form className="flex items-center gap-2">
+            <select
+              name="grupo"
+              defaultValue={grupoId}
+              className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+            >
+              <option value="">Todos os grupos</option>
+              {grupos.map((grupo) => (
+                <option key={grupo.id} value={grupo.id}>
+                  {grupo.nome}
+                </option>
+              ))}
+            </select>
+            <input
+              name="q"
+              defaultValue={term}
+              placeholder="Buscar cliente..."
+              className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+            >
+              Buscar
+            </button>
+          </form>
+        </div>
       </div>
 
       {isAdmin && (
