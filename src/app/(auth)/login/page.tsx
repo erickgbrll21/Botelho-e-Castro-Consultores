@@ -7,12 +7,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-5xl w-full flex flex-col md:flex-row gap-10 items-center justify-between">
         <div className="space-y-4 md:max-w-sm flex flex-col items-start">
-          <img
-            src={`/design-logo.svg?v=${Date.now()}`}
+          <Image
+            src="/design-logo.svg"
             alt="Design Complementar"
             width={280}
             height={80}
             className="h-auto w-full max-w-[280px] object-contain opacity-80"
+            priority
           />
           <Image
             src="/logo-bcc.svg"
