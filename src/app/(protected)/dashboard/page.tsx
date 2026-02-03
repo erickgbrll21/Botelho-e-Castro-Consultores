@@ -31,6 +31,13 @@ export default async function DashboardPage({
     .gte("created_at", startOfMonth.toISOString())
     .lt("created_at", startOfNextMonth.toISOString());
 
+  const { count: saidasMes } = await supabase
+    .from("clientes")
+    .select("id", { count: "exact", head: true })
+    .eq("ativo", false)
+    .gte("data_saida", startOfMonth.toISOString().split('T')[0])
+    .lt("data_saida", startOfNextMonth.toISOString().split('T')[0]);
+
   const clientesQuery = supabase
     .from("clientes")
     .select(
@@ -117,8 +124,10 @@ export default async function DashboardPage({
 
       <div className="card-grid">
         <Card title="Clientes ativos">
-          <p className="text-3xl font-semibold">{clientes.length}</p>
-          <p className="text-xs text-neutral-400">Total de clientes no sistema</p>
+          <p className="text-3xl font-semibold">
+            {clientes.filter((c) => c.ativo !== false).length}
+          </p>
+          <p className="text-xs text-neutral-400">Total de clientes ativos no sistema</p>
         </Card>
         <Card title="Grupos ativos">
           <p className="text-3xl font-semibold">{totalGrupos}</p>
@@ -127,7 +136,13 @@ export default async function DashboardPage({
         <Card title="Entradas de clientes (mês)">
           <p className="text-3xl font-semibold">{entradasMes ?? 0}</p>
           <p className="text-xs text-neutral-400">
-            Criadas desde o primeiro dia do mês atual
+            Novos cadastros no mês atual
+          </p>
+        </Card>
+        <Card title="Saída de clientes (mês)">
+          <p className="text-3xl font-semibold text-red-500">{saidasMes ?? 0}</p>
+          <p className="text-xs text-neutral-400">
+            Empresas desativadas no mês atual
           </p>
         </Card>
         <Card title="Serviços mais contratados">
