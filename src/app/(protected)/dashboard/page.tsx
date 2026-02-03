@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, UserGroupIcon, ChartPieIcon } from "@heroicons/react/24/outline";
 
 export default async function DashboardPage({
   searchParams,
@@ -123,23 +124,23 @@ export default async function DashboardPage({
           </div>
 
       <div className="card-grid">
-        <Card title="Clientes ativos">
+        <Card title="Clientes ativos" action={<UserGroupIcon className="h-4 w-4 text-emerald-500" />}>
           <p className="text-3xl font-semibold">
             {clientes.filter((c) => c.ativo !== false).length}
           </p>
           <p className="text-xs text-neutral-400">Total de clientes ativos no sistema</p>
         </Card>
-        <Card title="Grupos ativos">
+        <Card title="Grupos ativos" action={<ChartPieIcon className="h-4 w-4 text-blue-500" />}>
           <p className="text-3xl font-semibold">{totalGrupos}</p>
           <p className="text-xs text-neutral-400">Total de grupos cadastrados</p>
         </Card>
-        <Card title="Entradas de clientes (mês)">
+        <Card title="Entradas de clientes (mês)" action={<ArrowTrendingUpIcon className="h-4 w-4 text-emerald-500" />}>
           <p className="text-3xl font-semibold">{entradasMes ?? 0}</p>
           <p className="text-xs text-neutral-400">
             Novos cadastros no mês atual
           </p>
         </Card>
-        <Card title="Saída de clientes (mês)">
+        <Card title="Saída de clientes (mês)" action={<ArrowTrendingDownIcon className="h-4 w-4 text-red-500" />}>
           <p className="text-3xl font-semibold text-red-500">{saidasMes ?? 0}</p>
           <p className="text-xs text-neutral-400">
             Empresas desativadas no mês atual
