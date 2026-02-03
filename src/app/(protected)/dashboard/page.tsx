@@ -56,6 +56,7 @@ export default async function DashboardPage({
         data_entrada_contabilidade,
         data_saida,
         regime_tributario,
+        ativo,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),
         quadro_socios (nome_socio, percentual_participacao)
@@ -164,10 +165,13 @@ export default async function DashboardPage({
                   <div className="space-y-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white text-sm md:text-base">
-                          {cliente.razao_social}
-                        </h3>
-                        <p className="text-[10px] md:text-xs text-neutral-500 truncate">{cliente.cnpj}</p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                          <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white text-sm md:text-base">
+                            {cliente.razao_social}
+                          </h3>
+                        </div>
+                        <p className="text-[10px] md:text-xs text-neutral-500 truncate ml-3">{cliente.cnpj}</p>
                       </div>
                       <div className="shrink-0 flex gap-1">
                         <Pill

@@ -96,7 +96,8 @@ export default async function ClienteDetalhe({
             <BuildingOffice2Icon className="h-8 w-8 md:h-10 md:w-10 text-neutral-400" />
           </div>
           <div className="space-y-1 min-w-0 flex-1 w-full">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-3 mb-1">
+              <div className={`h-3 w-3 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} />
               <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white break-words max-w-full">
                 {cliente.razao_social}
               </h1>

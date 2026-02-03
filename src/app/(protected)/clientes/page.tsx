@@ -314,6 +314,7 @@ export default async function ClientesPage({
         contato_telefone,
         valor_contrato,
         cobranca_por_grupo,
+        ativo,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),
         created_at
@@ -857,7 +858,7 @@ export default async function ClientesPage({
                 <tr key={cliente.id} className="align-top">
                   <td className="py-4 pr-4">
                     <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} title={cliente.ativo !== false ? 'Ativo' : 'Desativado'} />
+                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} title={cliente.ativo !== false ? 'Ativo' : 'Desativado'} />
                       <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
                     </div>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
