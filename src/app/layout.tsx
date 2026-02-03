@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Botelho e Castro Consultores | Painel",
   description:
-    "Dashboard interno seguro para Botelho e Castro Consultores.",
+    "Dashboard interno Botelho e Castro Consultores.",
 };
 
 export default function RootLayout({

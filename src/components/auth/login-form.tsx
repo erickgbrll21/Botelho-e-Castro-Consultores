@@ -42,8 +42,7 @@ export function LoginForm() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Acessar painel</h1>
         <p className="text-sm text-neutral-400">
-          Use seu e-mail corporativo. Somente contas criadas por
-          administradores são aceitas.
+          Use seu e-mail corporativo.
         </p>
       </div>
 

@@ -75,8 +75,7 @@ export function Sidebar({ role }: SidebarProps) {
           })}
       </nav>
       <div className="mt-auto rounded-xl border border-neutral-800/80 bg-neutral-900/60 p-3 text-xs text-neutral-400">
-        Somente administradores podem criar usuários e clientes. Todos os dados
-        são protegidos por RLS no Supabase.
+        Todos os dados são protegidos por RLS no Supabase.
       </div>
     </aside>
   );

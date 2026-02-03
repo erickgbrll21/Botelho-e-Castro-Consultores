@@ -260,7 +260,7 @@ export default async function EditClientePage({
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Domínio</label>
+                <label className="text-sm text-neutral-300">ID do Domínio</label>
                 <input
                   name="dominio"
                   defaultValue={cliente.dominio}
