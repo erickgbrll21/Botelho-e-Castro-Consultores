@@ -32,14 +32,22 @@ export default async function DashboardPage({
     .gte("created_at", startOfMonth.toISOString())
     .lt("created_at", startOfNextMonth.toISOString());
 
+  // Contar clientes desativados no mês atual
+  // Busca todos os clientes desativados e filtra por data_saida no mês
   const inicioMes = startOfMonth.toISOString().slice(0, 10);
   const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
-  const { count: saidasMes } = await supabase
+  
+  const { data: clientesDesativados } = await supabase
     .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .eq("ativo", false)
-    .gte("data_saida", inicioMes)
-    .lt("data_saida", inicioProximoMes);
+    .select("id, data_saida")
+    .eq("ativo", false);
+  
+  // Contar quantos têm data_saida no mês atual
+  const saidasMes = (clientesDesativados as any[])?.filter((cliente: any) => {
+    if (!cliente.data_saida) return false;
+    const dataSaida = String(cliente.data_saida).slice(0, 10); // Garantir formato YYYY-MM-DD
+    return dataSaida >= inicioMes && dataSaida < inicioProximoMes;
+  }).length ?? 0;
 
   const clientesQuery = supabase
     .from("clientes")
