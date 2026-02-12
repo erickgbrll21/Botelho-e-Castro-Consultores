@@ -32,12 +32,14 @@ export default async function DashboardPage({
     .gte("created_at", startOfMonth.toISOString())
     .lt("created_at", startOfNextMonth.toISOString());
 
+  const inicioMes = startOfMonth.toISOString().slice(0, 10);
+  const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
   const { count: saidasMes } = await supabase
     .from("clientes")
     .select("id", { count: "exact", head: true })
     .eq("ativo", false)
-    .gte("data_saida", startOfMonth.toISOString().split('T')[0])
-    .lt("data_saida", startOfNextMonth.toISOString().split('T')[0]);
+    .gte("data_saida", inicioMes)
+    .lt("data_saida", inicioProximoMes);
 
   const clientesQuery = supabase
     .from("clientes")

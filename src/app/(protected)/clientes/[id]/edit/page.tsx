@@ -31,15 +31,17 @@ async function updateCliente(formData: FormData) {
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
     : null;
-  const data_saida = formData.get("data_saida")
-    ? String(formData.get("data_saida"))
-    : null;
+  const ativo = formData.get("ativo") === "Sim";
+  const dataSaidaForm = formData.get("data_saida")
+    ? String(formData.get("data_saida")).trim()
+    : "";
+  const data_saida =
+    dataSaidaForm || (ativo === false ? new Date().toISOString().slice(0, 10) : null);
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
   const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
   const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
-  const ativo = formData.get("ativo") === "Sim";
 
   const responsavel_comercial = String(formData.get("responsavel_comercial") ?? "").trim();
   const responsavel_contabil = String(formData.get("responsavel_contabil") ?? "").trim();
@@ -209,8 +211,20 @@ export default async function EditClientePage({
   }
 
   const cliente: any = dataCliente;
-  const responsaveis = cliente.responsaveis_internos?.[0] || {};
-  const servicos = cliente.servicos_contratados?.[0] || {};
+  const responsaveis = Array.isArray(cliente.responsaveis_internos)
+    ? (cliente.responsaveis_internos[0] ?? {})
+    : (cliente.responsaveis_internos ?? {});
+
+  // Buscar serviços diretamente para garantir que os checkboxes carreguem corretamente
+  const servicosEmbed = Array.isArray(cliente.servicos_contratados)
+    ? cliente.servicos_contratados[0]
+    : cliente.servicos_contratados;
+  const { data: servicosDireto } = await supabase
+    .from("servicos_contratados")
+    .select("*")
+    .eq("cliente_id", id)
+    .maybeSingle();
+  const servicos = servicosDireto ?? servicosEmbed ?? {};
   const socios = cliente.quadro_socios || [];
 
   const { data: gruposData } = await supabase
@@ -518,7 +532,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="contabil_fiscal" 
-                      defaultChecked={servicos.contabil_fiscal}
+                      defaultChecked={Boolean(servicos?.contabil_fiscal)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Fiscal</span>
@@ -527,7 +541,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="contabil_contabilidade" 
-                      defaultChecked={servicos.contabil_contabilidade}
+                      defaultChecked={Boolean(servicos?.contabil_contabilidade)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Contabilidade</span>
@@ -536,7 +550,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="contabil_dp" 
-                      defaultChecked={servicos.contabil_dp}
+                      defaultChecked={Boolean(servicos?.contabil_dp)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Depto. Pessoal</span>
@@ -545,7 +559,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="contabil_pericia" 
-                      defaultChecked={servicos.contabil_pericia}
+                      defaultChecked={Boolean(servicos?.contabil_pericia)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Perícia</span>
@@ -554,7 +568,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="contabil_legalizacao" 
-                      defaultChecked={servicos.contabil_legalizacao}
+                      defaultChecked={Boolean(servicos?.contabil_legalizacao)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Legalização</span>
@@ -569,7 +583,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="juridico_civel" 
-                      defaultChecked={servicos.juridico_civel}
+                      defaultChecked={Boolean(servicos?.juridico_civel)}
                       className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-blue-400 transition-colors">Cível</span>
@@ -578,7 +592,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="juridico_trabalhista" 
-                      defaultChecked={servicos.juridico_trabalhista}
+                      defaultChecked={Boolean(servicos?.juridico_trabalhista)}
                       className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-blue-400 transition-colors">Trabalhista</span>
@@ -587,7 +601,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="juridico_licitacao" 
-                      defaultChecked={servicos.juridico_licitacao}
+                      defaultChecked={Boolean(servicos?.juridico_licitacao)}
                       className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-blue-400 transition-colors">Licitação</span>
@@ -596,7 +610,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="juridico_penal" 
-                      defaultChecked={servicos.juridico_penal}
+                      defaultChecked={Boolean(servicos?.juridico_penal)}
                       className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-blue-400 transition-colors">Penal</span>
@@ -605,7 +619,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="juridico_empresarial" 
-                      defaultChecked={servicos.juridico_empresarial}
+                      defaultChecked={Boolean(servicos?.juridico_empresarial)}
                       className="accent-blue-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-blue-400 transition-colors">Empresarial</span>
@@ -620,7 +634,7 @@ export default async function EditClientePage({
                     <input 
                       type="checkbox" 
                       name="planejamento_societario_tributario" 
-                      defaultChecked={servicos.planejamento_societario_tributario}
+                      defaultChecked={Boolean(servicos?.planejamento_societario_tributario)}
                       className="accent-emerald-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-emerald-400 transition-colors">Societário e Tributário</span>

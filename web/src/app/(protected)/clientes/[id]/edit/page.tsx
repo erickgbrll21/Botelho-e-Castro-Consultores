@@ -31,15 +31,17 @@ async function updateCliente(formData: FormData) {
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
     : null;
-  const data_saida = formData.get("data_saida")
-    ? String(formData.get("data_saida"))
-    : null;
+  const ativo = formData.get("ativo") === "Sim";
+  const dataSaidaForm = formData.get("data_saida")
+    ? String(formData.get("data_saida")).trim()
+    : "";
+  const data_saida =
+    dataSaidaForm || (ativo === false ? new Date().toISOString().slice(0, 10) : null);
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
   const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
   const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
-  const ativo = formData.get("ativo") === "Sim";
 
   const responsavel_comercial = String(formData.get("responsavel_comercial") ?? "").trim();
   const responsavel_contabil = String(formData.get("responsavel_contabil") ?? "").trim();
@@ -212,9 +214,17 @@ export default async function EditClientePage({
   const responsaveis = Array.isArray(cliente.responsaveis_internos)
     ? (cliente.responsaveis_internos[0] ?? {})
     : (cliente.responsaveis_internos ?? {});
-  const servicos = Array.isArray(cliente.servicos_contratados)
-    ? (cliente.servicos_contratados[0] ?? {})
-    : (cliente.servicos_contratados ?? {});
+
+  // Buscar serviços diretamente para garantir que os checkboxes carreguem corretamente
+  const servicosEmbed = Array.isArray(cliente.servicos_contratados)
+    ? cliente.servicos_contratados[0]
+    : cliente.servicos_contratados;
+  const { data: servicosDireto } = await supabase
+    .from("servicos_contratados")
+    .select("*")
+    .eq("cliente_id", id)
+    .maybeSingle();
+  const servicos = servicosDireto ?? servicosEmbed ?? {};
   const socios = cliente.quadro_socios || [];
 
   const { data: gruposData } = await supabase
