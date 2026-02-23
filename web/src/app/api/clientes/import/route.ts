@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
       if (clientError || !cliente) {
         let errMsg = `Erro ao inserir ${razao_social}: ${clientError?.message || 'Erro desconhecido'}`;
         if (clientError?.code === '23505') {
-          errMsg = `Cliente "${razao_social}" já existe (CNPJ duplicado: ${cnpj}).`;
+          errMsg = `"${razao_social}": Este CNPJ já está sendo usado por outro cliente.`;
         }
         console.error(`[IMPORT] ${errMsg}`);
         errors.push(errMsg);

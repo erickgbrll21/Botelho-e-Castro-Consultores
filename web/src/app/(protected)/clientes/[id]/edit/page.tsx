@@ -69,6 +69,17 @@ async function updateCliente(formData: FormData) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
   }
 
+  // Verificar se o CNPJ já existe em outro cliente (evitar empresas_cnpj_key)
+  const { data: existente } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("cnpj", cnpj)
+    .neq("id", id)
+    .maybeSingle();
+  if (existente) {
+    throw new Error("Este CNPJ já está sendo usado por outro cliente.");
+  }
+
   const { error: updateError } = await (supabase
     .from("clientes") as any)
     .update({
@@ -99,6 +110,9 @@ async function updateCliente(formData: FormData) {
     .eq("id", id);
 
   if (updateError) {
+    if (updateError.code === "23505" && updateError.message?.includes("empresas_cnpj_key")) {
+      throw new Error("Este CNPJ já está sendo usado por outro cliente.");
+    }
     throw new Error(updateError.message);
   }
 

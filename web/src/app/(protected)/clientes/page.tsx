@@ -82,6 +82,15 @@ async function createCliente(formData: FormData) {
     throw new Error("Razão social e CNPJ são obrigatórios.");
   }
 
+  const { data: existente } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("cnpj", cnpj)
+    .maybeSingle();
+  if (existente) {
+    throw new Error("Este CNPJ já está sendo usado por outro cliente.");
+  }
+
   const { data: cliente, error } = await (supabase
     .from("clientes") as any)
     .insert({
@@ -113,6 +122,9 @@ async function createCliente(formData: FormData) {
     .maybeSingle();
 
   if (error || !cliente?.id) {
+    if (error?.code === "23505" && error?.message?.includes("empresas_cnpj_key")) {
+      throw new Error("Este CNPJ já está sendo usado por outro cliente.");
+    }
     throw new Error(error?.message ?? "Não foi possível criar a cliente.");
   }
 
