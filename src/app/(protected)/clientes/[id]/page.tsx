@@ -39,10 +39,8 @@ export default async function ClienteDetalhe({
 }) {
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
-  const profile = await getCurrentProfile();
-  const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
 
-  const { data: clienteData, error: clienteError } = await supabase
+  const clienteSelect = supabase
     .from("clientes")
     .select(`
       *,
@@ -53,6 +51,12 @@ export default async function ClienteDetalhe({
     `)
     .eq("id", id)
     .maybeSingle();
+
+  const [profile, { data: clienteData, error: clienteError }] = await Promise.all([
+    getCurrentProfile(),
+    clienteSelect,
+  ]);
+  const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
 
   if (!clienteData || clienteError) {
     notFound();
@@ -365,17 +369,38 @@ export default async function ClienteDetalhe({
           </Card>
 
           <Card title="Localização" action={<MapPinIcon className="h-4 w-4 text-neutral-500" />}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 border border-neutral-800">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-800 bg-neutral-900">
                 <MapPinIcon className="h-5 w-5 text-neutral-400" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-200">
+              <div className="min-w-0 space-y-1 text-sm">
+                {cliente.cep ? (
+                  <p className="text-neutral-400">
+                    CEP:{" "}
+                    <span className="font-medium text-neutral-200">
+                      {String(cliente.cep).replace(/\D/g, "").length === 8
+                        ? String(cliente.cep).replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2")
+                        : cliente.cep}
+                    </span>
+                  </p>
+                ) : null}
+                {(cliente.logradouro || cliente.bairro || cliente.complemento) ? (
+                  <p className="text-neutral-200">
+                    {[cliente.logradouro, cliente.complemento, cliente.bairro]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                <p className="font-semibold text-neutral-200">
                   {cliente.cidade ?? "Cidade não inf."}
+                  {cliente.estado ? ` / ${cliente.estado}` : ""}
                 </p>
-                <p className="text-xs text-neutral-500">
-                  {cliente.estado ? `Estado: ${cliente.estado}` : "UF não inf."}
-                </p>
+                {!cliente.cep &&
+                !cliente.logradouro &&
+                !cliente.cidade &&
+                !cliente.estado ? (
+                  <p className="text-xs text-neutral-500">Endereço não informado.</p>
+                ) : null}
               </div>
             </div>
           </Card>

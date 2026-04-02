@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export async function GET(req: NextRequest) {
+  const raw = req.nextUrl.searchParams.get("cnpj") ?? "";
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length !== 14) {
+    return NextResponse.json({ error: "CNPJ inválido" }, { status: 400 });
+  }
+
+  try {
+    const res = await fetch(`https://publica.cnpj.ws/cnpj/${digits}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: "Consulta indisponível" },
+        { status: res.status === 404 ? 404 : 502 }
+      );
+    }
+    const data: unknown = await res.json();
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: "Falha na consulta" }, { status: 502 });
+  }
+}

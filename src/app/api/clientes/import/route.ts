@@ -111,12 +111,17 @@ export async function POST(req: NextRequest) {
                           String(rawConstituicao).toLowerCase().trim() === "true" ||
                           rawConstituicao === true;
 
+      const rawCep = getValue(["CEP", "cep"], "");
+      const cepDigits = String(rawCep).replace(/\D/g, "");
+      const cepImport = cepDigits.length === 8 ? cepDigits : null;
+
       const { data: cliente, error: clientError } = await (supabase.from("clientes") as any)
         .insert({
           razao_social,
           cnpj,
           dominio: getValue(["Domínio"]),
           tipo_unidade,
+          cep: cepImport,
           cidade: getValue(["Cidade"]),
           estado: getValue(["UF"]),
           inscricao_estadual: getValue(["Insc. Estadual"]),

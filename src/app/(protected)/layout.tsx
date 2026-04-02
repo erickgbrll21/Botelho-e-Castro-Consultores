@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { SignOutButton } from "@/components/layout/sign-out-button";
-import { getCurrentProfile, requireSession } from "@/lib/auth";
+import { loadServerAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function ProtectedLayout({
@@ -10,8 +10,11 @@ export default async function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireSession();
-  const profile = await getCurrentProfile();
+  const { session, profile } = await loadServerAuth();
+
+  if (!session) {
+    redirect("/login");
+  }
 
   if (!profile) {
     // middleware já direciona, mas protegemos aqui também

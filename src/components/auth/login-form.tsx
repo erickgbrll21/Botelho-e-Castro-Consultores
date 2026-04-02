@@ -4,6 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+const SUPABASE_NETWORK_HINT =
+  "Não foi possível conectar ao Supabase. No .env.local use a URL https://…supabase.co e a chave publishable (sb_publishable_…) ou anon (eyJ…), nunca sb_secret_. Confira em Dashboard → Settings → API, reinicie npm run dev após mudar o .env e verifique se a rede não bloqueia *.supabase.co.";
+
+function isLikelyNetworkFailure(message: string | undefined) {
+  if (!message) return false;
+  return (
+    message === "Failed to fetch" ||
+    /network|fetch|load failed|networkerror/i.test(message)
+  );
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,16 +26,43 @@ export function LoginForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const supabase = createSupabaseBrowserClient();
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    let supabase;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Configuração do Supabase inválida."
+      );
+      return;
+    }
 
-    if (signInError) {
-      setError(signInError.message);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(
+          isLikelyNetworkFailure(signInError.message)
+            ? SUPABASE_NETWORK_HINT
+            : signInError.message
+        );
+        return;
+      }
+    } catch (err) {
+      const isNetwork =
+        err instanceof TypeError ||
+        (err instanceof Error && isLikelyNetworkFailure(err.message));
+      setError(
+        isNetwork
+          ? SUPABASE_NETWORK_HINT
+          : err instanceof Error
+            ? err.message
+            : "Erro ao entrar. Tente de novo."
+      );
       return;
     }
 

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
+import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 import { ImportClientesButton } from "@/components/clientes/import-clientes-button";
 import { registrarLog } from "@/lib/logs";
@@ -13,11 +14,18 @@ async function createCliente(formData: FormData) {
   const supabase = await createSupabaseServerClient();
 
   const razao_social = String(formData.get("razao_social") ?? "").trim();
-  const cnpj = String(formData.get("cnpj") ?? "").trim();
+  const cnpj = String(formData.get("cnpj") ?? "")
+    .replace(/\D/g, "")
+    .trim();
   const dominio = String(formData.get("dominio") ?? "").trim();
   const grupo_id = String(formData.get("grupo_id") ?? "").trim() || null;
   const tipo_unidade = formData.get("tipo_unidade") as "Matriz" | "Filial" | null;
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
+  const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
+  const cep = cepRaw.length === 8 ? cepRaw : null;
+  const logradouro = String(formData.get("logradouro") ?? "").trim() || null;
+  const bairro = String(formData.get("bairro") ?? "").trim() || null;
+  const complemento = String(formData.get("complemento") ?? "").trim() || null;
   const cidade = String(formData.get("cidade") ?? "").trim();
   const estado = String(formData.get("estado") ?? "").trim();
   const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Ambos" | null;
@@ -78,8 +86,8 @@ async function createCliente(formData: FormData) {
   const juridico_empresarial = formData.get("juridico_empresarial") === "on";
   const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
 
-  if (!razao_social || !cnpj) {
-    throw new Error("Razão social e CNPJ são obrigatórios.");
+  if (!razao_social || !cnpj || cnpj.length !== 14) {
+    throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
   }
 
   const { data: cliente, error } = await (supabase
@@ -91,6 +99,10 @@ async function createCliente(formData: FormData) {
       grupo_id: grupo_id || null,
       tipo_unidade,
       responsavel_fiscal: responsavel_fiscal || null,
+      cep,
+      logradouro,
+      bairro,
+      complemento,
       cidade: cidade || null,
       estado: estado || null,
       atividade,
@@ -277,13 +289,10 @@ export default async function ClientesPage({
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
 
-  const { data: gruposData } = await supabase
+  const gruposQuery = supabase
     .from("grupos_economicos")
     .select("id, nome, descricao, valor_contrato")
     .order("nome", { ascending: true });
-  const grupos: any[] = gruposData ?? [];
-
-  const editingGrupo = editGrupoId ? grupos.find(g => g.id === editGrupoId) : null;
 
   let clientesQuery = supabase
     .from("clientes")
@@ -295,6 +304,10 @@ export default async function ClientesPage({
         dominio,
         tipo_unidade,
         responsavel_fiscal,
+        cep,
+        logradouro,
+        bairro,
+        complemento,
         cidade,
         estado,
         atividade,
@@ -330,7 +343,12 @@ export default async function ClientesPage({
     clientesQuery = clientesQuery.eq("grupo_id", grupoId);
   }
 
-  const { data: dataClientes } = await clientesQuery;
+  const [{ data: gruposData }, { data: dataClientes }] = await Promise.all([
+    gruposQuery,
+    clientesQuery,
+  ]);
+  const grupos: any[] = gruposData ?? [];
+  const editingGrupo = editGrupoId ? grupos.find(g => g.id === editGrupoId) : null;
   const clientes: any[] = dataClientes ?? [];
 
   return (
@@ -382,22 +400,18 @@ export default async function ClientesPage({
           className="border-amber-500/30"
           action={<Pill label="Restrito a admins" tone="critical" />}
         >
-          <form action={createCliente} className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+          <form
+            id="cadastro-cliente-form"
+            action={createCliente}
+            className="grid gap-4 md:grid-cols-2"
+          >
+            <CnpjReceitaLookup formId="cadastro-cliente-form" />
+            <div className="space-y-2 md:col-span-2">
               <label className="text-sm text-neutral-300">Razão social *</label>
               <input
                 name="razao_social"
                 required
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-neutral-300">CNPJ *</label>
-              <input
-                name="cnpj"
-                required
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                placeholder="00.000.000/0000-00"
               />
             </div>
             <div className="space-y-2">
@@ -433,6 +447,41 @@ export default async function ClientesPage({
                 <option value="Matriz">Matriz</option>
                 <option value="Filial">Filial</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">CEP</label>
+              <input
+                name="cep"
+                type="text"
+                inputMode="numeric"
+                placeholder="00000-000"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm text-neutral-300">Logradouro</label>
+              <input
+                name="logradouro"
+                type="text"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                placeholder="Rua, avenida, número…"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Complemento</label>
+              <input
+                name="complemento"
+                type="text"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Bairro</label>
+              <input
+                name="bairro"
+                type="text"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm text-neutral-300">Cidade</label>

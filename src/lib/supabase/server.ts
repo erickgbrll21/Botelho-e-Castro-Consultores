@@ -6,7 +6,10 @@ import type { Database } from "@/types/database";
 
 function assertEnv(key: string, value: string | undefined) {
   if (!value) {
-    throw new Error(`Variável de ambiente ausente: ${key}`);
+    throw new Error(
+      `Variável de ambiente ausente: ${key}. ` +
+        "Crie .env.local na raiz do app (copie de .env.example) com URL e anon key do Supabase: Dashboard → Settings → API."
+    );
   }
   return value;
 }

@@ -1,33 +1,31 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import type { Tables, UserRole } from "@/types/database";
+import {
+  getSessionClearingStaleRefresh,
+  getUserClearingStaleRefresh,
+} from "./supabase/clear-stale-auth";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "./supabase/server";
 
-export async function requireSession(): Promise<Session> {
+export type CurrentProfile = Tables<"usuarios"> & { user: User };
+
+/**
+ * Uma única leitura de sessão + perfil por requisição RSC (layout + páginas),
+ * evitando várias idas ao Supabase ao trocar de aba.
+ */
+export const loadServerAuth = cache(async () => {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getSessionClearingStaleRefresh(supabase);
 
   if (!session) {
-    redirect("/login");
+    return { session: null as Session | null, profile: null as CurrentProfile | null };
   }
 
-  return session;
-}
-
-export async function getCurrentProfile(): Promise<
-  | (Tables<"usuarios"> & {
-      user: User;
-    })
-  | null
-> {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
+  const { user } = await getUserClearingStaleRefresh(supabase);
+  if (!user) {
+    return { session, profile: null as CurrentProfile | null };
+  }
 
   const { data: profile } = await supabase
     .from("usuarios")
@@ -35,9 +33,24 @@ export async function getCurrentProfile(): Promise<
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile) return null;
+  if (!profile) {
+    return { session, profile: null as CurrentProfile | null };
+  }
 
-  return { ...(profile as any), user };
+  return { session, profile: { ...(profile as any), user } };
+});
+
+export async function requireSession(): Promise<Session> {
+  const { session } = await loadServerAuth();
+  if (!session) {
+    redirect("/login");
+  }
+  return session;
+}
+
+export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+  const { profile } = await loadServerAuth();
+  return profile;
 }
 
 export async function requireAdminProfile() {

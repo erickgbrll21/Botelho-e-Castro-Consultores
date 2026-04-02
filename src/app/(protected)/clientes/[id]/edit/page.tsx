@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
+import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
@@ -12,11 +13,18 @@ async function updateCliente(formData: FormData) {
   const id = String(formData.get("id"));
 
   const razao_social = String(formData.get("razao_social") ?? "").trim();
-  const cnpj = String(formData.get("cnpj") ?? "").trim();
+  const cnpj = String(formData.get("cnpj") ?? "")
+    .replace(/\D/g, "")
+    .trim();
   const dominio = String(formData.get("dominio") ?? "").trim();
   const grupo_id = String(formData.get("grupo_id") ?? "").trim() || null;
   const tipo_unidade = formData.get("tipo_unidade") as "Matriz" | "Filial" | null;
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
+  const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
+  const cep = cepRaw.length === 8 ? cepRaw : null;
+  const logradouro = String(formData.get("logradouro") ?? "").trim() || null;
+  const bairro = String(formData.get("bairro") ?? "").trim() || null;
+  const complemento = String(formData.get("complemento") ?? "").trim() || null;
   const cidade = String(formData.get("cidade") ?? "").trim();
   const estado = String(formData.get("estado") ?? "").trim();
   const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Indústria" | "Ambos" | null;
@@ -65,8 +73,8 @@ async function updateCliente(formData: FormData) {
   const juridico_empresarial = formData.get("juridico_empresarial") === "on";
   const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
 
-  if (!razao_social || !cnpj) {
-    throw new Error("Razão social e CNPJ são obrigatórios.");
+  if (!razao_social || !cnpj || cnpj.length !== 14) {
+    throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
   }
 
   const { error: updateError } = await (supabase
@@ -78,6 +86,10 @@ async function updateCliente(formData: FormData) {
       grupo_id: grupo_id || null,
       tipo_unidade: tipo_unidade || null,
       responsavel_fiscal: responsavel_fiscal || null,
+      cep,
+      logradouro,
+      bairro,
+      complemento,
       cidade: cidade || null,
       estado: estado || null,
       atividade: atividade || null,
@@ -250,26 +262,21 @@ export default async function EditClientePage({
       </div>
 
       <div className="space-y-6">
-        <form action={updateCliente} className="space-y-6">
+        <form id="edit-cliente-form" action={updateCliente} className="space-y-6">
           <input type="hidden" name="id" value={id} />
           
           <Card title="Dados Básicos">
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
+              <CnpjReceitaLookup
+                formId="edit-cliente-form"
+                initialCnpj={cliente.cnpj}
+              />
+              <div className="space-y-2 md:col-span-2">
                 <label className="text-sm text-neutral-300">Razão Social *</label>
                 <input
                   name="razao_social"
                   required
                   defaultValue={cliente.razao_social}
-                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-neutral-300">CNPJ *</label>
-                <input
-                  name="cnpj"
-                  required
-                  defaultValue={cliente.cnpj}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>
@@ -311,7 +318,7 @@ export default async function EditClientePage({
           </Card>
 
           <Card title="Localização e Operação">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm text-neutral-300">Unidade</label>
                 <select
@@ -325,10 +332,51 @@ export default async function EditClientePage({
                 </select>
               </div>
             <div className="space-y-2">
+              <label className="text-sm text-neutral-300">CEP</label>
+              <input
+                name="cep"
+                type="text"
+                inputMode="numeric"
+                defaultValue={
+                  cliente.cep && String(cliente.cep).replace(/\D/g, "").length === 8
+                    ? String(cliente.cep).replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2")
+                    : cliente.cep ?? ""
+                }
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm text-neutral-300">Logradouro</label>
+              <input
+                name="logradouro"
+                type="text"
+                defaultValue={cliente.logradouro ?? ""}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Complemento</label>
+              <input
+                name="complemento"
+                type="text"
+                defaultValue={cliente.complemento ?? ""}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">Bairro</label>
+              <input
+                name="bairro"
+                type="text"
+                defaultValue={cliente.bairro ?? ""}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              />
+            </div>
+            <div className="space-y-2">
               <label className="text-sm text-neutral-300">Cidade</label>
               <input
                 name="cidade"
-                defaultValue={cliente.cidade}
+                defaultValue={cliente.cidade ?? ""}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />
             </div>
@@ -336,7 +384,7 @@ export default async function EditClientePage({
               <label className="text-sm text-neutral-300">Estado (UF)</label>
               <input
                 name="estado"
-                defaultValue={cliente.estado}
+                defaultValue={cliente.estado ?? ""}
                 maxLength={2}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
               />

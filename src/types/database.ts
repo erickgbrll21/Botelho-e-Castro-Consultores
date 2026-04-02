@@ -66,6 +66,10 @@ export interface Database {
           dominio: string | null
           tipo_unidade: "Matriz" | "Filial" | null
           responsavel_fiscal: string | null
+          cep: string | null
+          logradouro: string | null
+          bairro: string | null
+          complemento: string | null
           cidade: string | null
           estado: string | null
           atividade: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null
@@ -94,6 +98,10 @@ export interface Database {
           dominio?: string | null
           tipo_unidade?: "Matriz" | "Filial" | null
           responsavel_fiscal?: string | null
+          cep?: string | null
+          logradouro?: string | null
+          bairro?: string | null
+          complemento?: string | null
           cidade?: string | null
           estado?: string | null
           atividade?: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null
@@ -122,6 +130,10 @@ export interface Database {
           dominio?: string | null
           tipo_unidade?: "Matriz" | "Filial" | null
           responsavel_fiscal?: string | null
+          cep?: string | null
+          logradouro?: string | null
+          bairro?: string | null
+          complemento?: string | null
           cidade?: string | null
           estado?: string | null
           atividade?: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null

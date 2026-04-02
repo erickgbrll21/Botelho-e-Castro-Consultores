@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { Database } from "@/types/database";
+import { getSessionClearingStaleRefresh } from "@/lib/supabase/clear-stale-auth";
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({
@@ -43,9 +44,7 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getSessionClearingStaleRefresh(supabase);
 
   const isAuthRoute = req.nextUrl.pathname.startsWith("/login");
 

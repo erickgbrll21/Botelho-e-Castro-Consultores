@@ -13,41 +13,32 @@ export default async function DashboardPage({
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
 
-  const { data: gruposLista } = await supabase
-    .from("grupos_economicos")
-    .select("id, nome")
-    .order("nome", { ascending: true });
-  const gruposFiltro: any[] = gruposLista ?? [];
-  const totalGrupos = gruposLista?.length ?? 0;
-
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const startOfNextMonth = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
   );
+  const inicioMes = startOfMonth.toISOString().slice(0, 10);
+  const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
 
-  const { count: entradasMes } = await supabase
+  const gruposQuery = supabase
+    .from("grupos_economicos")
+    .select("id, nome")
+    .order("nome", { ascending: true });
+
+  const entradasQuery = supabase
     .from("clientes")
     .select("id", { count: "exact", head: true })
     .gte("created_at", startOfMonth.toISOString())
     .lt("created_at", startOfNextMonth.toISOString());
 
-  // Contar clientes desativados no mês atual
-  // Busca todos os clientes desativados e filtra por data_saida no mês
-  const inicioMes = startOfMonth.toISOString().slice(0, 10);
-  const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
-  
-  const { data: clientesDesativados } = await supabase
+  const saidasQuery = supabase
     .from("clientes")
-    .select("id, data_saida")
-    .eq("ativo", false);
-  
-  // Contar quantos têm data_saida no mês atual
-  const saidasMes = (clientesDesativados as any[])?.filter((cliente: any) => {
-    if (!cliente.data_saida) return false;
-    const dataSaida = String(cliente.data_saida).slice(0, 10); // Garantir formato YYYY-MM-DD
-    return dataSaida >= inicioMes && dataSaida < inicioProximoMes;
-  }).length ?? 0;
+    .select("id", { count: "exact", head: true })
+    .eq("ativo", false)
+    .not("data_saida", "is", null)
+    .gte("data_saida", inicioMes)
+    .lt("data_saida", inicioProximoMes);
 
   const clientesQuery = supabase
     .from("clientes")
@@ -59,6 +50,10 @@ export default async function DashboardPage({
         dominio,
         tipo_unidade,
         responsavel_fiscal,
+        cep,
+        logradouro,
+        bairro,
+        complemento,
         cidade,
         estado,
         atividade,
@@ -90,7 +85,16 @@ export default async function DashboardPage({
     finalQuery = finalQuery.eq("grupo_id", grupoId);
   }
 
-  const { data: dataClientes } = await finalQuery;
+  const [
+    { data: gruposLista },
+    { count: entradasMes },
+    { count: saidasMesCount },
+    { data: dataClientes },
+  ] = await Promise.all([gruposQuery, entradasQuery, saidasQuery, finalQuery]);
+
+  const gruposFiltro: any[] = gruposLista ?? [];
+  const totalGrupos = gruposLista?.length ?? 0;
+  const saidasMes = saidasMesCount ?? 0;
   const clientes: any[] = dataClientes ?? [];
 
   return (
