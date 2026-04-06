@@ -218,3 +218,106 @@ export function applyCnpjJsonToForm(form: HTMLFormElement, data: BrasilApiCnpjJs
     str("im");
   if (imVal) setInputValue(form, "inscricao_municipal", imVal);
 }
+
+/**
+ * Campos da tabela `clientes` a partir do JSON da BrasilAPI (atualização em lote).
+ * Não inclui domínio, grupo, valores de contrato ou situação operacional.
+ */
+export function mapBrasilApiJsonToClienteFields(
+  data: BrasilApiCnpjJson
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+
+  if (data.razao_social?.trim()) {
+    patch.razao_social = data.razao_social.trim();
+  }
+
+  const cepDigits = onlyDigits(data.cep ?? "").slice(0, 8);
+  if (cepDigits.length === 8) {
+    patch.cep = cepDigits;
+  }
+
+  const log = buildLogradouro(data);
+  if (log) patch.logradouro = log;
+
+  if (data.bairro?.trim()) patch.bairro = data.bairro.trim();
+  if (data.complemento?.trim()) patch.complemento = data.complemento.trim();
+
+  if (data.municipio?.trim()) {
+    patch.cidade = data.municipio
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  const uf = (data.uf ?? "").slice(0, 2).toUpperCase();
+  if (uf.length === 2) patch.estado = uf;
+
+  const tipo = tipoUnidadeFromApi(data);
+  if (tipo === "Matriz" || tipo === "Filial") {
+    patch.tipo_unidade = tipo;
+    if (tipo === "Matriz") {
+      patch.identificacao_filial = null;
+    }
+  }
+
+  const ativ = atividadeFromCnae(data.cnae_fiscal_descricao);
+  if (ativ) patch.atividade = ativ;
+
+  patch.constituicao = true;
+
+  if (
+    typeof data.capital_social === "number" &&
+    !Number.isNaN(data.capital_social)
+  ) {
+    patch.capital_social = data.capital_social;
+  }
+
+  if (data.data_inicio_atividade) {
+    patch.data_abertura_cliente = data.data_inicio_atividade;
+  }
+
+  const regime = latestRegime(data.regime_tributario);
+  if (regime) patch.regime_tributario = regime;
+
+  const tel =
+    formatPhoneBr(data.ddd_telefone_1) ||
+    formatPhoneBr(data.ddd_telefone_2);
+  if (tel) patch.contato_telefone = tel;
+
+  const fantasia = (data.nome_fantasia ?? "").trim();
+  if (fantasia) patch.contato_nome = fantasia;
+
+  const socios = data.qsa ?? [];
+  const pjSocio = socios.find(
+    (s) => onlyDigits(s.cnpj_cpf_do_socio ?? "").length === 14
+  );
+  if (pjSocio?.nome_socio?.trim()) {
+    patch.socio_responsavel_pj = pjSocio.nome_socio.trim();
+  }
+
+  const ext = data as Record<string, unknown>;
+  const str = (k: string) => {
+    const v = ext[k];
+    return typeof v === "string" && v.trim() ? v.trim() : "";
+  };
+  const ieVal =
+    data.inscricao_estadual?.trim() ||
+    str("inscricao_estadual") ||
+    str("inscrição_estadual") ||
+    str("numero_inscricao_estadual") ||
+    str("ie");
+  if (ieVal) patch.inscricao_estadual = ieVal;
+
+  const imVal =
+    data.inscricao_municipal?.trim() ||
+    str("inscricao_municipal") ||
+    str("inscrição_municipal") ||
+    str("numero_inscricao_municipal") ||
+    str("im");
+  if (imVal) patch.inscricao_municipal = imVal;
+
+  return patch;
+}

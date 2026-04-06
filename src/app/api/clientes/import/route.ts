@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
+import {
+  RESPONSAVEL_PADRAO_CONTABIL,
+  RESPONSAVEL_PADRAO_DP,
+  RESPONSAVEL_PADRAO_FINANCEIRO,
+} from "@/lib/responsaveis-padrao";
 
 export async function POST(req: NextRequest) {
   try {
@@ -69,6 +74,21 @@ export async function POST(req: NextRequest) {
                       tipo_unidade.includes("filial") ? "Filial" : null;
       }
 
+      let identificacao_filial = getValue(
+        [
+          "Identificação da filial",
+          "Identificacao filial",
+          "Código da filial",
+          "Codigo filial",
+          "Nº filial",
+        ],
+        null
+      );
+      identificacao_filial = identificacao_filial
+        ? String(identificacao_filial).trim() || null
+        : null;
+      if (tipo_unidade !== "Filial") identificacao_filial = null;
+
       // Normalizar Atividade
       let atividade = getValue(["Atividade"], null);
       if (atividade) {
@@ -121,6 +141,7 @@ export async function POST(req: NextRequest) {
           cnpj,
           dominio: getValue(["Domínio"]),
           tipo_unidade,
+          identificacao_filial,
           cep: cepImport,
           cidade: getValue(["Cidade"]),
           estado: getValue(["UF"]),
@@ -132,6 +153,7 @@ export async function POST(req: NextRequest) {
           constituicao,
           grupo_id,
           ativo: true,
+          situacao_empresa: "ativa",
         })
         .select("id")
         .single();
@@ -147,7 +169,12 @@ export async function POST(req: NextRequest) {
       }
 
       // Inserir tabelas vinculadas (essenciais para o funcionamento do sistema)
-      await (supabase.from("responsaveis_internos") as any).insert({ cliente_id: cliente.id });
+      await (supabase.from("responsaveis_internos") as any).insert({
+        cliente_id: cliente.id,
+        responsavel_financeiro: RESPONSAVEL_PADRAO_FINANCEIRO,
+        responsavel_dp: RESPONSAVEL_PADRAO_DP,
+        responsavel_contabil: RESPONSAVEL_PADRAO_CONTABIL,
+      });
       await (supabase.from("servicos_contratados") as any).insert({ cliente_id: cliente.id });
 
       importedCount++;

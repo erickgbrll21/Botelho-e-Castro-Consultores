@@ -5,6 +5,13 @@ import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
+import { messageFromSupabaseError } from "@/lib/supabase-errors";
+import { getSituacaoEmpresa, type SituacaoEmpresa } from "@/lib/cliente-situacao";
+import {
+  RESPONSAVEL_PADRAO_CONTABIL,
+  RESPONSAVEL_PADRAO_DP,
+  RESPONSAVEL_PADRAO_FINANCEIRO,
+} from "@/lib/responsaveis-padrao";
 
 async function updateCliente(formData: FormData) {
   "use server";
@@ -21,6 +28,11 @@ async function updateCliente(formData: FormData) {
   const tipoUnidadeRaw = String(formData.get("tipo_unidade") ?? "").trim();
   const tipo_unidade: "Matriz" | "Filial" | null =
     tipoUnidadeRaw === "" ? null : (tipoUnidadeRaw as "Matriz" | "Filial");
+  const identificacaoFilialRaw = String(
+    formData.get("identificacao_filial") ?? ""
+  ).trim();
+  const identificacao_filial =
+    tipo_unidade === "Filial" ? identificacaoFilialRaw || null : null;
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
   const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
   const cep = cepRaw.length === 8 ? cepRaw : null;
@@ -45,12 +57,19 @@ async function updateCliente(formData: FormData) {
   const data_entrada_contabilidade = formData.get("data_entrada_contabilidade")
     ? String(formData.get("data_entrada_contabilidade"))
     : null;
-  const ativo = formData.get("ativo") === "Sim";
+  const situacaoRaw = String(formData.get("situacao_empresa") ?? "").trim().toLowerCase();
+  const situacao_empresa: SituacaoEmpresa =
+    situacaoRaw === "paralisada" || situacaoRaw === "desativada" || situacaoRaw === "ativa"
+      ? situacaoRaw
+      : "ativa";
+  const ativo = situacao_empresa !== "desativada";
   const dataSaidaForm = formData.get("data_saida")
     ? String(formData.get("data_saida")).trim()
     : "";
   const data_saida =
-    dataSaidaForm || (ativo === false ? new Date().toISOString().slice(0, 10) : null);
+    situacao_empresa === "desativada"
+      ? dataSaidaForm || new Date().toISOString().slice(0, 10)
+      : dataSaidaForm || null;
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
@@ -91,6 +110,7 @@ async function updateCliente(formData: FormData) {
       dominio: dominio || null,
       grupo_id: grupo_id || null,
       tipo_unidade: tipo_unidade || null,
+      identificacao_filial,
       responsavel_fiscal: responsavel_fiscal || null,
       cep,
       logradouro,
@@ -113,11 +133,17 @@ async function updateCliente(formData: FormData) {
       valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
       cobranca_por_grupo,
       ativo,
+      situacao_empresa,
     })
     .eq("id", id);
 
   if (updateError) {
-    throw new Error(updateError.message);
+    throw new Error(
+      messageFromSupabaseError(
+        updateError,
+        "Não foi possível atualizar o cliente."
+      )
+    );
   }
 
   // Update responsaveis_internos
@@ -125,11 +151,11 @@ async function updateCliente(formData: FormData) {
     .upsert({
       cliente_id: id,
       responsavel_comercial: responsavel_comercial || null,
-      responsavel_contabil: responsavel_contabil || null,
+      responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
       responsavel_juridico: responsavel_juridico || null,
       responsavel_planejamento_tributario: responsavel_planejamento_tributario || null,
-      responsavel_dp: responsavel_dp || null,
-      responsavel_financeiro: responsavel_financeiro || null,
+      responsavel_dp: responsavel_dp || RESPONSAVEL_PADRAO_DP,
+      responsavel_financeiro: responsavel_financeiro || RESPONSAVEL_PADRAO_FINANCEIRO,
     }, { onConflict: 'cliente_id' });
 
   // Update servicos_contratados
@@ -310,15 +336,19 @@ export default async function EditClientePage({
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-neutral-300">Status do Cliente</label>
+                <label className="text-sm text-neutral-300">Situação da empresa</label>
                 <select
-                  name="ativo"
-                  defaultValue={cliente.ativo !== false ? "Sim" : "Não"}
+                  name="situacao_empresa"
+                  defaultValue={getSituacaoEmpresa(cliente)}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 >
-                  <option value="Sim">Ativo</option>
-                  <option value="Não">Desativado</option>
+                  <option value="ativa">Empresa ativa</option>
+                  <option value="paralisada">Empresa paralisada</option>
+                  <option value="desativada">Empresa desativada</option>
                 </select>
+                <p className="text-xs text-neutral-500">
+                  Paralisada indica operação suspensa temporariamente (destaque em amarelo no painel).
+                </p>
               </div>
             </div>
           </Card>
@@ -336,6 +366,21 @@ export default async function EditClientePage({
                   <option value="Matriz">Matriz</option>
                   <option value="Filial">Filial</option>
                 </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">
+                  Identificação da filial
+                </label>
+                <input
+                  name="identificacao_filial"
+                  defaultValue={cliente.identificacao_filial ?? ""}
+                  placeholder="Ex.: Filial 01, Filial 02"
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-neutral-100 focus:outline-none"
+                />
+                <p className="text-xs text-neutral-500">
+                  Preencha quando a unidade for Filial (exibido no card do
+                  dashboard).
+                </p>
               </div>
             <div className="space-y-2">
               <label className="text-sm text-neutral-300">CEP</label>

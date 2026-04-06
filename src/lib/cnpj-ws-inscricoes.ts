@@ -100,3 +100,47 @@ export async function fetchAndApplyInscricoesCnpjWs(
     // rede / CORS em teoria não ocorre no browser para esse host
   }
 }
+
+/** Para uso no servidor: IE/IM a partir do JSON de publica.cnpj.ws/cnpj/{cnpj} */
+export function extractInscricoesFromCnpjWsPayload(
+  payload: unknown,
+  ufForm: string
+): { inscricao_estadual: string | null; inscricao_municipal: string | null } {
+  const root = payload as Record<string, unknown>;
+  const est = root.estabelecimento as Record<string, unknown> | undefined;
+  if (!est) {
+    return { inscricao_estadual: null, inscricao_municipal: null };
+  }
+
+  const ufNorm = ufForm.trim().toUpperCase();
+  let ie: string | null = null;
+
+  const lista = est.inscricoes_estaduais as CnpjWsItemIe[] | undefined;
+  if (Array.isArray(lista) && lista.length > 0) {
+    const ufMatch = ufNorm
+      ? lista.find(
+          (x) =>
+            x.ativo !== false &&
+            String(x.estado?.sigla ?? "")
+              .trim()
+              .toUpperCase() === ufNorm
+        )
+      : undefined;
+    const chosen =
+      ufMatch ||
+      lista.find((x) => x.ativo !== false) ||
+      lista[0];
+    const raw = chosen?.inscricao_estadual;
+    if (raw != null && String(raw).trim()) {
+      ie = String(raw).trim();
+    }
+  }
+
+  const imRaw = pickMunicipal(est);
+  const im = imRaw ? imRaw.trim() : null;
+
+  return {
+    inscricao_estadual: ie,
+    inscricao_municipal: im && im.length > 0 ? im : null,
+  };
+}

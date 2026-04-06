@@ -1,6 +1,44 @@
+import clsx from "clsx";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getSituacaoEmpresa,
+  situacaoEmpresaLabels,
+  type SituacaoEmpresa,
+} from "@/lib/cliente-situacao";
+import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
+
+const situacaoCardUi: Record<
+  SituacaoEmpresa,
+  {
+    border: string;
+    card: string;
+    banner: string;
+    dot: string;
+  }
+> = {
+  ativa: {
+    border: "border-l-emerald-500",
+    card: "",
+    banner:
+      "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/35",
+    dot: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]",
+  },
+  paralisada: {
+    border: "border-l-amber-400",
+    card: "bg-amber-950/10 ring-1 ring-amber-500/30",
+    banner:
+      "bg-amber-500/20 text-amber-100 ring-1 ring-amber-500/45",
+    dot: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]",
+  },
+  desativada: {
+    border: "border-l-red-500",
+    card: "bg-red-950/15 ring-1 ring-red-500/25",
+    banner: "bg-red-500/20 text-red-100 ring-1 ring-red-500/40",
+    dot: "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.7)]",
+  },
+};
 import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, UserGroupIcon, ChartPieIcon } from "@heroicons/react/24/outline";
 
 export default async function DashboardPage({
@@ -49,6 +87,7 @@ export default async function DashboardPage({
         cnpj,
         dominio,
         tipo_unidade,
+        identificacao_filial,
         responsavel_fiscal,
         cep,
         logradouro,
@@ -70,6 +109,7 @@ export default async function DashboardPage({
         data_saida,
         regime_tributario,
         ativo,
+        situacao_empresa,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),
         quadro_socios (nome_socio, percentual_participacao)
@@ -184,32 +224,51 @@ export default async function DashboardPage({
               const gruposRel = cliente.grupos_economicos;
               const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || cliente.grupo_economico || "—";
               const responsaveis = cliente.responsaveis_internos?.[0];
-              const servicos = cliente.servicos_contratados?.[0];
+              const situacao = getSituacaoEmpresa(cliente);
+              const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
+              const ui = situacaoCardUi[situacao];
 
               return (
                 <a
                   key={cliente.id}
                   href={`/clientes/${cliente.id}`}
-                  className="glass-panel group flex flex-col justify-between rounded-2xl p-4 md:p-5 transition-all hover:border-neutral-100 hover:bg-neutral-900/50"
+                  aria-label={`${cliente.razao_social} — ${situacaoTitulo.toLowerCase()}`}
+                  className={clsx(
+                    "glass-panel group flex flex-col justify-between rounded-2xl border-l-[5px] p-4 md:p-5 transition-all hover:border-neutral-100 hover:bg-neutral-900/50",
+                    ui.border,
+                    ui.card
+                  )}
                 >
                   <div className="space-y-4">
+                    <div
+                      className={clsx(
+                        "flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wider sm:text-xs",
+                        ui.banner
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          "h-2 w-2 shrink-0 rounded-full",
+                          ui.dot
+                        )}
+                        aria-hidden
+                      />
+                      {situacaoTitulo}
+                    </div>
+
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                          <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white text-sm md:text-base">
-                            {cliente.razao_social}
-                          </h3>
-                        </div>
-                        <p className="text-[10px] md:text-xs text-neutral-500 truncate ml-3">{cliente.cnpj}</p>
+                        <h3 className="truncate font-semibold text-neutral-50 group-hover:text-white text-sm md:text-base">
+                          {cliente.razao_social}
+                        </h3>
+                        <p className="text-[10px] md:text-xs text-neutral-500 truncate">{cliente.cnpj}</p>
                       </div>
-                      <div className="shrink-0 flex gap-1">
+                      <div className="shrink-0 max-w-[min(140px,42%)]">
                         <Pill
-                          label={cliente.ativo !== false ? "A" : "I"}
-                          tone={cliente.ativo !== false ? "success" : "critical"}
-                        />
-                        <Pill
-                          label={cliente.tipo_unidade ?? "—"}
+                          label={labelTipoUnidadeExibicao(
+                            cliente.tipo_unidade,
+                            cliente.identificacao_filial
+                          )}
                           tone="neutral"
                         />
                       </div>
@@ -260,9 +319,11 @@ export default async function DashboardPage({
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
-                    <span className="truncate max-w-[100px]">{cliente.cidade ?? "Local não inf."}</span>
-                    <span className="opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100 shrink-0">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[9px] md:text-[10px] text-neutral-500 uppercase tracking-wider">
+                    <span className="min-w-0 max-w-[65%] truncate">
+                      {cliente.cidade ?? "Local não inf."}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100">
                       Ver detalhes →
                     </span>
                   </div>

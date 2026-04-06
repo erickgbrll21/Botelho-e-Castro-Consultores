@@ -65,6 +65,7 @@ export interface Database {
           cnpj: string
           dominio: string | null
           tipo_unidade: "Matriz" | "Filial" | null
+          identificacao_filial?: string | null
           responsavel_fiscal: string | null
           cep: string | null
           logradouro: string | null
@@ -89,6 +90,7 @@ export interface Database {
           valor_contrato: number | null
           cobranca_por_grupo: boolean
           ativo: boolean
+          situacao_empresa?: "ativa" | "paralisada" | "desativada"
           created_at: string
         }
         Insert: {
@@ -97,6 +99,7 @@ export interface Database {
           cnpj: string
           dominio?: string | null
           tipo_unidade?: "Matriz" | "Filial" | null
+          identificacao_filial?: string | null
           responsavel_fiscal?: string | null
           cep?: string | null
           logradouro?: string | null
@@ -121,6 +124,7 @@ export interface Database {
           valor_contrato?: number | null
           cobranca_por_grupo?: boolean
           ativo?: boolean
+          situacao_empresa?: "ativa" | "paralisada" | "desativada"
           created_at?: string
         }
         Update: {
@@ -129,6 +133,7 @@ export interface Database {
           cnpj?: string
           dominio?: string | null
           tipo_unidade?: "Matriz" | "Filial" | null
+          identificacao_filial?: string | null
           responsavel_fiscal?: string | null
           cep?: string | null
           logradouro?: string | null
@@ -153,6 +158,7 @@ export interface Database {
           valor_contrato?: number | null
           cobranca_por_grupo?: boolean
           ativo?: boolean
+          situacao_empresa?: "ativa" | "paralisada" | "desativada"
           created_at?: string
         }
       }

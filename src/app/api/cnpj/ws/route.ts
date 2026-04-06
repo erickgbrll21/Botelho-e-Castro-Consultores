@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FETCH_HEADERS_BROWSER_LIKE } from "@/lib/public-fetch-headers";
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("cnpj") ?? "";
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const res = await fetch(`https://publica.cnpj.ws/cnpj/${digits}`, {
-      headers: { Accept: "application/json" },
+      headers: { ...FETCH_HEADERS_BROWSER_LIKE },
       cache: "no-store",
     });
     if (!res.ok) {

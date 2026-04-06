@@ -6,8 +6,20 @@ import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/l
 import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 import { ImportClientesButton } from "@/components/clientes/import-clientes-button";
+import { SincronizarBrasilApiButton } from "@/components/clientes/sincronizar-brasilapi-button";
 import { registrarLog } from "@/lib/logs";
 import { formatDateTimePtBR } from "@/lib/format-date";
+import { messageFromSupabaseError } from "@/lib/supabase-errors";
+import {
+  RESPONSAVEL_PADRAO_CONTABIL,
+  RESPONSAVEL_PADRAO_DP,
+  RESPONSAVEL_PADRAO_FINANCEIRO,
+} from "@/lib/responsaveis-padrao";
+import {
+  getSituacaoEmpresa,
+  situacaoEmpresaLabels,
+  situacaoIndicatorClass,
+} from "@/lib/cliente-situacao";
 
 async function createCliente(formData: FormData) {
   "use server";
@@ -23,6 +35,11 @@ async function createCliente(formData: FormData) {
   const tipoUnidadeRaw = String(formData.get("tipo_unidade") ?? "").trim();
   const tipo_unidade: "Matriz" | "Filial" | null =
     tipoUnidadeRaw === "" ? null : (tipoUnidadeRaw as "Matriz" | "Filial");
+  const identificacaoFilialRaw = String(
+    formData.get("identificacao_filial") ?? ""
+  ).trim();
+  const identificacao_filial =
+    tipo_unidade === "Filial" ? identificacaoFilialRaw || null : null;
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
   const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
   const cep = cepRaw.length === 8 ? cepRaw : null;
@@ -106,6 +123,7 @@ async function createCliente(formData: FormData) {
       dominio: dominio || null,
       grupo_id: grupo_id || null,
       tipo_unidade,
+      identificacao_filial,
       responsavel_fiscal: responsavel_fiscal || null,
       cep,
       logradouro,
@@ -128,23 +146,28 @@ async function createCliente(formData: FormData) {
       valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
       cobranca_por_grupo,
       ativo: true,
+      situacao_empresa: "ativa",
     })
     .select("id")
     .maybeSingle();
 
   if (error || !cliente?.id) {
-    throw new Error(error?.message ?? "Não foi possível criar a cliente.");
+    throw new Error(
+      error
+        ? messageFromSupabaseError(error, "Não foi possível criar a cliente.")
+        : "Não foi possível criar a cliente."
+    );
   }
 
   const { error: respErr } = await (supabase.from("responsaveis_internos") as any).insert({
     cliente_id: cliente.id,
     responsavel_comercial: responsavel_comercial || null,
-    responsavel_contabil: responsavel_contabil || null,
+    responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
     responsavel_juridico: responsavel_juridico || null,
     responsavel_planejamento_tributario:
       responsavel_planejamento_tributario || null,
-    responsavel_dp: responsavel_dp || null,
-    responsavel_financeiro: responsavel_financeiro || null,
+    responsavel_dp: responsavel_dp || RESPONSAVEL_PADRAO_DP,
+    responsavel_financeiro: responsavel_financeiro || RESPONSAVEL_PADRAO_FINANCEIRO,
   });
   if (respErr) {
     throw new Error(
@@ -324,6 +347,7 @@ export default async function ClientesPage({
         cnpj,
         dominio,
         tipo_unidade,
+        identificacao_filial,
         responsavel_fiscal,
         cep,
         logradouro,
@@ -349,6 +373,7 @@ export default async function ClientesPage({
         valor_contrato,
         cobranca_por_grupo,
         ativo,
+        situacao_empresa,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
         servicos_contratados (*),
         created_at
@@ -385,7 +410,12 @@ export default async function ClientesPage({
           </p>
         </div>
         <div className="flex flex-col gap-4">
-          {isAdmin && <ImportClientesButton grupos={grupos} />}
+          {isAdmin && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+              <ImportClientesButton grupos={grupos} />
+              <SincronizarBrasilApiButton />
+            </div>
+          )}
           <form className="flex items-center gap-2">
             <select
               name="grupo"
@@ -468,6 +498,20 @@ export default async function ClientesPage({
                 <option value="Matriz">Matriz</option>
                 <option value="Filial">Filial</option>
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-neutral-300">
+                Identificação da filial
+              </label>
+              <input
+                name="identificacao_filial"
+                placeholder="Ex.: Filial 01, Filial 02"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-neutral-100 focus:outline-none"
+              />
+              <p className="text-xs text-neutral-500">
+                Quando for Filial, informe o rótulo (ex.: Filial 01); aparece no
+                card do dashboard.
+              </p>
             </div>
             <div className="space-y-2">
               <label className="text-sm text-neutral-300">CEP</label>
@@ -924,11 +968,17 @@ export default async function ClientesPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
-              {clientes.map((cliente) => (
+              {clientes.map((cliente) => {
+                const situacao = getSituacaoEmpresa(cliente);
+                const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
+                return (
                 <tr key={cliente.id} className="align-top">
                   <td className="py-4 pr-4">
                     <div className="flex items-center gap-2">
-                      <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} title={cliente.ativo !== false ? 'Ativo' : 'Desativado'} />
+                      <div
+                        className={`h-2.5 w-2.5 rounded-full shrink-0 ${situacaoIndicatorClass(situacao)}`}
+                        title={situacaoTitulo}
+                      />
                       <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
                     </div>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
@@ -957,7 +1007,8 @@ export default async function ClientesPage({
                     )}
                   </td>
                 </tr>
-              ))}
+              );
+              })}
 
               {clientes.length === 0 ? (
                 <tr>

@@ -16,6 +16,12 @@ import {
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
 import { formatDateTimePtBR } from "@/lib/format-date";
+import {
+  getSituacaoEmpresa,
+  situacaoIndicatorClass,
+  situacaoPillProps,
+} from "@/lib/cliente-situacao";
+import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
 
 function formatCurrency(value: number | null | undefined) {
   if (!value && value !== 0) return "—";
@@ -84,6 +90,8 @@ export default async function ClienteDetalhe({
   const hasPlanejamento = servicos?.planejamento_societario_tributario;
 
   const socios = cliente.quadro_socios ?? [];
+  const situacao = getSituacaoEmpresa(cliente);
+  const situacaoPill = situacaoPillProps(situacao);
 
   return (
     <div className="space-y-8">
@@ -95,16 +103,21 @@ export default async function ClienteDetalhe({
           </div>
           <div className="space-y-1 min-w-0 flex-1 w-full">
             <div className="flex flex-wrap items-center gap-3 mb-1">
-              <div className={`h-3 w-3 rounded-full shrink-0 ${cliente.ativo !== false ? 'bg-emerald-500' : 'bg-red-500'}`} />
+              <div
+                className={`h-3 w-3 rounded-full shrink-0 ${situacaoIndicatorClass(situacao)}`}
+              />
               <h1 className="text-xl md:text-3xl font-bold tracking-tight text-white break-words max-w-full">
                 {cliente.razao_social}
               </h1>
               <div className="flex gap-2 shrink-0">
-                <Pill label={cliente.tipo_unidade ?? "—"} tone="neutral" />
-                <Pill 
-                  label={cliente.ativo !== false ? "Ativo" : "Desativado"} 
-                  tone={cliente.ativo !== false ? "success" : "critical"} 
+                <Pill
+                  label={labelTipoUnidadeExibicao(
+                    cliente.tipo_unidade,
+                    cliente.identificacao_filial
+                  )}
+                  tone="neutral"
                 />
+                <Pill label={situacaoPill.label} tone={situacaoPill.tone} />
                 {["admin", "diretor", "financeiro"].includes(profile?.tipo_usuario as string) && (
                   <a
                     href={`/clientes/${id}/edit`}
