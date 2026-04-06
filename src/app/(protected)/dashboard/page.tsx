@@ -2,12 +2,19 @@ import clsx from "clsx";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import {
   getSituacaoEmpresa,
   situacaoEmpresaLabels,
   type SituacaoEmpresa,
 } from "@/lib/cliente-situacao";
 import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
+import {
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
+  UserGroupIcon,
+  ChartPieIcon,
+} from "@heroicons/react/24/outline";
 
 const situacaoCardUi: Record<
   SituacaoEmpresa,
@@ -39,7 +46,18 @@ const situacaoCardUi: Record<
     dot: "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.7)]",
   },
 };
-import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, UserGroupIcon, ChartPieIcon } from "@heroicons/react/24/outline";
+
+function formatCurrencyContrato(value: number | null | undefined) {
+  if (value == null || (typeof value === "number" && Number.isNaN(value))) {
+    return "—";
+  }
+  if (!value && value !== 0) return "—";
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -101,7 +119,9 @@ export default async function DashboardPage({
         inscricao_municipal,
         grupo_economico,
         grupo_id,
-        grupos_economicos ( nome ),
+        valor_contrato,
+        cobranca_por_grupo,
+        grupos_economicos ( nome, valor_contrato ),
         socio_responsavel_pj,
         capital_social,
         data_abertura_cliente,
@@ -130,7 +150,17 @@ export default async function DashboardPage({
     { count: entradasMes },
     { count: saidasMesCount },
     { data: dataClientes },
-  ] = await Promise.all([gruposQuery, entradasQuery, saidasQuery, finalQuery]);
+    profile,
+  ] = await Promise.all([
+    gruposQuery,
+    entradasQuery,
+    saidasQuery,
+    finalQuery,
+    getCurrentProfile(),
+  ]);
+
+  const showContractValue =
+    profile != null && canSeeContractValue(profile.tipo_usuario);
 
   const gruposFiltro: any[] = gruposLista ?? [];
   const totalGrupos = gruposLista?.length ?? 0;
@@ -223,7 +253,29 @@ export default async function DashboardPage({
             {clientes.map((cliente) => {
               const gruposRel = cliente.grupos_economicos;
               const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || cliente.grupo_economico || "—";
+              const grupoValorContrato = Array.isArray(gruposRel)
+                ? gruposRel[0]?.valor_contrato
+                : gruposRel?.valor_contrato;
               const responsaveis = cliente.responsaveis_internos?.[0];
+              const servicosEmbed = cliente.servicos_contratados;
+              const servicos = Array.isArray(servicosEmbed)
+                ? servicosEmbed[0]
+                : servicosEmbed;
+              const hasContabil =
+                !!servicos?.contabil_fiscal ||
+                !!servicos?.contabil_contabilidade ||
+                !!servicos?.contabil_dp ||
+                !!servicos?.contabil_pericia ||
+                !!servicos?.contabil_legalizacao;
+              const hasJuridico =
+                !!servicos?.juridico_civel ||
+                !!servicos?.juridico_trabalhista ||
+                !!servicos?.juridico_licitacao ||
+                !!servicos?.juridico_penal ||
+                !!servicos?.juridico_empresarial;
+              const hasPlanejamento = !!servicos?.planejamento_societario_tributario;
+              const hasAnyServicoAtivo =
+                hasContabil || hasJuridico || hasPlanejamento;
               const situacao = getSituacaoEmpresa(cliente);
               const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
               const ui = situacaoCardUi[situacao];
@@ -293,29 +345,42 @@ export default async function DashboardPage({
                           {cliente.atividade ?? "—"}
                         </p>
                       </div>
+                      {showContractValue ? (
+                        <div className="min-w-0">
+                          <p className="text-neutral-500 uppercase tracking-tighter">
+                            Contrato (mensal)
+                          </p>
+                          <p className="truncate font-semibold text-amber-200/95 tabular-nums">
+                            {cliente.cobranca_por_grupo
+                              ? grupoValorContrato != null
+                                ? formatCurrencyContrato(grupoValorContrato)
+                                : "—"
+                              : formatCurrencyContrato(cliente.valor_contrato)}
+                          </p>
+                          {cliente.cobranca_por_grupo ? (
+                            <p className="mt-0.5 truncate text-[9px] font-normal text-neutral-500">
+                              Cobrança pelo grupo
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-1 border-t border-neutral-800/50 pt-3">
-                      {(cliente.servicos_contratados?.[0]?.contabil_fiscal || 
-                        cliente.servicos_contratados?.[0]?.contabil_contabilidade || 
-                        cliente.servicos_contratados?.[0]?.contabil_dp || 
-                        cliente.servicos_contratados?.[0]?.contabil_pericia || 
-                        cliente.servicos_contratados?.[0]?.contabil_legalizacao) && (
+                      {hasContabil ? (
                         <Pill label="Contábil" tone="success" />
-                      )}
-                      {(cliente.servicos_contratados?.[0]?.juridico_civel || 
-                        cliente.servicos_contratados?.[0]?.juridico_trabalhista || 
-                        cliente.servicos_contratados?.[0]?.juridico_licitacao || 
-                        cliente.servicos_contratados?.[0]?.juridico_penal || 
-                        cliente.servicos_contratados?.[0]?.juridico_empresarial) && (
+                      ) : null}
+                      {hasJuridico ? (
                         <Pill label="Jurídico" tone="warning" />
-                      )}
-                      {cliente.servicos_contratados?.[0]?.planejamento_societario_tributario && (
+                      ) : null}
+                      {hasPlanejamento ? (
                         <Pill label="Planejamento" tone="neutral" />
-                      )}
-                      {!cliente.servicos_contratados?.[0] && (
-                        <p className="text-[10px] text-neutral-600 italic">Sem serviços ativos</p>
-                      )}
+                      ) : null}
+                      {!hasAnyServicoAtivo ? (
+                        <p className="text-[10px] text-neutral-600 italic">
+                          Sem serviços ativos
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
