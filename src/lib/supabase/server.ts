@@ -8,7 +8,9 @@ function assertEnv(key: string, value: string | undefined) {
   if (!value) {
     throw new Error(
       `Variável de ambiente ausente: ${key}. ` +
-        "Crie .env.local na raiz do app (copie de .env.example) com URL e anon key do Supabase: Dashboard → Settings → API."
+        "Em desenvolvimento: crie .env.local na raiz (veja .env.example). " +
+        "Em produção (ex.: Hostinger): cadastre as mesmas variáveis em Variáveis de ambiente do app Node.js e reinicie. " +
+        "Valores no Supabase → Settings → API."
     );
   }
   return value;

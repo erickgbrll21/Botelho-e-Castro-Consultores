@@ -93,7 +93,7 @@ export default async function UsuariosPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
           Segurança
         </p>
-        <h1 className="text-3xl font-semibold">Gestão de usuários</h1>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Gestão de usuários</h1>
         <p className="text-neutral-400">
           Apenas administradores podem criar contas. Não existe auto cadastro.
         </p>

@@ -42,7 +42,7 @@ export default async function PerfilPage() {
         <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
           Minha Conta
         </p>
-        <h1 className="text-3xl font-semibold">Meu Perfil</h1>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Meu Perfil</h1>
         <p className="text-neutral-400">
           Gerencie suas informações e segurança da conta.
         </p>

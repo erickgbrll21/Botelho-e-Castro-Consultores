@@ -404,7 +404,7 @@ export default async function ClientesPage({
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
             Clientes
           </p>
-          <h1 className="text-3xl font-semibold">Cadastro e consulta</h1>
+          <h1 className="text-2xl font-semibold sm:text-3xl">Cadastro e consulta</h1>
           <p className="text-neutral-400">
             Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
           </p>
@@ -416,11 +416,11 @@ export default async function ClientesPage({
               <SincronizarBrasilApiButton />
             </div>
           )}
-          <form className="flex items-center gap-2">
+          <form className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
             <select
               name="grupo"
               defaultValue={grupoId}
-              className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+              className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
             >
               <option value="">Todos os grupos</option>
               {grupos.map((grupo) => (
@@ -433,11 +433,11 @@ export default async function ClientesPage({
               name="q"
               defaultValue={term}
               placeholder="Buscar cliente..."
-              className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
+              className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
             />
             <button
               type="submit"
-              className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
             >
               Buscar
             </button>
@@ -916,7 +916,8 @@ export default async function ClientesPage({
                     </td>
                   )}
                   {isAdmin && (
-                    <td className="py-3 pr-4 text-right flex justify-end gap-2">
+                    <td className="py-3 pr-4">
+                      <div className="flex flex-wrap justify-end gap-2">
                       <a
                         href={`?editGrupo=${grupo.id}`}
                         className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
@@ -932,6 +933,7 @@ export default async function ClientesPage({
                           Remover
                         </button>
                       </form>
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -951,7 +953,7 @@ export default async function ClientesPage({
       <Card
         title="Clientes"
         action={
-          <p className="text-xs text-neutral-400">
+          <p className="max-w-full text-xs text-neutral-400 break-words sm:max-w-md sm:text-right">
             {isAdmin ? "Você tem permissão para cadastrar e editar dados." : "Visualização permitida para todos os usuários."}
           </p>
         }

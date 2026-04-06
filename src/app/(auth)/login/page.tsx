@@ -4,8 +4,8 @@ import { Suspense } from "react";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="max-w-5xl w-full flex flex-col md:flex-row gap-10 items-center justify-between">
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+      <div className="flex w-full max-w-5xl flex-col items-center justify-between gap-10 md:flex-row md:items-center">
         <div className="space-y-4 md:max-w-sm flex flex-col items-start">
           <Image
             src="/design-logo.svg"
@@ -26,7 +26,7 @@ export default function LoginPage() {
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
             Botelho e Castro Consultores
           </p>
-          <h1 className="text-3xl md:text-4xl font-semibold leading-tight">
+          <h1 className="text-2xl font-semibold leading-tight sm:text-3xl md:text-4xl">
             Controle total, dados seguros.
           </h1>
           <p className="text-neutral-400">

@@ -175,7 +175,7 @@ export default async function ClienteDetalhe({
                 </div>
                 {showContractValue && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       {!cliente.cobranca_por_grupo && (
                         <div>
                           <p className="text-xs text-neutral-500 uppercase tracking-wider">Valor do Contrato (Mensal)</p>
@@ -185,7 +185,7 @@ export default async function ClienteDetalhe({
                         </div>
                       )}
                       {cliente.cobranca_por_grupo && <div />}
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Cobrança por Grupo</p>
                         <Pill 
                           label={cliente.cobranca_por_grupo ? "Sim" : "Não"} 
@@ -208,21 +208,21 @@ export default async function ClienteDetalhe({
 
             <Card title="Datas Importantes" action={<CalendarDaysIcon className="h-4 w-4 text-neutral-500" />}>
               <div className="space-y-4">
-                <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
+                <div className="flex flex-col gap-1 border-b border-neutral-800/50 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <span className="text-sm text-neutral-400">Abertura</span>
-                  <span className="text-sm font-medium text-neutral-200">
+                  <span className="text-sm font-medium text-neutral-200 sm:text-right">
                     {formatDateTimePtBR(cliente.data_abertura_cliente)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
+                <div className="flex flex-col gap-1 border-b border-neutral-800/50 pb-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <span className="text-sm text-neutral-400">Entrada Contab.</span>
-                  <span className="text-sm font-medium text-neutral-200">
+                  <span className="text-sm font-medium text-neutral-200 sm:text-right">
                     {formatDateTimePtBR(cliente.data_entrada_contabilidade)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <span className="text-sm text-neutral-400">Saída</span>
-                  <span className="text-sm font-medium text-red-400">
+                  <span className="text-sm font-medium text-red-400 sm:text-right">
                     {formatDateTimePtBR(cliente.data_saida)}
                   </span>
                 </div>

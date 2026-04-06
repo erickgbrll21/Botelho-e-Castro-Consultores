@@ -179,11 +179,11 @@ export default async function DashboardPage({
                 Dados de clientes, responsáveis internos e serviços contratados.
               </p>
             </div>
-            <form className="flex items-center gap-2">
+            <form className="flex w-full min-w-0 flex-col gap-2 sm:max-w-xl sm:flex-row sm:flex-wrap sm:items-stretch">
               <select
                 name="grupo"
                 defaultValue={grupoId}
-                className="hidden sm:block rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
               >
                 <option value="">Todos os grupos</option>
                 {gruposFiltro.map((grupo) => (
@@ -196,11 +196,11 @@ export default async function DashboardPage({
                 name="q"
                 defaultValue={term}
                 placeholder="Buscar cliente..."
-                className="w-full sm:w-auto rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
+                className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
               />
               <button
                 type="submit"
-                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+                className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
               >
                 Buscar
               </button>
@@ -242,9 +242,9 @@ export default async function DashboardPage({
         </Card>
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Clientes</h2>
-        <p className="text-sm text-neutral-400">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-lg font-semibold sm:text-xl">Clientes</h2>
+        <p className="text-xs text-neutral-400 sm:text-sm">
           {clientes.length} {clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}
         </p>
       </div>
@@ -315,7 +315,7 @@ export default async function DashboardPage({
                         </h3>
                         <p className="text-[10px] md:text-xs text-neutral-500 truncate">{cliente.cnpj}</p>
                       </div>
-                      <div className="shrink-0 max-w-[min(140px,42%)]">
+                      <div className="shrink-0 max-w-[min(240px,58%)]">
                         <Pill
                           label={labelTipoUnidadeExibicao(
                             cliente.tipo_unidade,

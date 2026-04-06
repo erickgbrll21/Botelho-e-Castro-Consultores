@@ -91,7 +91,7 @@ export function CnpjReceitaLookup({ formId, initialCnpj }: Props) {
         value={cnpjDisplay}
         onChange={onCnpjChange}
         onBlur={onCnpjBlur}
-        className="w-full max-w-xs rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
+        className="w-full max-w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:max-w-xs"
       />
       <p className="text-xs text-neutral-500">
         Ao completar o CNPJ, os dados públicos são buscados (BrasilAPI + base

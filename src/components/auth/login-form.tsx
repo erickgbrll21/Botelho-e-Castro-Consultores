@@ -75,7 +75,7 @@ export function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="glass-panel max-w-md w-full rounded-2xl p-8 space-y-6"
+      className="glass-panel w-full max-w-md min-w-0 space-y-6 rounded-2xl p-5 sm:p-8"
     >
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold">Acessar painel</h1>
@@ -117,7 +117,7 @@ export function LoginForm() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100 break-words sm:text-sm">
           {error}
         </div>
       ) : null}

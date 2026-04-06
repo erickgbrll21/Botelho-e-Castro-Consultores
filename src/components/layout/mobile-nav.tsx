@@ -55,7 +55,7 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 p-6 animate-in duration-200">
+        <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] animate-in duration-200">
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col items-start gap-1">
               <img

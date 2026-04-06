@@ -29,23 +29,23 @@ export default async function ProtectedLayout({
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 p-4 md:p-8 text-neutral-50">
-      <div className="mx-auto flex max-w-7xl flex-col md:flex-row gap-6">
+    <div className="min-h-screen bg-neutral-950 p-3 sm:p-4 md:p-8 text-neutral-50">
+      <div className="mx-auto flex min-w-0 max-w-7xl flex-col gap-4 md:flex-row md:gap-6">
         <Sidebar role={profile.tipo_usuario} />
-        <div className="flex-1 space-y-4">
-          <header className="glass-panel flex items-center justify-between rounded-2xl border border-neutral-800/80 px-4 py-3 md:px-5 md:py-4">
-            <div className="flex items-center gap-3 md:gap-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <header className="glass-panel flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-neutral-800/80 px-3 py-3 md:px-5 md:py-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
               <MobileNav role={profile.tipo_usuario} signOutAction={signOut} />
-              <div className="space-y-0.5 md:space-y-1">
+              <div className="min-w-0 flex-1 space-y-0.5 md:space-y-1">
                 <p className="text-[9px] md:text-xs uppercase tracking-[0.2em] md:tracking-[0.3em] text-neutral-500">
                   Painel
                 </p>
-                <p className="text-xs md:text-lg font-semibold truncate max-w-[120px] md:max-w-none">
+                <p className="truncate text-xs font-semibold sm:text-base md:text-lg">
                   Botelho e Castro
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 md:gap-3 text-sm text-neutral-200">
+            <div className="flex shrink-0 items-center gap-2 md:gap-3 text-sm text-neutral-200">
               <div className="hidden text-right lg:block">
                 <p className="font-semibold">{profile.nome}</p>
                 <p className="text-xs text-neutral-400">{profile.email}</p>

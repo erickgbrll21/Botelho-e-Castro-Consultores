@@ -279,15 +279,15 @@ export default async function EditClientePage({
 
   return (
     <div className="space-y-6 pb-20">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">Administração</p>
-          <h1 className="text-3xl font-semibold">Editar Cliente</h1>
-          <p className="text-neutral-400">Alterando dados de {cliente.razao_social}</p>
+          <h1 className="text-2xl font-semibold sm:text-3xl">Editar Cliente</h1>
+          <p className="break-words text-neutral-400">Alterando dados de {cliente.razao_social}</p>
         </div>
         <a 
           href={`/clientes/${id}`}
-          className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-800"
+          className="shrink-0 self-start rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm text-neutral-200 transition hover:bg-neutral-800 sm:self-center"
         >
           Cancelar
         </a>
@@ -775,10 +775,10 @@ export default async function EditClientePage({
             </div>
           </Card>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
             <button
               type="submit"
-              className="rounded-lg bg-white px-8 py-3 text-sm font-semibold text-black transition hover:bg-neutral-200"
+              className="w-full rounded-lg bg-white px-8 py-3 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
             >
               Salvar Alterações
             </button>
