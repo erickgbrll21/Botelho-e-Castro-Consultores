@@ -18,7 +18,9 @@ async function updateCliente(formData: FormData) {
     .trim();
   const dominio = String(formData.get("dominio") ?? "").trim();
   const grupo_id = String(formData.get("grupo_id") ?? "").trim() || null;
-  const tipo_unidade = formData.get("tipo_unidade") as "Matriz" | "Filial" | null;
+  const tipoUnidadeRaw = String(formData.get("tipo_unidade") ?? "").trim();
+  const tipo_unidade: "Matriz" | "Filial" | null =
+    tipoUnidadeRaw === "" ? null : (tipoUnidadeRaw as "Matriz" | "Filial");
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
   const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
   const cep = cepRaw.length === 8 ? cepRaw : null;
@@ -27,7 +29,11 @@ async function updateCliente(formData: FormData) {
   const complemento = String(formData.get("complemento") ?? "").trim() || null;
   const cidade = String(formData.get("cidade") ?? "").trim();
   const estado = String(formData.get("estado") ?? "").trim();
-  const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Indústria" | "Ambos" | null;
+  const atividadeRaw = String(formData.get("atividade") ?? "").trim();
+  const atividade: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null =
+    atividadeRaw === ""
+      ? null
+      : (atividadeRaw as "Serviço" | "Comércio" | "Indústria" | "Ambos");
   const constituicao = formData.get("constituicao") === "Sim";
   const inscricao_estadual = String(formData.get("inscricao_estadual") ?? "").trim();
   const inscricao_municipal = String(formData.get("inscricao_municipal") ?? "").trim();

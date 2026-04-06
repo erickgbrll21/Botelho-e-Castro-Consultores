@@ -20,7 +20,9 @@ async function createCliente(formData: FormData) {
     .trim();
   const dominio = String(formData.get("dominio") ?? "").trim();
   const grupo_id = String(formData.get("grupo_id") ?? "").trim() || null;
-  const tipo_unidade = formData.get("tipo_unidade") as "Matriz" | "Filial" | null;
+  const tipoUnidadeRaw = String(formData.get("tipo_unidade") ?? "").trim();
+  const tipo_unidade: "Matriz" | "Filial" | null =
+    tipoUnidadeRaw === "" ? null : (tipoUnidadeRaw as "Matriz" | "Filial");
   const responsavel_fiscal = String(formData.get("responsavel_fiscal") ?? "").trim();
   const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
   const cep = cepRaw.length === 8 ? cepRaw : null;
@@ -29,7 +31,11 @@ async function createCliente(formData: FormData) {
   const complemento = String(formData.get("complemento") ?? "").trim() || null;
   const cidade = String(formData.get("cidade") ?? "").trim();
   const estado = String(formData.get("estado") ?? "").trim();
-  const atividade = formData.get("atividade") as "Serviço" | "Comércio" | "Ambos" | null;
+  const atividadeRaw = String(formData.get("atividade") ?? "").trim();
+  const atividade: "Serviço" | "Comércio" | "Indústria" | "Ambos" | null =
+    atividadeRaw === ""
+      ? null
+      : (atividadeRaw as "Serviço" | "Comércio" | "Indústria" | "Ambos");
   const constituicao = formData.get("constituicao") === "Sim";
   const inscricao_estadual = String(formData.get("inscricao_estadual") ?? "").trim();
   const inscricao_municipal = String(formData.get("inscricao_municipal") ?? "").trim();
@@ -70,7 +76,8 @@ async function createCliente(formData: FormData) {
   const responsavel_financeiro = String(formData.get("responsavel_financeiro") ?? "").trim();
 
   const socio_nome = String(formData.get("socio_nome") ?? "").trim();
-  const socio_percentual = Number(formData.get("socio_percentual") ?? 100);
+  const socioPercentNum = Number(formData.get("socio_percentual") ?? 100);
+  const socio_percentual = Number.isFinite(socioPercentNum) ? socioPercentNum : 100;
 
   // Serviços Contábeis
   const contabil_fiscal = formData.get("contabil_fiscal") === "on";
@@ -129,7 +136,7 @@ async function createCliente(formData: FormData) {
     throw new Error(error?.message ?? "Não foi possível criar a cliente.");
   }
 
-  await (supabase.from("responsaveis_internos") as any).insert({
+  const { error: respErr } = await (supabase.from("responsaveis_internos") as any).insert({
     cliente_id: cliente.id,
     responsavel_comercial: responsavel_comercial || null,
     responsavel_contabil: responsavel_contabil || null,
@@ -139,8 +146,13 @@ async function createCliente(formData: FormData) {
     responsavel_dp: responsavel_dp || null,
     responsavel_financeiro: responsavel_financeiro || null,
   });
+  if (respErr) {
+    throw new Error(
+      respErr.message || "Não foi possível salvar os responsáveis internos."
+    );
+  }
 
-  await (supabase.from("servicos_contratados") as any).insert({
+  const { error: servErr } = await (supabase.from("servicos_contratados") as any).insert({
     cliente_id: cliente.id,
     contabil_fiscal,
     contabil_contabilidade,
@@ -154,13 +166,21 @@ async function createCliente(formData: FormData) {
     juridico_empresarial,
     planejamento_societario_tributario,
   });
+  if (servErr) {
+    throw new Error(
+      servErr.message || "Não foi possível salvar os serviços contratados."
+    );
+  }
 
   if (socio_nome) {
-    await (supabase.from("quadro_socios") as any).insert({
+    const { error: socioErr } = await (supabase.from("quadro_socios") as any).insert({
       cliente_id: cliente.id,
       nome_socio: socio_nome,
       percentual_participacao: socio_percentual,
     });
+    if (socioErr) {
+      throw new Error(socioErr.message || "Não foi possível salvar o sócio.");
+    }
   }
 
   await registrarLog("Cadastro de Cliente", {
