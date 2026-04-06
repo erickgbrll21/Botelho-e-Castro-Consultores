@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile } from "@/lib/auth";
+import { formatDateTimePtBR } from "@/lib/format-date";
 
 export default async function LogsPage() {
   await requireAdminProfile();
@@ -41,10 +42,10 @@ export default async function LogsPage() {
               {logs.map((log) => (
                 <tr key={log.id} className="align-top hover:bg-neutral-900/30 transition-colors">
                   <td className="py-4 pr-4 whitespace-nowrap text-neutral-400">
-                    {new Intl.DateTimeFormat("pt-BR", {
+                    {formatDateTimePtBR(log.created_at, {
                       dateStyle: "short",
                       timeStyle: "medium",
-                    }).format(new Date(log.created_at))}
+                    })}
                   </td>
                   <td className="py-4 pr-4">
                     <p className="font-semibold text-neutral-200">{log.usuario_nome}</p>

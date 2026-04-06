@@ -15,6 +15,7 @@ import {
   PencilIcon,
 } from "@heroicons/react/24/outline";
 import clsx from "clsx";
+import { formatDateTimePtBR } from "@/lib/format-date";
 
 function formatCurrency(value: number | null | undefined) {
   if (!value && value !== 0) return "—";
@@ -23,13 +24,6 @@ function formatCurrency(value: number | null | undefined) {
     currency: "BRL",
     maximumFractionDigits: 0,
   });
-}
-
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
-    new Date(value)
-  );
 }
 
 export default async function ClienteDetalhe({
@@ -203,15 +197,21 @@ export default async function ClienteDetalhe({
               <div className="space-y-4">
                 <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
                   <span className="text-sm text-neutral-400">Abertura</span>
-                  <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_abertura_cliente)}</span>
+                  <span className="text-sm font-medium text-neutral-200">
+                    {formatDateTimePtBR(cliente.data_abertura_cliente)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center border-b border-neutral-800/50 pb-2">
                   <span className="text-sm text-neutral-400">Entrada Contab.</span>
-                  <span className="text-sm font-medium text-neutral-200">{formatDate(cliente.data_entrada_contabilidade)}</span>
+                  <span className="text-sm font-medium text-neutral-200">
+                    {formatDateTimePtBR(cliente.data_entrada_contabilidade)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-neutral-400">Saída</span>
-                  <span className="text-sm font-medium text-red-400">{formatDate(cliente.data_saida)}</span>
+                  <span className="text-sm font-medium text-red-400">
+                    {formatDateTimePtBR(cliente.data_saida)}
+                  </span>
                 </div>
               </div>
             </Card>
@@ -262,9 +262,9 @@ export default async function ClienteDetalhe({
               {socios.length === 0 ? (
                 <p className="text-sm text-neutral-500 italic py-4">Nenhum sócio registrado.</p>
               ) : (
-                socios.map((socio: any) => (
+                socios.map((socio: any, index: number) => (
                   <div
-                    key={socio.nome_socio}
+                    key={socio.id ?? `${socio.nome_socio}-${index}`}
                     className="flex items-center justify-between rounded-xl bg-neutral-900/60 border border-neutral-800/50 p-4"
                   >
                     <div className="min-w-0">

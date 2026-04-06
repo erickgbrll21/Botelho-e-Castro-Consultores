@@ -7,6 +7,7 @@ import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 import { ImportClientesButton } from "@/components/clientes/import-clientes-button";
 import { registrarLog } from "@/lib/logs";
+import { formatDateTimePtBR } from "@/lib/format-date";
 
 async function createCliente(formData: FormData) {
   "use server";
@@ -916,12 +917,10 @@ export default async function ClientesPage({
                     {cliente.grupos_economicos?.nome ?? "—"}
                   </td>
                   <td className="py-4 pr-4 text-neutral-300 hidden sm:table-cell">
-                    {cliente.created_at
-                      ? new Intl.DateTimeFormat("pt-BR", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(new Date(cliente.created_at))
-                      : "—"}
+                    {formatDateTimePtBR(cliente.created_at, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </td>
                   <td className="py-4 pr-4 text-right flex flex-col sm:flex-row justify-end items-end gap-2 sm:gap-3">
                     <a
