@@ -6,5 +6,5 @@ export function labelTipoUnidadeExibicao(
   if (!tipo) return "—";
   if (tipo === "Matriz") return "Matriz";
   const rotulo = identificacaoFilial?.trim();
-  return rotulo && rotulo.length > 0 ? rotulo : "Filial";
+  return rotulo && rotulo.length > 0 ? `Filial - ${rotulo}` : "Filial";
 }
