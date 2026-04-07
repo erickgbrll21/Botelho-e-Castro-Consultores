@@ -16,7 +16,7 @@ export function messageFromSupabaseError(
 
   if (isUniqueViolation) {
     if (/cnpj/i.test(message)) {
-      return "Já existe um cliente cadastrado com este CNPJ. Use a busca na lista ou abra o cadastro existente para editar.";
+      return "CNPJ ou Empresa já foi cadastrado. Já existe um cliente com este CNPJ — use a busca na lista ou abra o cadastro existente para editar.";
     }
     return "Não foi possível salvar: já existe outro registro com o mesmo identificador único.";
   }

@@ -310,7 +310,7 @@ export function ImportClientesButton({ grupos }: ImportClientesButtonProps) {
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-neutral-800/80">
+                      <tbody className="divide-y divide-neutral-800">
                         {COLUNAS.map((row) => (
                           <tr key={row.nomes} className="align-top">
                             <td className="px-3 py-2 font-mono text-xs text-neutral-200">

@@ -8,10 +8,14 @@ export function Pill({
   tone?: "neutral" | "success" | "warning" | "critical";
 }) {
   const toneClasses = {
-    neutral: "bg-neutral-900 border-neutral-800 text-neutral-200",
-    success: "bg-emerald-500/15 border-emerald-500/30 text-emerald-100",
-    warning: "bg-amber-500/15 border-amber-500/30 text-amber-100",
-    critical: "bg-red-500/15 border-red-500/30 text-red-100",
+    neutral:
+      "bg-neutral-900 border-neutral-800 text-neutral-200",
+    success:
+      "bg-emerald-500/15 border-emerald-500/30 text-emerald-100",
+    warning:
+      "bg-amber-500/15 border-amber-500/30 text-amber-100",
+    critical:
+      "bg-red-500/15 border-red-500/30 text-red-100",
   }[tone];
 
   return (

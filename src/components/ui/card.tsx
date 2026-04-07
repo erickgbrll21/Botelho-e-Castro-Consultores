@@ -2,15 +2,19 @@ import { ReactNode } from "react";
 import clsx from "clsx";
 
 type CardProps = {
+  id?: string;
   title?: string;
   children: ReactNode;
   className?: string;
   action?: ReactNode;
 };
 
-export function Card({ title, children, className, action }: CardProps) {
+export function Card({ id, title, children, className, action }: CardProps) {
   return (
-    <div className={clsx("glass-panel rounded-2xl p-4 md:p-5", className)}>
+    <div
+      id={id}
+      className={clsx("glass-panel rounded-2xl p-4 md:p-5", className)}
+    >
       {(title || action) && (
         <div className="mb-3 md:mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           {title ? (

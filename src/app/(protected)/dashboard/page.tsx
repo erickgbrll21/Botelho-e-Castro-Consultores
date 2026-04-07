@@ -42,7 +42,8 @@ const situacaoCardUi: Record<
   desativada: {
     border: "border-l-red-500",
     card: "bg-red-950/15 ring-1 ring-red-500/25",
-    banner: "bg-red-500/20 text-red-100 ring-1 ring-red-500/40",
+    banner:
+      "bg-red-500/20 text-red-100 ring-1 ring-red-500/40",
     dot: "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.7)]",
   },
 };

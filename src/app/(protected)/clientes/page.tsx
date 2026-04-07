@@ -322,16 +322,34 @@ async function deleteCliente(formData: FormData) {
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; grupo?: string; editGrupo?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    grupo?: string;
+    editGrupo?: string;
+    novoCnpj?: string;
+  }>;
 }) {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
   const isAdmin = profile && ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
-  const { q, grupo: grupoFiltro, editGrupo: editGrupoId } = await searchParams;
+  const { q, grupo: grupoFiltro, editGrupo: editGrupoId, novoCnpj: novoCnpjRaw } =
+    await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
+  const novoCnpjDigits = String(novoCnpjRaw ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 14);
+  const cnpjParaCadastro =
+    novoCnpjDigits.length === 14 ? novoCnpjDigits : null;
+
+  const { data: clienteJaCadastrado } = cnpjParaCadastro
+    ? await (supabase.from("clientes") as any)
+        .select("id, razao_social, cnpj")
+        .eq("cnpj", cnpjParaCadastro)
+        .maybeSingle()
+    : { data: null as { id: string; razao_social: string; cnpj: string } | null };
 
   const gruposQuery = supabase
     .from("grupos_economicos")
@@ -447,16 +465,41 @@ export default async function ClientesPage({
 
       {isAdmin && (
         <Card
+          id="cadastro-novo-cliente"
           title="Cadastrar novo cliente (apenas administradores)"
-          className="border-amber-500/30"
+          className="scroll-mt-24 border-amber-500/30"
           action={<Pill label="Restrito a admins" tone="critical" />}
         >
+          {clienteJaCadastrado ? (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+              <p className="font-semibold">
+                CNPJ ou Empresa já foi cadastrado.
+              </p>
+              <p className="mt-1 text-amber-200/90">
+                Já existe um cliente com este CNPJ:{" "}
+                <span className="font-mono">{clienteJaCadastrado.cnpj}</span>{" "}
+                —{" "}
+                <a
+                  href={`/clientes/${clienteJaCadastrado.id}`}
+                  className="underline underline-offset-2 hover:text-amber-100"
+                >
+                  {clienteJaCadastrado.razao_social}
+                </a>
+                .
+              </p>
+            </div>
+          ) : null}
           <form
             id="cadastro-cliente-form"
             action={createCliente}
             className="grid gap-4 md:grid-cols-2"
           >
-            <CnpjReceitaLookup formId="cadastro-cliente-form" />
+            <CnpjReceitaLookup
+              key={cnpjParaCadastro ?? "default"}
+              formId="cadastro-cliente-form"
+              initialCnpj={cnpjParaCadastro}
+              autoLookupOnMount={Boolean(cnpjParaCadastro)}
+            />
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm text-neutral-300">Razão social *</label>
               <input

@@ -321,3 +321,23 @@ export function mapBrasilApiJsonToClienteFields(
 
   return patch;
 }
+
+/** Logradouro com número (consulta / exibição fora de formulário). */
+export function brasilApiLogradouroLinha(data: BrasilApiCnpjJson): string {
+  return buildLogradouro(data);
+}
+
+export function brasilApiTelefonePreferido(data: BrasilApiCnpjJson): string {
+  const t =
+    formatPhoneBr(data.ddd_telefone_1) ||
+    formatPhoneBr(data.ddd_telefone_2);
+  return t;
+}
+
+export function brasilApiRegimeAtualTexto(data: BrasilApiCnpjJson): string {
+  return latestRegime(data.regime_tributario);
+}
+
+export function brasilApiTipoUnidadeTexto(data: BrasilApiCnpjJson): string {
+  return tipoUnidadeFromApi(data);
+}

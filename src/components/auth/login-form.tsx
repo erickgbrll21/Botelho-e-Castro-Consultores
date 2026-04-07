@@ -94,7 +94,7 @@ export function LoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm focus:border-neutral-100 focus:outline-none"
+          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
           placeholder="nome@bcconsultores.adv.br"
           autoComplete="email"
         />
@@ -110,7 +110,7 @@ export function LoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-lg bg-neutral-900 border border-neutral-800 px-3 py-2 text-sm focus:border-neutral-100 focus:outline-none"
+          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
           placeholder="••••••••"
           autoComplete="current-password"
         />

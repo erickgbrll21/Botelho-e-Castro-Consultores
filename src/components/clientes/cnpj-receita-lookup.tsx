@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   applyCnpjJsonToForm,
   formatCnpjDisplay,
@@ -14,9 +14,18 @@ type Props = {
   formId: string;
   /** Preenchimento inicial (ex.: edição de cliente) */
   initialCnpj?: string | null;
+  /**
+   * Quando true e `initialCnpj` tiver 14 dígitos, busca na Receita ao montar
+   * (ex.: link da página Consulta CNPJ).
+   */
+  autoLookupOnMount?: boolean;
 };
 
-export function CnpjReceitaLookup({ formId, initialCnpj }: Props) {
+export function CnpjReceitaLookup({
+  formId,
+  initialCnpj,
+  autoLookupOnMount = false,
+}: Props) {
   const [cnpjDisplay, setCnpjDisplay] = useState(() =>
     initialCnpj ? formatCnpjDisplay(initialCnpj) : ""
   );
@@ -26,6 +35,7 @@ export function CnpjReceitaLookup({ formId, initialCnpj }: Props) {
       setCnpjDisplay(formatCnpjDisplay(initialCnpj));
     }
   }, [initialCnpj]);
+
   const [status, setStatus] = useState<
     "idle" | "loading" | "ok" | "notfound" | "error"
   >("idle");
@@ -59,6 +69,19 @@ export function CnpjReceitaLookup({ formId, initialCnpj }: Props) {
     },
     [formId]
   );
+
+  const lastAutoLookupDigits = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoLookupOnMount) return;
+    const d = onlyDigits(initialCnpj ?? "").slice(0, 14);
+    if (d.length !== 14) return;
+    if (lastAutoLookupDigits.current === d) return;
+    lastAutoLookupDigits.current = d;
+    const id = requestAnimationFrame(() => {
+      void runLookup(d);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [autoLookupOnMount, initialCnpj, runLookup]);
 
   const onCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const d = onlyDigits(e.target.value).slice(0, 14);
