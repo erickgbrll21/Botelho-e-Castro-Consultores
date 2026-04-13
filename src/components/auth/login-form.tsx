@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { safeInternalRedirectPath } from "@/lib/safe-redirect-path";
 
 const SUPABASE_NETWORK_HINT =
   "Não foi possível conectar ao Supabase. No .env.local use a URL https://…supabase.co e a chave publishable (sb_publishable_…) ou anon (eyJ…), nunca sb_secret_. Confira em Dashboard → Settings → API, reinicie npm run dev após mudar o .env e verifique se a rede não bloqueia *.supabase.co.";
@@ -18,7 +19,9 @@ function isLikelyNetworkFailure(message: string | undefined) {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectedFrom") ?? "/dashboard";
+  const redirectTo = safeInternalRedirectPath(
+    searchParams.get("redirectedFrom")
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

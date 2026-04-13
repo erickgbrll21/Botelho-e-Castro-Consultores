@@ -26,6 +26,14 @@ async function createUser(formData: FormData) {
     throw new Error("Preencha todos os campos obrigatórios.");
   }
 
+  if (password.length < 8) {
+    throw new Error("A senha inicial deve ter pelo menos 8 caracteres.");
+  }
+
+  if (password.length > 128) {
+    throw new Error("A senha inicial é longa demais (máximo 128 caracteres).");
+  }
+
   const { data: created, error: createError } =
     await supabaseAdmin.auth.admin.createUser({
       email,

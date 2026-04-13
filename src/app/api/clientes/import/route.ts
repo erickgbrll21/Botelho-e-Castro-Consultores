@@ -3,10 +3,19 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
 import {
+  validateImportClientsPayload,
+  validateMappedClienteLinha,
+} from "@/lib/import-clientes-validate";
+import { redactUserFacingMessage } from "@/lib/redact-for-log";
+import { serverLog } from "@/lib/server-log";
+import {
   RESPONSAVEL_PADRAO_CONTABIL,
   RESPONSAVEL_PADRAO_DP,
   RESPONSAVEL_PADRAO_FINANCEIRO,
 } from "@/lib/responsaveis-padrao";
+
+const MAX_CLIENTES_POR_REQUISICAO = 500;
+const MAX_BODY_BYTES = 2_500_000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,13 +24,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores podem importar dados." }, { status: 403 });
     }
 
-    const { clients } = await req.json();
-    
-    console.log(`[IMPORT] Recebidos ${clients?.length} registros da planilha.`);
-    
-    if (!Array.isArray(clients) || clients.length === 0) {
-      return NextResponse.json({ error: "Nenhum dado encontrado na planilha." }, { status: 400 });
+    const cl = req.headers.get("content-length");
+    if (cl && Number(cl) > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: "Payload muito grande. Reduza o arquivo e tente novamente." },
+        { status: 413 }
+      );
     }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
+    }
+
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Corpo da requisição inválido." }, { status: 400 });
+    }
+
+    const clients = (body as Record<string, unknown>).clients;
+    if (!Array.isArray(clients)) {
+      return NextResponse.json(
+        { error: "Formato inválido: esperado array 'clients'." },
+        { status: 400 }
+      );
+    }
+    if (clients.length > MAX_CLIENTES_POR_REQUISICAO) {
+      return NextResponse.json(
+        {
+          error: `Limite de ${MAX_CLIENTES_POR_REQUISICAO} registros por importação. Divida a planilha e tente novamente.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const payloadErr = validateImportClientsPayload(clients);
+    if (payloadErr) {
+      return NextResponse.json({ error: payloadErr.message }, { status: payloadErr.status });
+    }
+
+    const clientList = clients as Record<string, unknown>[];
+
+    serverLog("IMPORT", "info", "Início importação", {
+      linhas: clientList.length,
+      usuario_id: profile.id,
+    });
 
     const supabase = await createSupabaseServerClient();
 
@@ -34,7 +82,8 @@ export async function POST(req: NextRequest) {
     let skippedCount = 0;
     const errors: string[] = [];
 
-    for (const clientData of clients) {
+    for (let lineIndex = 0; lineIndex < clientList.length; lineIndex++) {
+      const clientData = clientList[lineIndex];
       // Helper para buscar chaves de forma flexível (sem diferenciar maiúsculas/minúsculas ou espaços)
       const getValue = (possibleKeys: string[], defaultValue: any = "0") => {
         const keys = Object.keys(clientData);
@@ -58,13 +107,21 @@ export async function POST(req: NextRequest) {
       const rawCnpj = getValue(["CNPJ", "cnpj"], "");
 
       if (!rawRazaoSocial) {
-        console.log(`[IMPORT] Linha pulada: Coluna 'Empresas' não encontrada ou vazia.`);
         skippedCount++;
         continue;
       }
 
       const razao_social = String(rawRazaoSocial).trim();
       const cnpj = rawCnpj ? String(rawCnpj).replace(/\D/g, "") : "0";
+
+      const linhaVal = validateMappedClienteLinha(
+        razao_social,
+        cnpj,
+        lineIndex + 1
+      );
+      if (linhaVal) {
+        return NextResponse.json({ error: linhaVal.message }, { status: linhaVal.status });
+      }
 
       // Normalizar Unidade
       let tipo_unidade = getValue(["Unidade"], null);
@@ -163,7 +220,10 @@ export async function POST(req: NextRequest) {
         if (clientError?.code === '23505') {
           errMsg = `Cliente "${razao_social}" já existe (CNPJ duplicado: ${cnpj}).`;
         }
-        console.error(`[IMPORT] ${errMsg}`);
+        serverLog("IMPORT", "warn", "falha ao inserir linha", {
+          linha: lineIndex + 1,
+          msg: redactUserFacingMessage(errMsg),
+        });
         errors.push(errMsg);
         continue;
       }
@@ -186,15 +246,28 @@ export async function POST(req: NextRequest) {
       erros: errors.length 
     });
 
-    console.log(`[IMPORT] Finalizado. Sucesso: ${importedCount}, Pulados: ${skippedCount}, Erros: ${errors.length}`);
+    serverLog("IMPORT", "info", "Finalizado", {
+      sucesso: importedCount,
+      pulados: skippedCount,
+      erros: errors.length,
+    });
 
     if (importedCount === 0 && errors.length > 0) {
-      return NextResponse.json({ error: `Falha na importação: ${errors[0]}` }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: `Falha na importação: ${redactUserFacingMessage(errors[0])}`,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ count: importedCount, skipped: skippedCount, errors: errors.length });
-  } catch (error: any) {
-    console.error("[IMPORT] Erro crítico na API:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Erro interno.";
+    serverLog("IMPORT", "error", "erro crítico", { err: msg });
+    return NextResponse.json(
+      { error: "Falha ao processar importação." },
+      { status: 500 }
+    );
   }
 }

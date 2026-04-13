@@ -27,6 +27,7 @@ const links = [
     href: "/consulta-processo",
     label: "Consulta processo",
     icon: ClipboardDocumentCheckIcon,
+    adminOnly: true,
   },
   { href: "/usuarios", label: "Usuários", icon: UsersIcon, adminOnly: true },
   { href: "/logs", label: "Logs do Sistema", icon: DocumentTextIcon, adminOnly: true },

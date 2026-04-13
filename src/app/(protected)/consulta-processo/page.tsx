@@ -1,8 +1,25 @@
 import { ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
 import { Card } from "@/components/ui/card";
 import { ConsultaProcessoPanel } from "@/components/datajud/consulta-processo-panel";
+import { getCurrentProfile } from "@/lib/auth";
 
 export default async function ConsultaProcessoPage() {
+  const profile = await getCurrentProfile();
+  const podeConsultar =
+    profile != null &&
+    ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
+
+  if (!podeConsultar) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">Consulta de processos</h1>
+        <p className="text-sm text-neutral-400">
+          Acesso restrito a administradores, diretoria e financeiro.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">

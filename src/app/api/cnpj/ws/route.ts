@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { FETCH_HEADERS_BROWSER_LIKE } from "@/lib/public-fetch-headers";
 
 export async function GET(req: NextRequest) {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  }
+
   const raw = req.nextUrl.searchParams.get("cnpj") ?? "";
   const digits = raw.replace(/\D/g, "");
   if (digits.length !== 14) {

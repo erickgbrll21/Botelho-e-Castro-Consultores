@@ -12,8 +12,14 @@ import {
 
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
-  if (!profile) {
-    return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  if (
+    !profile ||
+    !["admin", "diretor", "financeiro"].includes(profile.tipo_usuario)
+  ) {
+    return NextResponse.json(
+      { error: "Acesso negado." },
+      { status: profile ? 403 : 401 }
+    );
   }
 
   let body: { numero?: string; tribunal?: string };
@@ -77,14 +83,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!res.ok) {
-      return NextResponse.json(
-        {
-          error: "Consulta ao DataJud recusada ou indisponível.",
-          httpStatus: res.status,
-          details: json,
-        },
-        { status: 502 }
-      );
+      const body: Record<string, unknown> = {
+        error: "Consulta ao DataJud recusada ou indisponível.",
+        httpStatus: res.status,
+      };
+      if (process.env.NODE_ENV !== "production") {
+        body.details = json;
+      }
+      return NextResponse.json(body, { status: 502 });
     }
 
     return NextResponse.json({
