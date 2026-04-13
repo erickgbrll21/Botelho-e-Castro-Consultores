@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
@@ -67,20 +66,6 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
         <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] animate-in duration-200">
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col items-start gap-1">
-              <img
-                src="/design-logo.svg"
-                alt="Design Complementar"
-                width={150}
-                height={50}
-                className="h-auto w-auto object-contain opacity-80"
-              />
-              <Image
-                src="/logo-bcc.svg"
-                alt="Botelho e Castro Consultores"
-                width={150}
-                height={50}
-                className="h-auto w-auto max-h-10 object-contain"
-              />
               <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-1">Painel Interno</p>
             </div>
             <button
