@@ -15,6 +15,7 @@ import {
   RESPONSAVEL_PADRAO_CONTABIL,
   RESPONSAVEL_PADRAO_DP,
   RESPONSAVEL_PADRAO_FINANCEIRO,
+  responsavelJuridicoSalvo,
 } from "@/lib/responsaveis-padrao";
 import {
   getSituacaoEmpresa,
@@ -174,7 +175,11 @@ async function createCliente(formData: FormData) {
     cliente_id: cliente.id,
     responsavel_comercial: responsavel_comercial || null,
     responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
-    responsavel_juridico: responsavel_juridico || null,
+    responsavel_juridico: responsavelJuridicoSalvo(
+      responsavel_juridico,
+      juridico_civel,
+      juridico_trabalhista
+    ),
     responsavel_planejamento_tributario:
       responsavel_planejamento_tributario || null,
     responsavel_dp: responsavel_dp || RESPONSAVEL_PADRAO_DP,

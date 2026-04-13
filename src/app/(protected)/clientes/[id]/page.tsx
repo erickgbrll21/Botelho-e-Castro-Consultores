@@ -314,7 +314,7 @@ export default async function ClienteDetalhe({
               </div>
               <div className="border-l-2 border-neutral-800 pl-3">
                 <dt className="text-[10px] text-neutral-500 uppercase tracking-wider">Departamento Jurídico</dt>
-                <dd className="text-sm font-semibold text-neutral-200">
+                <dd className="whitespace-pre-line text-sm font-semibold text-neutral-200">
                   {responsaveis?.responsavel_juridico ?? "—"}
                 </dd>
               </div>
