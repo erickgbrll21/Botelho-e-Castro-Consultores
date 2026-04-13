@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -152,11 +153,21 @@ async function createCliente(formData: FormData) {
     .maybeSingle();
 
   if (error || !cliente?.id) {
-    throw new Error(
-      error
-        ? messageFromSupabaseError(error, "Não foi possível criar a cliente.")
-        : "Não foi possível criar a cliente."
-    );
+    const msg = error
+      ? messageFromSupabaseError(error, "Não foi possível criar a cliente.")
+      : "Não foi possível criar a cliente.";
+    const isUniqueViolation =
+      !!error &&
+      (error.code === "23505" ||
+        /duplicate key|unique constraint/i.test(error.message ?? ""));
+    const likelyCnpjDuplicate =
+      isUniqueViolation && /cnpj/i.test(error.message ?? "");
+    if (likelyCnpjDuplicate) {
+      redirect(
+        `/clientes?novoCnpj=${encodeURIComponent(cnpj)}#cadastro-novo-cliente`
+      );
+    }
+    throw new Error(msg);
   }
 
   const { error: respErr } = await (supabase.from("responsaveis_internos") as any).insert({
