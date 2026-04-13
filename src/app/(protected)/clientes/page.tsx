@@ -22,6 +22,7 @@ import {
   situacaoEmpresaLabels,
   situacaoIndicatorClass,
 } from "@/lib/cliente-situacao";
+import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 
 async function createCliente(formData: FormData) {
   "use server";
@@ -99,19 +100,22 @@ async function createCliente(formData: FormData) {
   const socio_percentual = Number.isFinite(socioPercentNum) ? socioPercentNum : 100;
 
   // Serviços Contábeis
-  const contabil_fiscal = formData.get("contabil_fiscal") === "on";
-  const contabil_contabilidade = formData.get("contabil_contabilidade") === "on";
-  const contabil_dp = formData.get("contabil_dp") === "on";
-  const contabil_pericia = formData.get("contabil_pericia") === "on";
-  const contabil_legalizacao = formData.get("contabil_legalizacao") === "on";
+  const contabil_fiscal = parseFormCheckbox(formData, "contabil_fiscal");
+  const contabil_contabilidade = parseFormCheckbox(formData, "contabil_contabilidade");
+  const contabil_dp = parseFormCheckbox(formData, "contabil_dp");
+  const contabil_pericia = parseFormCheckbox(formData, "contabil_pericia");
+  const contabil_legalizacao = parseFormCheckbox(formData, "contabil_legalizacao");
 
   // Serviços Jurídicos
-  const juridico_civel = formData.get("juridico_civel") === "on";
-  const juridico_trabalhista = formData.get("juridico_trabalhista") === "on";
-  const juridico_licitacao = formData.get("juridico_licitacao") === "on";
-  const juridico_penal = formData.get("juridico_penal") === "on";
-  const juridico_empresarial = formData.get("juridico_empresarial") === "on";
-  const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
+  const juridico_civel = parseFormCheckbox(formData, "juridico_civel");
+  const juridico_trabalhista = parseFormCheckbox(formData, "juridico_trabalhista");
+  const juridico_licitacao = parseFormCheckbox(formData, "juridico_licitacao");
+  const juridico_penal = parseFormCheckbox(formData, "juridico_penal");
+  const juridico_empresarial = parseFormCheckbox(formData, "juridico_empresarial");
+  const planejamento_societario_tributario = parseFormCheckbox(
+    formData,
+    "planejamento_societario_tributario"
+  );
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -171,14 +175,41 @@ async function createCliente(formData: FormData) {
     throw new Error(msg);
   }
 
+  const { data: servRow, error: servErr } = await (supabase
+    .from("servicos_contratados") as any)
+    .insert({
+      cliente_id: cliente.id,
+      contabil_fiscal,
+      contabil_contabilidade,
+      contabil_dp,
+      contabil_pericia,
+      contabil_legalizacao,
+      juridico_civel,
+      juridico_trabalhista,
+      juridico_licitacao,
+      juridico_penal,
+      juridico_empresarial,
+      planejamento_societario_tributario,
+    })
+    .select("juridico_civel, juridico_trabalhista")
+    .single();
+  if (servErr) {
+    throw new Error(
+      servErr.message || "Não foi possível salvar os serviços contratados."
+    );
+  }
+
+  const juridicoCivelDb = Boolean(servRow?.juridico_civel);
+  const juridicoTrabalhistaDb = Boolean(servRow?.juridico_trabalhista);
+
   const { error: respErr } = await (supabase.from("responsaveis_internos") as any).insert({
     cliente_id: cliente.id,
     responsavel_comercial: responsavel_comercial || null,
     responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
     responsavel_juridico: responsavelJuridicoSalvo(
       responsavel_juridico,
-      juridico_civel,
-      juridico_trabalhista
+      juridicoCivelDb,
+      juridicoTrabalhistaDb
     ),
     responsavel_planejamento_tributario:
       responsavel_planejamento_tributario || null,
@@ -188,26 +219,6 @@ async function createCliente(formData: FormData) {
   if (respErr) {
     throw new Error(
       respErr.message || "Não foi possível salvar os responsáveis internos."
-    );
-  }
-
-  const { error: servErr } = await (supabase.from("servicos_contratados") as any).insert({
-    cliente_id: cliente.id,
-    contabil_fiscal,
-    contabil_contabilidade,
-    contabil_dp,
-    contabil_pericia,
-    contabil_legalizacao,
-    juridico_civel,
-    juridico_trabalhista,
-    juridico_licitacao,
-    juridico_penal,
-    juridico_empresarial,
-    planejamento_societario_tributario,
-  });
-  if (servErr) {
-    throw new Error(
-      servErr.message || "Não foi possível salvar os serviços contratados."
     );
   }
 

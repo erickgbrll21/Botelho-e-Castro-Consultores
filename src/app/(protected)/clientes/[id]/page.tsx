@@ -22,6 +22,7 @@ import {
   situacaoPillProps,
 } from "@/lib/cliente-situacao";
 import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
+import { responsavelJuridicoParaExibicao } from "@/lib/responsaveis-padrao";
 
 function formatCurrency(value: number | null | undefined) {
   if (!value && value !== 0) return "—";
@@ -315,7 +316,10 @@ export default async function ClienteDetalhe({
               <div className="border-l-2 border-neutral-800 pl-3">
                 <dt className="text-[10px] text-neutral-500 uppercase tracking-wider">Departamento Jurídico</dt>
                 <dd className="whitespace-pre-line text-sm font-semibold text-neutral-200">
-                  {responsaveis?.responsavel_juridico ?? "—"}
+                  {responsavelJuridicoParaExibicao(
+                    responsaveis?.responsavel_juridico,
+                    servicos
+                  )}
                 </dd>
               </div>
               <div className="border-l-2 border-neutral-800 pl-3">

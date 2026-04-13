@@ -12,7 +12,9 @@ import {
   RESPONSAVEL_PADRAO_DP,
   RESPONSAVEL_PADRAO_FINANCEIRO,
   responsavelJuridicoSalvo,
+  responsavelJuridicoCampoDefault,
 } from "@/lib/responsaveis-padrao";
+import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 
 async function updateCliente(formData: FormData) {
   "use server";
@@ -85,19 +87,22 @@ async function updateCliente(formData: FormData) {
   const responsavel_financeiro = String(formData.get("responsavel_financeiro") ?? "").trim();
 
   // Serviços Contábeis
-  const contabil_fiscal = formData.get("contabil_fiscal") === "on";
-  const contabil_contabilidade = formData.get("contabil_contabilidade") === "on";
-  const contabil_dp = formData.get("contabil_dp") === "on";
-  const contabil_pericia = formData.get("contabil_pericia") === "on";
-  const contabil_legalizacao = formData.get("contabil_legalizacao") === "on";
+  const contabil_fiscal = parseFormCheckbox(formData, "contabil_fiscal");
+  const contabil_contabilidade = parseFormCheckbox(formData, "contabil_contabilidade");
+  const contabil_dp = parseFormCheckbox(formData, "contabil_dp");
+  const contabil_pericia = parseFormCheckbox(formData, "contabil_pericia");
+  const contabil_legalizacao = parseFormCheckbox(formData, "contabil_legalizacao");
 
   // Serviços Jurídicos
-  const juridico_civel = formData.get("juridico_civel") === "on";
-  const juridico_trabalhista = formData.get("juridico_trabalhista") === "on";
-  const juridico_licitacao = formData.get("juridico_licitacao") === "on";
-  const juridico_penal = formData.get("juridico_penal") === "on";
-  const juridico_empresarial = formData.get("juridico_empresarial") === "on";
-  const planejamento_societario_tributario = formData.get("planejamento_societario_tributario") === "on";
+  const juridico_civel = parseFormCheckbox(formData, "juridico_civel");
+  const juridico_trabalhista = parseFormCheckbox(formData, "juridico_trabalhista");
+  const juridico_licitacao = parseFormCheckbox(formData, "juridico_licitacao");
+  const juridico_penal = parseFormCheckbox(formData, "juridico_penal");
+  const juridico_empresarial = parseFormCheckbox(formData, "juridico_empresarial");
+  const planejamento_societario_tributario = parseFormCheckbox(
+    formData,
+    "planejamento_societario_tributario"
+  );
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -147,38 +152,55 @@ async function updateCliente(formData: FormData) {
     );
   }
 
-  // Update responsaveis_internos
-  await (supabase.from("responsaveis_internos") as any)
-    .upsert({
-      cliente_id: id,
-      responsavel_comercial: responsavel_comercial || null,
-      responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
-      responsavel_juridico: responsavelJuridicoSalvo(
-        responsavel_juridico,
+  const { data: servRow, error: servUpsertErr } = await (supabase
+    .from("servicos_contratados") as any)
+    .upsert(
+      {
+        cliente_id: id,
+        contabil_fiscal,
+        contabil_contabilidade,
+        contabil_dp,
+        contabil_pericia,
+        contabil_legalizacao,
         juridico_civel,
-        juridico_trabalhista
-      ),
-      responsavel_planejamento_tributario: responsavel_planejamento_tributario || null,
-      responsavel_dp: responsavel_dp || RESPONSAVEL_PADRAO_DP,
-      responsavel_financeiro: responsavel_financeiro || RESPONSAVEL_PADRAO_FINANCEIRO,
-    }, { onConflict: 'cliente_id' });
+        juridico_trabalhista,
+        juridico_licitacao,
+        juridico_penal,
+        juridico_empresarial,
+        planejamento_societario_tributario,
+      },
+      { onConflict: "cliente_id" }
+    )
+    .select("juridico_civel, juridico_trabalhista")
+    .single();
 
-  // Update servicos_contratados
-  await (supabase.from("servicos_contratados") as any)
-    .upsert({
-      cliente_id: id,
-      contabil_fiscal,
-      contabil_contabilidade,
-      contabil_dp,
-      contabil_pericia,
-      contabil_legalizacao,
-      juridico_civel,
-      juridico_trabalhista,
-      juridico_licitacao,
-      juridico_penal,
-      juridico_empresarial,
-      planejamento_societario_tributario,
-    }, { onConflict: 'cliente_id' });
+  if (servUpsertErr) {
+    throw new Error(
+      servUpsertErr.message || "Não foi possível salvar os serviços contratados."
+    );
+  }
+
+  const juridicoCivelDb = Boolean(servRow?.juridico_civel);
+  const juridicoTrabalhistaDb = Boolean(servRow?.juridico_trabalhista);
+
+  await (supabase.from("responsaveis_internos") as any)
+    .upsert(
+      {
+        cliente_id: id,
+        responsavel_comercial: responsavel_comercial || null,
+        responsavel_contabil: responsavel_contabil || RESPONSAVEL_PADRAO_CONTABIL,
+        responsavel_juridico: responsavelJuridicoSalvo(
+          responsavel_juridico,
+          juridicoCivelDb,
+          juridicoTrabalhistaDb
+        ),
+        responsavel_planejamento_tributario:
+          responsavel_planejamento_tributario || null,
+        responsavel_dp: responsavel_dp || RESPONSAVEL_PADRAO_DP,
+        responsavel_financeiro: responsavel_financeiro || RESPONSAVEL_PADRAO_FINANCEIRO,
+      },
+      { onConflict: "cliente_id" }
+    );
 
   await registrarLog("Edição de Cliente", {
     id,
@@ -596,7 +618,10 @@ export default async function EditClientePage({
                 <label className="text-sm text-neutral-300">Responsável Jurídico</label>
                 <input
                   name="responsavel_juridico"
-                  defaultValue={responsaveis.responsavel_juridico}
+                  defaultValue={responsavelJuridicoCampoDefault(
+                    responsaveis.responsavel_juridico,
+                    servicos
+                  )}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 />
               </div>

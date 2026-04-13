@@ -30,3 +30,43 @@ export function responsavelJuridicoSalvo(
   }
   return partes.length ? partes.join("\n") : null;
 }
+
+/** Texto derivado só dos serviços (sem valor manual no banco). */
+export function responsavelJuridicoDerivadoDosServicos(
+  juridico_civel: boolean,
+  juridico_trabalhista: boolean
+): string {
+  return responsavelJuridicoSalvo("", juridico_civel, juridico_trabalhista) ?? "";
+}
+
+type ServicosJuridicoFlags = {
+  juridico_civel?: boolean | null;
+  juridico_trabalhista?: boolean | null;
+} | null | undefined;
+
+/** Ficha do cliente: usa o que está gravado ou calcula a partir de Cível/Trabalhista. */
+export function responsavelJuridicoParaExibicao(
+  armazenado: string | null | undefined,
+  servicos: ServicosJuridicoFlags
+): string {
+  const t = (armazenado ?? "").trim();
+  if (t) return t;
+  const derivado = responsavelJuridicoDerivadoDosServicos(
+    Boolean(servicos?.juridico_civel),
+    Boolean(servicos?.juridico_trabalhista)
+  );
+  return derivado || "—";
+}
+
+/** Formulário de edição: pré-preenche quando o banco está vazio mas os serviços pedem padrão. */
+export function responsavelJuridicoCampoDefault(
+  armazenado: string | null | undefined,
+  servicos: ServicosJuridicoFlags
+): string {
+  const t = (armazenado ?? "").trim();
+  if (t) return t;
+  return responsavelJuridicoDerivadoDosServicos(
+    Boolean(servicos?.juridico_civel),
+    Boolean(servicos?.juridico_trabalhista)
+  );
+}
