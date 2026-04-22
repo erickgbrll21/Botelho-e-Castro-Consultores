@@ -91,7 +91,7 @@ export async function fetchAndApplyInscricoesCnpjWs(
   if (cnpjDigits14.length !== 14) return;
   try {
     const res = await fetch(
-      `/api/cnpj/ws?cnpj=${encodeURIComponent(cnpjDigits14)}`
+      `/api/cnpj/cnpjws?cnpj=${encodeURIComponent(cnpjDigits14)}`
     );
     if (!res.ok) return;
     const data: unknown = await res.json();

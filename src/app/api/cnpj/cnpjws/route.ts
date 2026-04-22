@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { FETCH_HEADERS_BROWSER_LIKE } from "@/lib/public-fetch-headers";
 
 const TIMEOUT_MS = 5_000;
-const CACHE_TTL_MS = 10 * 60_000;
-const cache = new Map<string, { expiresAt: number; payload: unknown }>();
 
 export async function GET(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -18,46 +17,33 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const now = Date.now();
-    const cached = cache.get(digits);
-    if (cached && cached.expiresAt > now) {
-      return NextResponse.json(cached.payload);
-    }
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`, {
-      signal: controller.signal,
+    const res = await fetch(`https://publica.cnpj.ws/cnpj/${digits}`, {
+      headers: { ...FETCH_HEADERS_BROWSER_LIKE },
       cache: "no-store",
+      signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
 
-    if (res.status === 404) {
-      return NextResponse.json(
-        { error: "CNPJ não encontrado." },
-        { status: 404 }
-      );
-    }
-
     if (!res.ok) {
-      const payload = { error: "Serviço indisponível no momento" };
-      console.error("[/api/cnpj/ws] BrasilAPI falhou", {
+      console.error("[/api/cnpj/cnpjws] publica.cnpj.ws falhou", {
         status: res.status,
         cnpj: digits,
       });
-      return NextResponse.json(payload, { status: 503 });
+      return NextResponse.json(
+        { error: "Consulta indisponível" },
+        { status: res.status === 404 ? 404 : 503 }
+      );
     }
 
     const data: unknown = await res.json();
-    cache.set(digits, { expiresAt: now + CACHE_TTL_MS, payload: data });
     return NextResponse.json(data);
   } catch (err) {
-    console.error("[/api/cnpj/ws] erro ao consultar BrasilAPI", {
+    console.error("[/api/cnpj/cnpjws] erro ao consultar publica.cnpj.ws", {
       cnpj: digits,
       err: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json(
-      { error: "Serviço indisponível no momento" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "Falha na consulta" }, { status: 503 });
   }
 }
+

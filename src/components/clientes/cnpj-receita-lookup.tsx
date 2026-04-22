@@ -47,9 +47,7 @@ export function CnpjReceitaLookup({
 
       setStatus("loading");
       try {
-        const res = await fetch(
-          `https://brasilapi.com.br/api/cnpj/v1/${digits14}`
-        );
+        const res = await fetch(`/api/cnpj/ws?cnpj=${encodeURIComponent(digits14)}`);
         if (res.status === 404) {
           setStatus("notfound");
           return;

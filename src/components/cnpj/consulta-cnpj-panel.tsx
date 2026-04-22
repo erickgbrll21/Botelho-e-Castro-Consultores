@@ -84,9 +84,7 @@ export function ConsultaCnpjPanel({
     setIm(null);
 
     try {
-      const res = await fetch(
-        `https://brasilapi.com.br/api/cnpj/v1/${digits14}`
-      );
+      const res = await fetch(`/api/cnpj/ws?cnpj=${encodeURIComponent(digits14)}`);
       if (res.status === 404) {
         setStatus("notfound");
         return;
@@ -102,9 +100,7 @@ export function ConsultaCnpjPanel({
       let nextIm = imB;
 
       try {
-        const wr = await fetch(
-          `/api/cnpj/ws?cnpj=${encodeURIComponent(digits14)}`
-        );
+        const wr = await fetch(`/api/cnpj/cnpjws?cnpj=${encodeURIComponent(digits14)}`);
         if (wr.ok) {
           const payload: unknown = await wr.json();
           const { inscricao_estadual, inscricao_municipal } =
