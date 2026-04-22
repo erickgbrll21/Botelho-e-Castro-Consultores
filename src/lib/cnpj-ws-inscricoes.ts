@@ -90,12 +90,18 @@ export async function fetchAndApplyInscricoesCnpjWs(
 ): Promise<void> {
   if (cnpjDigits14.length !== 14) return;
   try {
-    const res = await fetch(
-      `/api/cnpj/cnpjws?cnpj=${encodeURIComponent(cnpjDigits14)}`
-    );
+    const res = await fetch(`/api/cnpj/ws?cnpj=${encodeURIComponent(cnpjDigits14)}`);
     if (!res.ok) return;
     const data: unknown = await res.json();
-    applyCnpjWsInscricoesToForm(form, data);
+    const root = data as Record<string, unknown>;
+    const ie = root.inscricao_estadual;
+    const im = root.inscricao_municipal;
+    if (typeof ie === "string" && ie.trim()) {
+      setFormField(form, "inscricao_estadual", ie.trim());
+    }
+    if (typeof im === "string" && im.trim()) {
+      setFormField(form, "inscricao_municipal", im.trim());
+    }
   } catch {
     // rede / CORS em teoria não ocorre no browser para esse host
   }

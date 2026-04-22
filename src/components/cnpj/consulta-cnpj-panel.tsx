@@ -1,17 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  brasilApiLogradouroLinha,
-  brasilApiRegimeAtualTexto,
-  brasilApiTelefonePreferido,
-  brasilApiTipoUnidadeTexto,
   formatCnpjDisplay,
   onlyDigits,
-  type BrasilApiCnpjJson,
 } from "@/lib/brasilapi-cnpj";
-import { extractInscricoesFromCnpjWsPayload } from "@/lib/cnpj-ws-inscricoes";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 
@@ -20,38 +14,25 @@ function formatCep(cep: string | undefined) {
   return d.length === 8 ? `${d.slice(0, 5)}-${d.slice(5)}` : cep ?? "—";
 }
 
-function formatCapital(n: number | undefined) {
-  if (n == null || Number.isNaN(n)) return "—";
-  return n.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
-}
-
-function ieImFromBrasilApi(data: BrasilApiCnpjJson): {
-  ie: string | null;
-  im: string | null;
-} {
-  const ext = data as Record<string, unknown>;
-  const str = (k: string) => {
-    const v = ext[k];
-    return typeof v === "string" && v.trim() ? v.trim() : null;
+type CnpjNormalized = {
+  cnpj: string;
+  nome: string;
+  fantasia: string;
+  situacao: string;
+  abertura: string;
+  atividade_principal: string;
+  endereco: {
+    logradouro: string;
+    numero: string;
+    bairro: string;
+    cidade: string;
+    uf: string;
+    cep: string;
   };
-  const ie =
-    data.inscricao_estadual?.trim() ||
-    str("inscricao_estadual") ||
-    str("inscrição_estadual") ||
-    str("numero_inscricao_estadual") ||
-    str("ie");
-  const im =
-    data.inscricao_municipal?.trim() ||
-    str("inscricao_municipal") ||
-    str("inscrição_municipal") ||
-    str("numero_inscricao_municipal") ||
-    str("im");
-  return { ie: ie || null, im: im || null };
-}
+  inscricao_estadual?: string;
+  inscricao_municipal?: string;
+  _meta?: { api?: string; stale?: boolean };
+};
 
 type Status = "idle" | "loading" | "ok" | "notfound" | "error";
 
@@ -65,9 +46,10 @@ export function ConsultaCnpjPanel({
 }: ConsultaCnpjPanelProps) {
   const [cnpjDisplay, setCnpjDisplay] = useState("");
   const [status, setStatus] = useState<Status>("idle");
-  const [data, setData] = useState<BrasilApiCnpjJson | null>(null);
+  const [data, setData] = useState<CnpjNormalized | null>(null);
   const [ie, setIe] = useState<string | null>(null);
   const [im, setIm] = useState<string | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
   const runConsulta = useCallback(async (digits14: string) => {
     if (digits14.length !== 14) {
@@ -94,26 +76,15 @@ export function ConsultaCnpjPanel({
         return;
       }
 
-      const json: BrasilApiCnpjJson = await res.json();
-      const { ie: ieB, im: imB } = ieImFromBrasilApi(json);
-      let nextIe = ieB;
-      let nextIm = imB;
-
-      try {
-        const wr = await fetch(`/api/cnpj/cnpjws?cnpj=${encodeURIComponent(digits14)}`);
-        if (wr.ok) {
-          const payload: unknown = await wr.json();
-          const { inscricao_estadual, inscricao_municipal } =
-            extractInscricoesFromCnpjWsPayload(
-              payload,
-              (json.uf ?? "").slice(0, 2)
-            );
-          if (!nextIe && inscricao_estadual) nextIe = inscricao_estadual;
-          if (!nextIm && inscricao_municipal) nextIm = inscricao_municipal;
-        }
-      } catch {
-        /* complemento opcional */
-      }
+      const json: CnpjNormalized = await res.json();
+      const nextIe =
+        typeof json.inscricao_estadual === "string" && json.inscricao_estadual.trim()
+          ? json.inscricao_estadual.trim()
+          : null;
+      const nextIm =
+        typeof json.inscricao_municipal === "string" && json.inscricao_municipal.trim()
+          ? json.inscricao_municipal.trim()
+          : null;
 
       setData(json);
       setIe(nextIe);
@@ -129,7 +100,10 @@ export function ConsultaCnpjPanel({
     const d = onlyDigits(e.target.value).slice(0, 14);
     setCnpjDisplay(formatCnpjDisplay(d));
     if (d.length === 14) {
-      void runConsulta(d);
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      debounceRef.current = window.setTimeout(() => {
+        void runConsulta(d);
+      }, 500);
     } else {
       setStatus("idle");
       setData(null);
@@ -149,10 +123,9 @@ export function ConsultaCnpjPanel({
     if (d.length === 14) void runConsulta(d);
   };
 
-  const tipoUnidade = data ? brasilApiTipoUnidadeTexto(data) : "";
-  const logradouro = data ? brasilApiLogradouroLinha(data) : "";
-  const telefone = data ? brasilApiTelefonePreferido(data) : "";
-  const regime = data ? brasilApiRegimeAtualTexto(data) : "";
+  const logradouro = data
+    ? [data.endereco.logradouro, data.endereco.numero].filter(Boolean).join(", ")
+    : "";
 
   return (
     <div className="space-y-6">
@@ -203,15 +176,13 @@ export function ConsultaCnpjPanel({
       {status === "ok" && data ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            {(data.descricao_situacao_cadastral?.trim() || "").length > 0 ? (
+            {(data.situacao?.trim() || "").length > 0 ? (
               <Pill
-                label={String(data.descricao_situacao_cadastral).trim()}
+                label={String(data.situacao).trim()}
                 tone="neutral"
               />
             ) : null}
-            {tipoUnidade === "Matriz" || tipoUnidade === "Filial" ? (
-              <Pill label={tipoUnidade} tone="success" />
-            ) : null}
+            {data._meta?.stale ? <Pill label="Cache" tone="warning" /> : null}
           </div>
 
           <Card title="Identificação">
@@ -221,7 +192,7 @@ export function ConsultaCnpjPanel({
                   Razão social
                 </dt>
                 <dd className="font-semibold text-neutral-100 break-words">
-                  {data.razao_social ?? "—"}
+                  {data.nome?.trim() || "—"}
                 </dd>
               </div>
               <div>
@@ -229,7 +200,7 @@ export function ConsultaCnpjPanel({
                   Nome fantasia
                 </dt>
                 <dd className="text-neutral-200 break-words">
-                  {(data.nome_fantasia ?? "").trim() || "—"}
+                  {(data.fantasia ?? "").trim() || "—"}
                 </dd>
               </div>
               <div>
@@ -242,108 +213,58 @@ export function ConsultaCnpjPanel({
               </div>
               <div>
                 <dt className="text-[10px] uppercase tracking-wider text-neutral-500">
-                  Início de atividades
+                  Abertura
                 </dt>
                 <dd className="text-neutral-200">
-                  {data.data_inicio_atividade ?? "—"}
+                  {data.abertura?.trim() || "—"}
                 </dd>
               </div>
             </dl>
           </Card>
 
-          <Card title="Atividade e porte">
-            <div className="space-y-2 text-sm">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                  CNAE fiscal
-                </p>
-                <p className="text-neutral-200 break-words">
-                  {data.cnae_fiscal_descricao ?? "—"}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                    Capital social
-                  </p>
-                  <p className="font-medium text-neutral-100">
-                    {formatCapital(data.capital_social)}
-                  </p>
-                </div>
-                {regime ? (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-                      Regime tributário (último informado)
-                    </p>
-                    <p className="text-neutral-200">{regime}</p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
+          <Card title="Atividade">
+            <p className="text-sm text-neutral-200 break-words">
+              {data.atividade_principal?.trim() || "—"}
+            </p>
           </Card>
 
-          <Card title="Endereço e contato">
+          <Card title="Endereço e inscrições">
             <div className="space-y-2 text-sm">
               <p>
                 <span className="text-neutral-500">CEP: </span>
-                <span className="text-neutral-200">{formatCep(data.cep)}</span>
+                <span className="text-neutral-200">{formatCep(data.endereco.cep)}</span>
               </p>
               {logradouro ? (
                 <p className="text-neutral-200 break-words">{logradouro}</p>
               ) : null}
-              {(data.bairro || data.complemento) ? (
-                <p className="text-neutral-300 break-words">
-                  {[data.bairro, data.complemento].filter(Boolean).join(" · ")}
-                </p>
+              {data.endereco.bairro?.trim() ? (
+                <p className="text-neutral-300 break-words">{data.endereco.bairro}</p>
               ) : null}
               <p className="font-medium text-neutral-100">
-                {[data.municipio, data.uf].filter(Boolean).join(" / ") || "—"}
+                {[data.endereco.cidade, data.endereco.uf].filter(Boolean).join(" / ") || "—"}
               </p>
-              {telefone ? (
-                <p>
-                  <span className="text-neutral-500">Telefone: </span>
-                  <span className="text-neutral-200">{telefone}</span>
-                </p>
-              ) : null}
+              <dl className="grid gap-3 pt-2 sm:grid-cols-2">
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-neutral-500">
+                    Inscrição estadual
+                  </dt>
+                  <dd className="font-mono text-neutral-200">{ie ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-neutral-500">
+                    Inscrição municipal
+                  </dt>
+                  <dd className="font-mono text-neutral-200">{im ?? "—"}</dd>
+                </div>
+              </dl>
             </div>
           </Card>
 
-          <Card title="Inscrições (quando disponíveis)">
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-[10px] uppercase tracking-wider text-neutral-500">
-                  Inscrição estadual
-                </dt>
-                <dd className="font-mono text-neutral-200">{ie ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-[10px] uppercase tracking-wider text-neutral-500">
-                  Inscrição municipal
-                </dt>
-                <dd className="font-mono text-neutral-200">{im ?? "—"}</dd>
-              </div>
-            </dl>
-          </Card>
-
-          {data.qsa && data.qsa.length > 0 ? (
-            <Card title={`Quadro societário (${data.qsa.length})`}>
-              <ul className="divide-y divide-neutral-800">
-                {data.qsa.map((s, i) => (
-                  <li key={i} className="py-3 text-sm first:pt-0">
-                    <p className="font-medium text-neutral-100">
-                      {s.nome_socio ?? "—"}
-                    </p>
-                    {(s.qualificacao_socio || s.cnpj_cpf_do_socio) ? (
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        {[s.qualificacao_socio, s.cnpj_cpf_do_socio]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </Card>
+          {data._meta?.api ? (
+            <p className="text-xs text-neutral-500">
+              Fonte: {data._meta.api}
+              {data._meta.stale ? " (cache)" : ""}
+            </p>
           ) : null}
 
           <div className="space-y-3 border-t border-neutral-800/60 pt-4">

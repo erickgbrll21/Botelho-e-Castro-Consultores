@@ -5,7 +5,6 @@ import {
   applyCnpjJsonToForm,
   formatCnpjDisplay,
   onlyDigits,
-  type BrasilApiCnpjJson,
 } from "@/lib/brasilapi-cnpj";
 import { fetchAndApplyInscricoesCnpjWs } from "@/lib/cnpj-ws-inscricoes";
 
@@ -40,6 +39,8 @@ export function CnpjReceitaLookup({
     "idle" | "loading" | "ok" | "notfound" | "error"
   >("idle");
 
+  const debounceRef = useRef<number | null>(null);
+
   const runLookup = useCallback(
     async (digits14: string) => {
       const form = document.getElementById(formId) as HTMLFormElement | null;
@@ -47,7 +48,9 @@ export function CnpjReceitaLookup({
 
       setStatus("loading");
       try {
-        const res = await fetch(`/api/cnpj/ws?cnpj=${encodeURIComponent(digits14)}`);
+        const res = await fetch(
+          `/api/cnpj/ws?cnpj=${encodeURIComponent(digits14)}`
+        );
         if (res.status === 404) {
           setStatus("notfound");
           return;
@@ -56,10 +59,32 @@ export function CnpjReceitaLookup({
           setStatus("error");
           return;
         }
-        const data: BrasilApiCnpjJson = await res.json();
-        applyCnpjJsonToForm(form, data);
+
+        // O backend normaliza o payload. Reaproveitamos o aplicador existente
+        // adaptando as chaves esperadas quando existirem.
+        const raw = (await res.json()) as Record<string, unknown>;
+        const compat: Record<string, unknown> = {
+          cnpj: raw.cnpj,
+          razao_social: raw.nome,
+          nome_fantasia: raw.fantasia,
+          descricao_situacao_cadastral: raw.situacao,
+          data_inicio_atividade: raw.abertura,
+          cnae_fiscal_descricao: raw.atividade_principal,
+          logradouro: (raw.endereco as any)?.logradouro,
+          numero: (raw.endereco as any)?.numero,
+          bairro: (raw.endereco as any)?.bairro,
+          municipio: (raw.endereco as any)?.cidade,
+          uf: (raw.endereco as any)?.uf,
+          cep: (raw.endereco as any)?.cep,
+          inscricao_estadual: raw.inscricao_estadual,
+          inscricao_municipal: raw.inscricao_municipal,
+        };
+
+        applyCnpjJsonToForm(form, compat as any);
         await fetchAndApplyInscricoesCnpjWs(form, digits14);
-        setCnpjDisplay(formatCnpjDisplay(data.cnpj ?? digits14));
+
+        const cnpjBack = typeof raw.cnpj === "string" ? raw.cnpj : digits14;
+        setCnpjDisplay(formatCnpjDisplay(cnpjBack));
         setStatus("ok");
       } catch {
         setStatus("error");
@@ -85,7 +110,10 @@ export function CnpjReceitaLookup({
     const d = onlyDigits(e.target.value).slice(0, 14);
     setCnpjDisplay(formatCnpjDisplay(d));
     if (d.length === 14) {
-      void runLookup(d);
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+      debounceRef.current = window.setTimeout(() => {
+        void runLookup(d);
+      }, 500);
     } else {
       setStatus("idle");
     }
