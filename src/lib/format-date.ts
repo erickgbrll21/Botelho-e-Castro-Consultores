@@ -10,5 +10,10 @@ export function formatDateTimePtBR(
   if (!s) return "—";
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("pt-BR", options).format(d);
+  // Força horário de Brasília por padrão (evita exibir UTC em servidor/cliente).
+  const merged: Intl.DateTimeFormatOptions = {
+    timeZone: "America/Sao_Paulo",
+    ...options,
+  };
+  return new Intl.DateTimeFormat("pt-BR", merged).format(d);
 }
