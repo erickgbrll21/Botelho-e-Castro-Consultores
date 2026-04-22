@@ -165,12 +165,10 @@ async function createCliente(formData: FormData) {
       !!error &&
       (error.code === "23505" ||
         /duplicate key|unique constraint/i.test(error.message ?? ""));
-    const likelyCnpjDuplicate =
-      isUniqueViolation && /cnpj/i.test(error.message ?? "");
-    if (likelyCnpjDuplicate) {
-      redirect(
-        `/clientes?novoCnpj=${encodeURIComponent(cnpj)}#cadastro-novo-cliente`
-      );
+    if (isUniqueViolation) {
+      const qp =
+        cnpj.length === 14 ? `novoCnpj=${encodeURIComponent(cnpj)}&` : "";
+      redirect(`/clientes?${qp}duplicado=1#cadastro-novo-cliente`);
     }
     throw new Error(msg);
   }
@@ -354,6 +352,7 @@ export default async function ClientesPage({
     grupo?: string;
     editGrupo?: string;
     novoCnpj?: string;
+    duplicado?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -361,8 +360,13 @@ export default async function ClientesPage({
   const isAdmin = profile && ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
-  const { q, grupo: grupoFiltro, editGrupo: editGrupoId, novoCnpj: novoCnpjRaw } =
-    await searchParams;
+  const {
+    q,
+    grupo: grupoFiltro,
+    editGrupo: editGrupoId,
+    novoCnpj: novoCnpjRaw,
+    duplicado,
+  } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
@@ -370,6 +374,7 @@ export default async function ClientesPage({
     .slice(0, 14);
   const cnpjParaCadastro =
     novoCnpjDigits.length === 14 ? novoCnpjDigits : null;
+  const showDuplicateBanner = duplicado === "1";
 
   const { data: clienteJaCadastrado } = cnpjParaCadastro
     ? await (supabase.from("clientes") as any)
@@ -513,6 +518,13 @@ export default async function ClientesPage({
                   {clienteJaCadastrado.razao_social}
                 </a>
                 .
+              </p>
+            </div>
+          ) : showDuplicateBanner ? (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+              <p className="font-semibold">Cliente já está cadastrado.</p>
+              <p className="mt-1 text-amber-200/90">
+                Use a busca na lista ou abra o cadastro existente para editar.
               </p>
             </div>
           ) : null}
