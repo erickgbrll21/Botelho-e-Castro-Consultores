@@ -238,6 +238,7 @@ async function createCliente(formData: FormData) {
   });
 
   await revalidatePath("/clientes");
+  redirect("/clientes?cadastrado=1");
 }
 
 async function createGrupo(formData: FormData) {
@@ -353,6 +354,7 @@ export default async function ClientesPage({
     editGrupo?: string;
     novoCnpj?: string;
     duplicado?: string;
+    cadastrado?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -366,6 +368,7 @@ export default async function ClientesPage({
     editGrupo: editGrupoId,
     novoCnpj: novoCnpjRaw,
     duplicado,
+    cadastrado,
   } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
@@ -375,6 +378,7 @@ export default async function ClientesPage({
   const cnpjParaCadastro =
     novoCnpjDigits.length === 14 ? novoCnpjDigits : null;
   const showDuplicateBanner = duplicado === "1";
+  const showCreatedBanner = cadastrado === "1";
 
   const { data: clienteJaCadastrado } = cnpjParaCadastro
     ? await (supabase.from("clientes") as any)
@@ -502,6 +506,14 @@ export default async function ClientesPage({
           className="scroll-mt-24 border-amber-500/30"
           action={<Pill label="Restrito a admins" tone="critical" />}
         >
+          {showCreatedBanner ? (
+            <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              <p className="font-semibold">Empresa cadastrada com sucesso.</p>
+              <p className="mt-1 text-emerald-100/90">
+                O cadastro foi salvo e já aparece na lista de clientes.
+              </p>
+            </div>
+          ) : null}
           {clienteJaCadastrado ? (
             <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
               <p className="font-semibold">
