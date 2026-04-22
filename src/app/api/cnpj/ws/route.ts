@@ -21,14 +21,14 @@ type CnpjNormalized = {
   inscricao_estadual?: string;
   inscricao_municipal?: string;
   _meta?: {
-    api: "brasilapi" | "receitaws" | "cnpjws" | "cache";
+    api: "brasilapi" | "cache";
     stale?: boolean;
     attempts: Attempt[];
   };
 };
 
 type Attempt = {
-  api: "brasilapi" | "receitaws" | "cnpjws";
+  api: "brasilapi";
   ok: boolean;
   status?: number;
   error?: string;
@@ -36,7 +36,7 @@ type Attempt = {
 type Attempts = Attempt[];
 
 const TIMEOUT_MS = 4_800;
-const MAX_RETRIES_PER_API = 2;
+const MAX_RETRIES = 2;
 const CACHE_TTL_MS = 10 * 60_000;
 const STALE_IF_ERROR_MS = 24 * 60 * 60_000; // 24h
 
@@ -95,72 +95,6 @@ function normalizeBrasilApi(cnpj: string, payload: unknown): CnpjNormalized {
   };
 }
 
-function normalizeReceitaWs(cnpj: string, payload: unknown): CnpjNormalized {
-  const p = payload as Record<string, unknown>;
-  const ap = (p.atividade_principal as Array<Record<string, unknown>> | undefined)?.[0];
-  return {
-    ...emptyNormalized(cnpj),
-    cnpj: digitsOnly(safeStr(p.cnpj)) || cnpj,
-    nome: safeStr(p.nome),
-    fantasia: safeStr(p.fantasia),
-    situacao: safeStr(p.situacao),
-    abertura: safeStr(p.abertura),
-    atividade_principal: safeStr(ap?.text),
-    endereco: {
-      logradouro: safeStr(p.logradouro),
-      numero: safeStr(p.numero),
-      bairro: safeStr(p.bairro),
-      cidade: safeStr(p.municipio),
-      uf: safeStr(p.uf),
-      cep: digitsOnly(safeStr(p.cep)),
-    },
-  };
-}
-
-function normalizeCnpjWs(cnpj: string, payload: unknown): CnpjNormalized {
-  const root = payload as Record<string, unknown>;
-  const est = root.estabelecimento as Record<string, unknown> | undefined;
-  const estAny = est as any;
-  const nome = safeStr(root.razao_social);
-  const fantasia = safeStr(estAny?.nome_fantasia);
-  const situacao = safeStr(estAny?.situacao_cadastral);
-  const abertura = safeStr(estAny?.data_inicio_atividade);
-  const atividade = safeStr(estAny?.atividade_principal?.descricao);
-  const cep = digitsOnly(safeStr(estAny?.cep));
-
-  // IE/IM (best effort)
-  const ies = est?.inscricoes_estaduais as Array<Record<string, unknown>> | undefined;
-  const ieRaw = Array.isArray(ies)
-    ? safeStr(
-        (ies.find((x) => x.ativo !== false)?.inscricao_estadual ?? ies[0]?.inscricao_estadual)
-      )
-    : "";
-  const ims = est?.inscricoes_municipais as Array<Record<string, unknown>> | undefined;
-  const imRaw = Array.isArray(ims)
-    ? safeStr(ims[0]?.inscricao_municipal ?? ims[0]?.numero)
-    : safeStr(est?.inscricao_municipal ?? est?.inscricao_municipal_numero ?? est?.numero_inscricao_municipal);
-
-  return {
-    ...emptyNormalized(cnpj),
-    cnpj,
-    nome,
-    fantasia,
-    situacao,
-    abertura,
-    atividade_principal: atividade,
-    endereco: {
-      logradouro: safeStr(estAny?.logradouro),
-      numero: safeStr(estAny?.numero),
-      bairro: safeStr(estAny?.bairro),
-      cidade: safeStr(estAny?.cidade?.nome ?? estAny?.cidade),
-      uf: safeStr(estAny?.estado?.sigla ?? estAny?.estado),
-      cep,
-    },
-    inscricao_estadual: ieRaw || undefined,
-    inscricao_municipal: imRaw || undefined,
-  };
-}
-
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -185,35 +119,32 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   }
 }
 
-async function attemptApi<T>(
-  api: "brasilapi" | "receitaws" | "cnpjws",
-  url: string,
+async function fetchBrasilApi(
   cnpj: string,
-  normalizer: (cnpj: string, payload: unknown) => T,
   attempts: Attempts
-): Promise<T | null> {
-  for (let i = 0; i < MAX_RETRIES_PER_API; i++) {
+): Promise<CnpjNormalized | null> {
+  const url = `https://brasilapi.com.br/api/cnpj/v1/${cnpj}`;
+  for (let i = 0; i < MAX_RETRIES; i++) {
     try {
       const r = await fetchJsonWithTimeout(url, TIMEOUT_MS);
       if (r.status === 404) {
-        attempts.push({ api, ok: false, status: 404 });
+        attempts.push({ api: "brasilapi", ok: false, status: 404 });
         return null;
       }
       if (r.status === 429) {
-        attempts.push({ api, ok: false, status: 429 });
+        attempts.push({ api: "brasilapi", ok: false, status: 429 });
         return null;
       }
       if (!r.ok) {
-        attempts.push({ api, ok: false, status: r.status });
+        attempts.push({ api: "brasilapi", ok: false, status: r.status });
         return null;
       }
-      attempts.push({ api, ok: true, status: r.status });
-      return normalizer(cnpj, r.json);
+      attempts.push({ api: "brasilapi", ok: true, status: r.status });
+      return normalizeBrasilApi(cnpj, r.json);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      attempts.push({ api, ok: false, error: msg });
-      // retry only on network/timeout
-      if (i < MAX_RETRIES_PER_API - 1) {
+      attempts.push({ api: "brasilapi", ok: false, error: msg });
+      if (i < MAX_RETRIES - 1) {
         await new Promise((r) => setTimeout(r, 150));
         continue;
       }
@@ -251,57 +182,11 @@ export async function GET(req: NextRequest) {
 
     const attempts: Attempts = [];
 
-    const brasil = await attemptApi(
-      "brasilapi",
-      `https://brasilapi.com.br/api/cnpj/v1/${digits}`,
-      digits,
-      normalizeBrasilApi,
-      attempts
-    );
+    const brasil = await fetchBrasilApi(digits, attempts);
     if (brasil) {
       const payload: CnpjNormalized = {
         ...brasil,
         _meta: { api: "brasilapi", attempts },
-      };
-      cache.set(digits, {
-        expiresAt: now + CACHE_TTL_MS,
-        staleUntil: now + STALE_IF_ERROR_MS,
-        payload,
-      });
-      return NextResponse.json(payload);
-    }
-
-    const receita = await attemptApi(
-      "receitaws",
-      `https://receitaws.com.br/v1/cnpj/${digits}`,
-      digits,
-      normalizeReceitaWs,
-      attempts
-    );
-    if (receita) {
-      const payload: CnpjNormalized = {
-        ...receita,
-        _meta: { api: "receitaws", attempts },
-      };
-      cache.set(digits, {
-        expiresAt: now + CACHE_TTL_MS,
-        staleUntil: now + STALE_IF_ERROR_MS,
-        payload,
-      });
-      return NextResponse.json(payload);
-    }
-
-    const ws = await attemptApi(
-      "cnpjws",
-      `https://publica.cnpj.ws/cnpj/${digits}`,
-      digits,
-      normalizeCnpjWs,
-      attempts
-    );
-    if (ws) {
-      const payload: CnpjNormalized = {
-        ...ws,
-        _meta: { api: "cnpjws", attempts },
       };
       cache.set(digits, {
         expiresAt: now + CACHE_TTL_MS,

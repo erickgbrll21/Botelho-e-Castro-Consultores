@@ -66,7 +66,7 @@ export async function middleware(req: NextRequest) {
     if (!r.ok) return rateLimitResponse(r.retryAfterSec, false);
   }
 
-  if (pathname.startsWith("/api/cnpj/ws") || pathname.startsWith("/api/cnpj/cnpjws")) {
+  if (pathname.startsWith("/api/cnpj/ws")) {
     const r = checkRateLimit(`api-cnpj:${ip}`, 50, 60_000);
     if (!r.ok) return rateLimitResponse(r.retryAfterSec, true);
   }
