@@ -12,6 +12,14 @@ export function DeleteClienteButton({ clienteId, action }: Props) {
 
   return (
     <form
+      onSubmit={(e) => {
+        const ok = window.confirm(
+          "Deseja realmente remover esta empresa do sistema? Esta ação não pode ser desfeita."
+        );
+        if (!ok) {
+          e.preventDefault();
+        }
+      }}
       action={(formData) => {
         startTransition(() => action(formData));
       }}
