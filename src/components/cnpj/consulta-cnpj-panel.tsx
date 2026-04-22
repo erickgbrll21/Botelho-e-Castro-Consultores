@@ -31,6 +31,7 @@ type CnpjNormalized = {
   };
   inscricao_estadual?: string;
   inscricao_municipal?: string;
+  error?: string;
   _meta?: { api?: string; stale?: boolean };
 };
 
@@ -77,6 +78,10 @@ export function ConsultaCnpjPanel({
       }
 
       const json: CnpjNormalized = await res.json();
+      if (typeof json.error === "string" && json.error.trim()) {
+        setStatus("error");
+        return;
+      }
       const nextIe =
         typeof json.inscricao_estadual === "string" && json.inscricao_estadual.trim()
           ? json.inscricao_estadual.trim()

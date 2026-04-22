@@ -63,6 +63,10 @@ export function CnpjReceitaLookup({
         // O backend normaliza o payload. Reaproveitamos o aplicador existente
         // adaptando as chaves esperadas quando existirem.
         const raw = (await res.json()) as Record<string, unknown>;
+        if (typeof raw.error === "string" && raw.error.trim()) {
+          setStatus("error");
+          return;
+        }
         const compat: Record<string, unknown> = {
           cnpj: raw.cnpj,
           razao_social: raw.nome,

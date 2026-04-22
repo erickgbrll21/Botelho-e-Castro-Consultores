@@ -330,18 +330,17 @@ export async function GET(req: NextRequest) {
       cnpj: digits,
       attempts,
     });
-    return NextResponse.json(
-      {
-        ...emptyNormalized(digits),
-        _meta: {
-          api: "cache",
-          stale: false,
-          attempts,
-        },
-        error: "Serviço indisponível no momento",
-      } as unknown,
-      { status: 503 }
-    );
+    // Importante: responder 200 evita "Failed to load resource" no console do browser.
+    // A UI decide como exibir (mostra mensagem amigável).
+    return NextResponse.json({
+      ...emptyNormalized(digits),
+      _meta: {
+        api: "cache",
+        stale: false,
+        attempts,
+      },
+      error: "Serviço indisponível no momento",
+    } as unknown);
   } catch (err) {
     console.error("[/api/cnpj/ws] erro inesperado", {
       cnpj: digits,
@@ -354,9 +353,10 @@ export async function GET(req: NextRequest) {
         headers: { "X-Cache": "stale" },
       });
     }
-    return NextResponse.json(
-      { error: "Serviço indisponível no momento" },
-      { status: 503 }
-    );
+    return NextResponse.json({
+      ...emptyNormalized(digits),
+      _meta: { api: "cache", stale: false, attempts: [] },
+      error: "Serviço indisponível no momento",
+    } as unknown);
   }
 }
