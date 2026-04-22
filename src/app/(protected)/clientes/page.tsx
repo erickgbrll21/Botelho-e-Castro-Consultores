@@ -23,7 +23,6 @@ import {
   situacaoIndicatorClass,
 } from "@/lib/cliente-situacao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
-import { formatCnpjDisplay } from "@/lib/brasilapi-cnpj";
 
 async function createCliente(formData: FormData) {
   "use server";
@@ -351,7 +350,6 @@ export default async function ClientesPage({
 }: {
   searchParams: Promise<{
     q?: string;
-    cnpj?: string;
     grupo?: string;
     editGrupo?: string;
     novoCnpj?: string;
@@ -366,7 +364,6 @@ export default async function ClientesPage({
   
   const {
     q,
-    cnpj: cnpjFiltroRaw,
     grupo: grupoFiltro,
     editGrupo: editGrupoId,
     novoCnpj: novoCnpjRaw,
@@ -374,9 +371,6 @@ export default async function ClientesPage({
     cadastrado,
   } = await searchParams;
   const term = q?.trim() ?? "";
-  const cnpjFiltroDigits = String(cnpjFiltroRaw ?? "")
-    .replace(/\D/g, "")
-    .slice(0, 14);
   const grupoId = grupoFiltro?.trim() ?? "";
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
     .replace(/\D/g, "")
@@ -445,12 +439,6 @@ export default async function ClientesPage({
     clientesQuery = clientesQuery.ilike("razao_social", `%${term}%`);
   }
 
-  if (cnpjFiltroDigits.length === 14) {
-    clientesQuery = clientesQuery.eq("cnpj", cnpjFiltroDigits);
-  } else if (cnpjFiltroDigits.length > 0) {
-    clientesQuery = clientesQuery.ilike("cnpj", `%${cnpjFiltroDigits}%`);
-  }
-
   if (grupoId) {
     clientesQuery = clientesQuery.eq("grupo_id", grupoId);
   }
@@ -498,19 +486,8 @@ export default async function ClientesPage({
             <input
               name="q"
               defaultValue={term}
-              placeholder="Razão social..."
+              placeholder="Buscar cliente..."
               className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-            />
-            <input
-              name="cnpj"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              defaultValue={
-                cnpjFiltroDigits ? formatCnpjDisplay(cnpjFiltroDigits) : ""
-              }
-              placeholder="CNPJ (filtro)..."
-              className="w-full min-w-0 sm:max-w-[11.5rem] rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 tabular-nums placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
             />
             <button
               type="submit"

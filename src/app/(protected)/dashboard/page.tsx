@@ -15,7 +15,6 @@ import {
   UserGroupIcon,
   ChartPieIcon,
 } from "@heroicons/react/24/outline";
-import { formatCnpjDisplay } from "@/lib/brasilapi-cnpj";
 
 const situacaoCardUi: Record<
   SituacaoEmpresa,
@@ -64,14 +63,11 @@ function formatCurrencyContrato(value: number | null | undefined) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; cnpj?: string; grupo?: string }>;
+  searchParams: Promise<{ q?: string; grupo?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { q, cnpj: cnpjFiltroRaw, grupo: grupoFiltro } = await searchParams;
+  const { q, grupo: grupoFiltro } = await searchParams;
   const term = q?.trim() ?? "";
-  const cnpjFiltroDigits = String(cnpjFiltroRaw ?? "")
-    .replace(/\D/g, "")
-    .slice(0, 14);
   const grupoId = grupoFiltro?.trim() ?? "";
 
   const now = new Date();
@@ -146,11 +142,6 @@ export default async function DashboardPage({
   if (term) {
     finalQuery = finalQuery.ilike("razao_social", `%${term}%`);
   }
-  if (cnpjFiltroDigits.length === 14) {
-    finalQuery = finalQuery.eq("cnpj", cnpjFiltroDigits);
-  } else if (cnpjFiltroDigits.length > 0) {
-    finalQuery = finalQuery.ilike("cnpj", `%${cnpjFiltroDigits}%`);
-  }
   if (grupoId) {
     finalQuery = finalQuery.eq("grupo_id", grupoId);
   }
@@ -205,19 +196,8 @@ export default async function DashboardPage({
               <input
                 name="q"
                 defaultValue={term}
-                placeholder="Razão social..."
+                placeholder="Buscar cliente..."
                 className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-              />
-              <input
-                name="cnpj"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                defaultValue={
-                  cnpjFiltroDigits ? formatCnpjDisplay(cnpjFiltroDigits) : ""
-                }
-                placeholder="CNPJ (filtro)..."
-                className="w-full min-w-0 sm:max-w-[11.5rem] rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 tabular-nums placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
               />
               <button
                 type="submit"
