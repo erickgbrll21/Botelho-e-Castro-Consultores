@@ -16,6 +16,30 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
+ * Nomes de grupos muitas vezes vêm do cadastro em MAIÚSCULAS. Para a resposta ao utilizador
+ * (sem alterar a prova de cadastro), expõe-se também uma forma com capitalização legível.
+ */
+function nomeGrupoExibicaoParaResposta(
+  nome: string | null | undefined
+): string | null {
+  if (nome == null) return null;
+  const t = nome.trim();
+  if (t.length < 2) return t || null;
+  if (/[a-z]/.test(t) || /\d/.test(t)) return t;
+  if (t !== t.toLocaleUpperCase("pt-BR")) return t;
+  if (!/[\p{Lu}]/u.test(t)) return t;
+  if (t.length < 4 && !/\s/.test(t)) return t;
+  return t
+    .split(/(\s+)/)
+    .map((p) => {
+      if (!p || /^\s+$/.test(p)) return p;
+      const l = p.toLocaleLowerCase("pt-BR");
+      return l.charAt(0).toLocaleUpperCase("pt-BR") + l.slice(1);
+    })
+    .join("");
+}
+
+/**
  * Padrão: gemini-2.0-flash-lite (leve). Sobrescreve com GEMINI_MODEL se necessário.
  */
 const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash-lite";
@@ -25,7 +49,14 @@ const SYSTEM = `O objetivo do Assistente é responder perguntas com base EXCLUSI
 O CONTEXTO disponível para você é SOMENTE:
 - As mensagens desta conversa (usuário/assistente) enviadas pelo sistema.
 - Blocos anexados pelo servidor no formato "[Pré-carga BCC ...]" (cadastro interno / grupo econômico).
-- Respostas das ferramentas (consultar_cnpj, buscar_empresas_sistema, consultar_grupo_economico).
+- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos.
+
+TOM E LINGUAGEM (falar com o utilizador)
+- Português do Brasil, tom **profissional, cordial e natural** — evite respostas frias, excessivamente burocráticas ou de manual técnico.
+- Seja **objetivo** (poucas frases) quando a pergunta for simples; use um parágrafo curto, não listas longas, salvo se o pedido for uma lista.
+- **Não mencione** nomes de funções, APIs, “ferramentas” internas, nomes de campos JSON, nem crases (\`) nem código na conversa. O utilizador não precisa saber *como* o sistema busca; diga, por exemplo, que pode consultar os dados públicos do CNPJ, ou o cadastro, ou o grupo — sem jargão.
+- Não inicie toda resposta com “Por favor” de forma mecânica; varie a formulação.
+- Pode usar **negrito** com moderação (markdown **texto**) só para destacar um pedido (ex.: número do CNPJ), não decoração em excesso.
 
 REGRAS CRÍTICAS (obrigatório):
 
@@ -48,17 +79,20 @@ REGRAS CRÍTICAS (obrigatório):
 
 5) RESPOSTAS DIRETAS E OBJETIVAS
 - Responda de forma clara e curta, em português do Brasil.
-- Use os dados exatamente como estão no CONTEXTO (inclusive nomes e valores).
+- Use os dados do CONTEXTO. Para **nomes de grupos económicos** no texto mostrado ao utilizador, use
+  a forma legível do nome (campo de exibição no JSON) em vez de repetir tudo em MAIÚSCULAS. Não citar
+  nomes técnicos de campos no chat.
+- Valores numéricos, CNPJ e textos fora de nome de grupo: alinhados ao CONTEXTO.
 
 6) SE NÃO HOUVER DADOS NO CONTEXTO
-- Responda exatamente: "Não encontrei essa informação para este grupo no sistema."
+- Comunique a mesma ideia de forma educada, por exemplo: "Não encontrei essa informação para este grupo no sistema." (não precisa ser palavra por palavra, desde que fique claro).
 
-USO DE FERRAMENTAS (quando necessário):
-- Para dados públicos de CNPJ, use consultar_cnpj (nunca invente).
-- Para cadastro interno, use buscar_empresas_sistema somente se o CONTEXTO não trouxer a ficha/Pré-carga suficiente.
-- Para grupo econômico (contagem/contrato/listas), use consultar_grupo_economico.
+USO DE FERRAMENTAS (uso interno — não falar disso ao utilizador)
+- CNPJ público: chame a função apropriada; nunca invente dados.
+- Cadastro: só busque de novo se a pré-carga ainda for insuficiente.
+- Grupo econômico: para contagens, contrato ou listas, quando faltar contexto.
 
-SEGURANÇA:
+SEGURANÇA
 - Não exponha chaves, tokens, nem detalhes técnicos do servidor.
 `;
 
@@ -275,10 +309,14 @@ function serializeClienteCompleto(c: any, canSeeContrato: boolean) {
     situacao_empresa: c.situacao_empresa,
     ativo: c.ativo,
     grupo_economico_texto: c.grupo_economico,
+    grupo_economico_texto_exibicao: c.grupo_economico
+      ? nomeGrupoExibicaoParaResposta(String(c.grupo_economico))
+      : null,
     grupo: g
       ? {
           id: g.id,
           nome: g.nome,
+          nome_exibicao: nomeGrupoExibicaoParaResposta(g.nome) ?? g.nome,
           descricao: g.descricao,
           valor_contrato_grupo: contratoGrupo,
         }
@@ -445,6 +483,7 @@ async function consultarGrupoEconomico(
       grupo: {
         id: g.id,
         nome: g.nome,
+        nome_exibicao: nomeGrupoExibicaoParaResposta(g.nome) ?? g.nome,
         descricao: g.descricao,
         valor_contrato: canSeeContrato ? (g.valor_contrato ?? null) : null,
       },
