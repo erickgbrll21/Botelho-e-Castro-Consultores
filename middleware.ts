@@ -81,6 +81,11 @@ export async function middleware(req: NextRequest) {
     if (!r.ok) return rateLimitResponse(r.retryAfterSec, true);
   }
 
+  if (pathname.startsWith("/api/ai/")) {
+    const r = checkRateLimit(`api-ai:${ip}`, 25, 60_000);
+    if (!r.ok) return rateLimitResponse(r.retryAfterSec, true);
+  }
+
   let res = NextResponse.next({
     request: {
       headers: req.headers,
@@ -114,6 +119,13 @@ export async function middleware(req: NextRequest) {
   });
 
   const session = await getSessionClearingStaleRefresh(supabase);
+
+  if (pathname === "/") {
+    if (session) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
 
   if (isApi) {
     if (!session) {

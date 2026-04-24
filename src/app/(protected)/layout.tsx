@@ -4,6 +4,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { loadServerAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AssistantChat } from "@/components/ai/assistant-chat";
 
 export default async function ProtectedLayout({
   children,
@@ -17,8 +18,10 @@ export default async function ProtectedLayout({
   }
 
   if (!profile) {
-    // middleware já direciona, mas protegemos aqui também
-    return null;
+    // Evita tela vazia e loop login ↔ dashboard: sessão sem linha em `usuarios` (ou RLS).
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+    redirect("/login?erro=perfil");
   }
 
   async function signOut() {
@@ -56,6 +59,7 @@ export default async function ProtectedLayout({
           <main>
             {children}
           </main>
+          <AssistantChat />
         </div>
       </div>
     </div>

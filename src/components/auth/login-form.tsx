@@ -22,6 +22,7 @@ export function LoginForm() {
   const redirectTo = safeInternalRedirectPath(
     searchParams.get("redirectedFrom")
   );
+  const perfilIncompleto = searchParams.get("erro") === "perfil";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,14 @@ export function LoginForm() {
           Use seu e-mail corporativo.
         </p>
       </div>
+
+      {perfilIncompleto ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 sm:text-sm">
+          Sessão encerrada: não há cadastro de usuário vinculado a esta conta. Peça
+          a um administrador para criar seu perfil no painel ou confira a tabela
+          <code className="mx-0.5 text-amber-200">usuarios</code> no Supabase.
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <label className="text-sm text-neutral-300" htmlFor="email">
