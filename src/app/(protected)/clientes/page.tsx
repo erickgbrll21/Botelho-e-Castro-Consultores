@@ -6,8 +6,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
-import { ImportClientesButton } from "@/components/clientes/import-clientes-button";
-import { SincronizarBrasilApiButton } from "@/components/clientes/sincronizar-brasilapi-button";
 import { registrarLog } from "@/lib/logs";
 import { formatDateTimePtBR } from "@/lib/format-date";
 import { messageFromSupabaseError } from "@/lib/supabase-errors";
@@ -462,40 +460,6 @@ export default async function ClientesPage({
           <p className="text-neutral-400">
             Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
           </p>
-        </div>
-        <div className="flex flex-col gap-4">
-          {isAdmin && (
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-              <ImportClientesButton grupos={grupos} />
-              <SincronizarBrasilApiButton />
-            </div>
-          )}
-          <form className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-            <select
-              name="grupo"
-              defaultValue={grupoId}
-              className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
-            >
-              <option value="">Todos os grupos</option>
-              {grupos.map((grupo) => (
-                <option key={grupo.id} value={grupo.id}>
-                  {grupo.nome}
-                </option>
-              ))}
-            </select>
-            <input
-              name="q"
-              defaultValue={term}
-              placeholder="Buscar cliente..."
-              className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-            />
-            <button
-              type="submit"
-              className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
-            >
-              Buscar
-            </button>
-          </form>
         </div>
       </div>
 
@@ -1047,9 +1011,37 @@ export default async function ClientesPage({
       <Card
         title="Clientes"
         action={
-          <p className="max-w-full text-xs text-neutral-400 break-words sm:max-w-md sm:text-right">
-            {isAdmin ? "Você tem permissão para cadastrar e editar dados." : "Visualização permitida para todos os usuários."}
-          </p>
+          <div className="flex w-full flex-col gap-2 sm:items-end">
+            <p className="max-w-full text-xs text-neutral-400 break-words sm:max-w-md sm:text-right">
+              {isAdmin ? "Você tem permissão para cadastrar e editar dados." : "Visualização permitida para todos os usuários."}
+            </p>
+            <form className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-stretch">
+              <select
+                name="grupo"
+                defaultValue={grupoId}
+                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+              >
+                <option value="">Todos os grupos</option>
+                {grupos.map((grupo) => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.nome}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="q"
+                defaultValue={term}
+                placeholder="Buscar cliente..."
+                className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:min-w-[16rem]"
+              />
+              <button
+                type="submit"
+                className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
+              >
+                Buscar
+              </button>
+            </form>
+          </div>
         }
         className="overflow-hidden"
       >

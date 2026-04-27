@@ -15,6 +15,7 @@ import {
   UserGroupIcon,
   ChartPieIcon,
 } from "@heroicons/react/24/outline";
+import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
 
 const situacaoCardUi: Record<
   SituacaoEmpresa,
@@ -80,8 +81,15 @@ export default async function DashboardPage({
 
   const gruposQuery = supabase
     .from("grupos_economicos")
-    .select("id, nome")
+    .select("id, nome, valor_contrato")
     .order("nome", { ascending: true });
+
+  const avulsasQuery = supabase
+    .from("clientes")
+    .select("valor_contrato", { count: "exact" })
+    .is("grupo_id", null)
+    .neq("ativo", false)
+    .not("valor_contrato", "is", null);
 
   const entradasQuery = supabase
     .from("clientes")
@@ -148,12 +156,14 @@ export default async function DashboardPage({
 
   const [
     { data: gruposLista },
+    { data: avulsasData },
     { count: entradasMes },
     { count: saidasMesCount },
     { data: dataClientes },
     profile,
   ] = await Promise.all([
     gruposQuery,
+    avulsasQuery,
     entradasQuery,
     saidasQuery,
     finalQuery,
@@ -165,6 +175,15 @@ export default async function DashboardPage({
 
   const gruposFiltro: any[] = gruposLista ?? [];
   const totalGrupos = gruposLista?.length ?? 0;
+  const faturamentoGrupos = (gruposLista ?? []).reduce(
+    (acc: number, g: any) => acc + (Number(g?.valor_contrato) || 0),
+    0
+  );
+  const faturamentoAvulsas = (avulsasData ?? []).reduce(
+    (acc: number, c: any) => acc + (Number(c?.valor_contrato) || 0),
+    0
+  );
+  const faturamentoMensal = faturamentoGrupos + faturamentoAvulsas;
   const saidasMes = saidasMesCount ?? 0;
   const clientes: any[] = dataClientes ?? [];
 
@@ -180,32 +199,6 @@ export default async function DashboardPage({
                 Dados de clientes, responsáveis internos e serviços contratados.
               </p>
             </div>
-            <form className="flex w-full min-w-0 flex-col gap-2 sm:max-w-xl sm:flex-row sm:flex-wrap sm:items-stretch">
-              <select
-                name="grupo"
-                defaultValue={grupoId}
-                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
-              >
-                <option value="">Todos os grupos</option>
-                {gruposFiltro.map((grupo) => (
-                  <option key={grupo.id} value={grupo.id}>
-                    {grupo.nome}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="q"
-                defaultValue={term}
-                placeholder="Buscar cliente..."
-                className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
-              >
-                Buscar
-              </button>
-            </form>
           </div>
 
       <div className="card-grid">
@@ -231,23 +224,54 @@ export default async function DashboardPage({
             Empresas desativadas no mês atual
           </p>
         </Card>
-        <Card title="Serviços mais contratados">
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Pill label="Contabilidade" tone="success" />
-            <Pill label="Jurídico" tone="warning" />
-            <Pill label="Planejamento Tributário" tone="neutral" />
-          </div>
-          <p className="mt-2 text-xs text-neutral-400">
-            Ajuste conforme dados reais.
-          </p>
-        </Card>
+        {showContractValue ? (
+          <Card
+            title="Faturamento mensal"
+            action={<BanknotesIcon className="h-4 w-4 text-amber-400" />}
+          >
+            <p className="text-3xl font-semibold text-amber-200/95 tabular-nums">
+              {formatCurrencyContrato(faturamentoMensal)}
+            </p>
+            <p className="text-xs text-neutral-400">
+              Soma do valor de contrato de todos os grupos.
+            </p>
+          </Card>
+        ) : null}
       </div>
 
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold sm:text-xl">Clientes</h2>
-        <p className="text-xs text-neutral-400 sm:text-sm">
-          {clientes.length} {clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold sm:text-xl">Clientes</h2>
+          <p className="text-xs text-neutral-400 sm:text-sm">
+            {clientes.length} {clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}
+          </p>
+        </div>
+        <form className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:max-w-2xl sm:flex-row sm:flex-wrap sm:items-stretch">
+          <select
+            name="grupo"
+            defaultValue={grupoId}
+            className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+          >
+            <option value="">Todos os grupos</option>
+            {gruposFiltro.map((grupo) => (
+              <option key={grupo.id} value={grupo.id}>
+                {grupo.nome}
+              </option>
+            ))}
+          </select>
+          <input
+            name="q"
+            defaultValue={term}
+            placeholder="Buscar cliente..."
+            className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:min-w-[16rem]"
+          />
+          <button
+            type="submit"
+            className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
+          >
+            Buscar
+          </button>
+        </form>
       </div>
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

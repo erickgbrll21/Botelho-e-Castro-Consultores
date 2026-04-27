@@ -1,7 +1,26 @@
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ArrowTrendingDownIcon, ArrowTrendingUpIcon, UserGroupIcon, ChartPieIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
+  UserGroupIcon,
+  ChartPieIcon,
+} from "@heroicons/react/24/outline";
+import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
+import { getCurrentProfile, canSeeContractValue } from "@/lib/auth";
+
+function formatCurrencyContrato(value: number | null | undefined) {
+  if (value == null || (typeof value === "number" && Number.isNaN(value))) {
+    return "—";
+  }
+  if (!value && value !== 0) return "—";
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -13,12 +32,35 @@ export default async function DashboardPage({
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
 
-  const { data: gruposLista } = await supabase
-    .from("grupos_economicos")
-    .select("id, nome")
-    .order("nome", { ascending: true });
+  const [gruposRes, avulsasRes, profile] = await Promise.all([
+    supabase
+      .from("grupos_economicos")
+      .select("id, nome, valor_contrato")
+      .order("nome", { ascending: true }),
+    supabase
+      .from("clientes")
+      .select("valor_contrato", { count: "exact" })
+      .is("grupo_id", null)
+      .neq("ativo", false)
+      .not("valor_contrato", "is", null),
+    getCurrentProfile(),
+  ]);
+
+  const { data: gruposLista } = gruposRes;
   const gruposFiltro: any[] = gruposLista ?? [];
   const totalGrupos = gruposLista?.length ?? 0;
+  const showContractValue =
+    profile != null && canSeeContractValue(profile.tipo_usuario);
+  const faturamentoGrupos = (gruposLista ?? []).reduce(
+    (acc: number, g: any) => acc + (Number(g?.valor_contrato) || 0),
+    0
+  );
+  const { data: avulsasData } = avulsasRes as any;
+  const faturamentoAvulsas = (avulsasData ?? []).reduce(
+    (acc: number, c: any) => acc + (Number(c?.valor_contrato) || 0),
+    0
+  );
+  const faturamentoMensal = faturamentoGrupos + faturamentoAvulsas;
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -105,32 +147,6 @@ export default async function DashboardPage({
                 Dados de clientes, responsáveis internos e serviços contratados.
               </p>
             </div>
-            <form className="flex items-center gap-2">
-              <select
-                name="grupo"
-                defaultValue={grupoId}
-                className="hidden sm:block rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              >
-                <option value="">Todos os grupos</option>
-                {gruposFiltro.map((grupo) => (
-                  <option key={grupo.id} value={grupo.id}>
-                    {grupo.nome}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="q"
-                defaultValue={term}
-                placeholder="Buscar cliente..."
-                className="w-full sm:w-auto rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
-              >
-                Buscar
-              </button>
-            </form>
           </div>
 
       <div className="card-grid">
@@ -156,23 +172,54 @@ export default async function DashboardPage({
             Empresas desativadas no mês atual
           </p>
         </Card>
-        <Card title="Serviços mais contratados">
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Pill label="Contabilidade" tone="success" />
-            <Pill label="Jurídico" tone="warning" />
-            <Pill label="Planejamento Tributário" tone="neutral" />
-          </div>
-          <p className="mt-2 text-xs text-neutral-400">
-            Ajuste conforme dados reais.
-          </p>
-        </Card>
+        {showContractValue ? (
+          <Card
+            title="Faturamento mensal"
+            action={<BanknotesIcon className="h-4 w-4 text-amber-400" />}
+          >
+            <p className="text-3xl font-semibold text-amber-200/95 tabular-nums">
+              {formatCurrencyContrato(faturamentoMensal)}
+            </p>
+            <p className="text-xs text-neutral-400">
+              Soma do valor de contrato de todos os grupos.
+            </p>
+          </Card>
+        ) : null}
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Clientes</h2>
-        <p className="text-sm text-neutral-400">
-          {clientes.length} {clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-semibold">Clientes</h2>
+          <p className="text-sm text-neutral-400">
+            {clientes.length} {clientes.length === 1 ? "cliente cadastrado" : "clientes cadastrados"}
+          </p>
+        </div>
+        <form className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-stretch sm:gap-2">
+          <select
+            name="grupo"
+            defaultValue={grupoId}
+            className="w-full sm:w-auto rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:min-w-[11rem]"
+          >
+            <option value="">Todos os grupos</option>
+            {gruposFiltro.map((grupo) => (
+              <option key={grupo.id} value={grupo.id}>
+                {grupo.nome}
+              </option>
+            ))}
+          </select>
+          <input
+            name="q"
+            defaultValue={term}
+            placeholder="Buscar cliente..."
+            className="w-full sm:w-auto rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:min-w-[16rem]"
+          />
+          <button
+            type="submit"
+            className="w-full sm:w-auto rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200"
+          >
+            Buscar
+          </button>
+        </form>
       </div>
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
