@@ -22,6 +22,18 @@ import {
 } from "@/lib/cliente-situacao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 
+function parseOptionalMoney(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) ?? "").trim();
+  if (!raw) return null;
+  // Aceita "1000", "1.000", "1.000,00", "R$ 1.000,00"
+  const normalized = raw
+    .replace(/[R$\s]/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function createCliente(formData: FormData) {
   "use server";
   await requireAdminProfile();
@@ -75,7 +87,7 @@ async function createCliente(formData: FormData) {
   ).trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
-  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
   const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
 
   const responsavel_comercial = String(
@@ -147,7 +159,7 @@ async function createCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
-      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      valor_contrato,
       cobranca_por_grupo,
       ativo: true,
       situacao_empresa: "ativa",
@@ -244,7 +256,7 @@ async function createGrupo(formData: FormData) {
   await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
   const nome = String(formData.get("nome") ?? "").trim();
-  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
 
   if (!nome) {
     throw new Error("Nome do grupo é obrigatório.");
@@ -252,7 +264,7 @@ async function createGrupo(formData: FormData) {
 
   const { error } = await (supabase.from("grupos_economicos") as any).insert({
     nome,
-    valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+    valor_contrato,
   });
 
   if (error) {
@@ -270,7 +282,7 @@ async function updateGrupo(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = String(formData.get("grupo_id"));
   const nome = String(formData.get("nome") ?? "").trim();
-  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
 
   if (!id || !nome) {
     throw new Error("ID e nome do grupo são obrigatórios.");
@@ -279,7 +291,7 @@ async function updateGrupo(formData: FormData) {
   const { error } = await (supabase.from("grupos_economicos") as any)
     .update({
       nome,
-      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      valor_contrato,
     })
     .eq("id", id);
 

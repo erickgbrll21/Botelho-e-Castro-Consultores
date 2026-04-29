@@ -16,6 +16,17 @@ import {
 } from "@/lib/responsaveis-padrao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 
+function parseOptionalMoney(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) ?? "").trim();
+  if (!raw) return null;
+  const normalized = raw
+    .replace(/[R$\s]/g, "")
+    .replace(/\./g, "")
+    .replace(/,/g, ".");
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function updateCliente(formData: FormData) {
   "use server";
   await requireAdminProfile();
@@ -76,7 +87,7 @@ async function updateCliente(formData: FormData) {
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
-  const valor_contrato = Number(formData.get("valor_contrato") ?? 0);
+  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
   const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
 
   const responsavel_comercial = String(formData.get("responsavel_comercial") ?? "").trim();
@@ -136,7 +147,7 @@ async function updateCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
-      valor_contrato: Number.isNaN(valor_contrato) ? null : valor_contrato,
+      valor_contrato,
       cobranca_por_grupo,
       ativo,
       situacao_empresa,

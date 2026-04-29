@@ -174,6 +174,21 @@ export default async function DashboardPage({
     profile != null && canSeeContractValue(profile.tipo_usuario);
 
   const gruposFiltro: any[] = gruposLista ?? [];
+  const gruposById = new Map<string, { nome: string; valor_contrato: number | null }>();
+  const gruposByNome = new Map<string, { id: string; nome: string; valor_contrato: number | null }>();
+  for (const g of gruposFiltro) {
+    const id = String(g?.id ?? "");
+    const nome = String(g?.nome ?? "").trim();
+    const valor =
+      typeof g?.valor_contrato === "number"
+        ? g.valor_contrato
+        : g?.valor_contrato == null
+          ? null
+          : Number(g.valor_contrato);
+    const valor_contrato = Number.isFinite(valor) ? (valor as number) : null;
+    if (id) gruposById.set(id, { nome, valor_contrato });
+    if (nome) gruposByNome.set(nome.toLowerCase(), { id, nome, valor_contrato });
+  }
   const totalGrupos = gruposLista?.length ?? 0;
   const faturamentoGrupos = (gruposLista ?? []).reduce(
     (acc: number, g: any) => acc + (Number(g?.valor_contrato) || 0),
@@ -281,6 +296,19 @@ export default async function DashboardPage({
               const grupoValorContrato = Array.isArray(gruposRel)
                 ? gruposRel[0]?.valor_contrato
                 : gruposRel?.valor_contrato;
+              const grupoValorContratoFallback =
+                grupoValorContrato != null
+                  ? grupoValorContrato
+                  : cliente.grupo_id
+                    ? gruposById.get(String(cliente.grupo_id))?.valor_contrato ?? null
+                    : typeof cliente.grupo_economico === "string" && cliente.grupo_economico.trim()
+                      ? gruposByNome.get(cliente.grupo_economico.trim().toLowerCase())?.valor_contrato ?? null
+                      : null;
+              const usaContratoGrupo =
+                cliente.cobranca_por_grupo === true ||
+                (grupoValorContratoFallback != null &&
+                  (cliente.valor_contrato == null || cliente.valor_contrato === 0) &&
+                  (cliente.grupo_id != null || typeof cliente.grupo_economico === "string"));
               const responsaveis = cliente.responsaveis_internos?.[0];
               const servicosEmbed = cliente.servicos_contratados;
               const servicos = Array.isArray(servicosEmbed)
@@ -376,13 +404,13 @@ export default async function DashboardPage({
                             Contrato (mensal)
                           </p>
                           <p className="truncate font-semibold text-amber-200/95 tabular-nums">
-                            {cliente.cobranca_por_grupo
-                              ? grupoValorContrato != null
-                                ? formatCurrencyContrato(grupoValorContrato)
+                            {usaContratoGrupo
+                              ? grupoValorContratoFallback != null
+                                ? formatCurrencyContrato(grupoValorContratoFallback)
                                 : "—"
                               : formatCurrencyContrato(cliente.valor_contrato)}
                           </p>
-                          {cliente.cobranca_por_grupo ? (
+                          {usaContratoGrupo ? (
                             <p className="mt-0.5 truncate text-[9px] font-normal text-neutral-500">
                               Cobrança pelo grupo
                             </p>
