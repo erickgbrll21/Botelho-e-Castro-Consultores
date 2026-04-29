@@ -15,6 +15,7 @@ import {
   responsavelJuridicoCampoDefault,
 } from "@/lib/responsaveis-padrao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 function parseOptionalMoney(formData: FormData, key: string): number | null {
   const raw = String(formData.get(key) ?? "").trim();
@@ -24,7 +25,8 @@ function parseOptionalMoney(formData: FormData, key: string): number | null {
     .replace(/\./g, "")
     .replace(/,/g, ".");
   const n = Number(normalized);
-  return Number.isFinite(n) ? n : null;
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100) / 100;
 }
 
 async function updateCliente(formData: FormData) {
@@ -566,13 +568,13 @@ export default async function EditClientePage({
                 <>
                   <div className="space-y-2">
                     <label className="text-sm text-neutral-300">Valor do Contrato (mensal)</label>
-                    <input
+                    <CurrencyInput
                       name="valor_contrato"
-                      type="number"
-                      step="0.01"
                       defaultValue={cliente.valor_contrato}
                       className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                      placeholder="R$ 0,00"
+                      placeholder="0,00"
+                      showSymbol
+                      min={0}
                     />
                   </div>
                   <div className="space-y-2">

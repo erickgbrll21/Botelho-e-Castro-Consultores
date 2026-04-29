@@ -21,6 +21,7 @@ import {
   situacaoIndicatorClass,
 } from "@/lib/cliente-situacao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
+import { CurrencyInput } from "@/components/ui/currency-input";
 
 function parseOptionalMoney(formData: FormData, key: string): number | null {
   const raw = String(formData.get(key) ?? "").trim();
@@ -31,7 +32,9 @@ function parseOptionalMoney(formData: FormData, key: string): number | null {
     .replace(/\./g, "")
     .replace(/,/g, ".");
   const n = Number(normalized);
-  return Number.isFinite(n) ? n : null;
+  if (!Number.isFinite(n)) return null;
+  // Evita ruído binário e padroniza moeda a 2 casas
+  return Math.round(n * 100) / 100;
 }
 
 async function createCliente(formData: FormData) {
@@ -717,13 +720,12 @@ export default async function ClientesPage({
               <>
                 <div className="space-y-2">
                   <label className="text-sm text-neutral-300">Valor do contrato (mensal)</label>
-                  <input
+                  <CurrencyInput
                     name="valor_contrato"
-                    type="number"
-                    min="0"
-                    step="0.01"
                     className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                    placeholder="R$ 0,00"
+                    placeholder="0,00"
+                    showSymbol
+                    min={0}
                   />
                 </div>
                 <div className="space-y-2">
@@ -945,13 +947,13 @@ export default async function ClientesPage({
             </div>
             <div className="space-y-2">
               <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
-              <input
+              <CurrencyInput
                 name="valor_contrato"
-                type="number"
-                step="0.01"
                 defaultValue={editingGrupo?.valor_contrato ?? ""}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
                 placeholder="R$ 0,00"
+                showSymbol
+                min={0}
               />
             </div>
             <div className="flex items-end">
@@ -982,7 +984,14 @@ export default async function ClientesPage({
                   </td>
                   {showContractValue && (
                     <td className="py-3 pr-4 text-neutral-300">
-                      {grupo.valor_contrato ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.valor_contrato) : "—"}
+                      {grupo.valor_contrato != null
+                        ? new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }).format(grupo.valor_contrato)
+                        : "—"}
                     </td>
                   )}
                   {isAdmin && (
