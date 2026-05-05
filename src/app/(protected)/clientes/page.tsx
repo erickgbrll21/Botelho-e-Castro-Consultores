@@ -22,6 +22,12 @@ import {
   applySituacaoFilter,
   parseSituacaoFiltro,
 } from "@/lib/cliente-situacao";
+import {
+  parseServicoFiltro,
+  clienteIdsParaServicoFiltro,
+  SERVICO_OPCOES,
+  type ServicoOpcao,
+} from "@/lib/servico-filter";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
 
@@ -369,6 +375,7 @@ export default async function ClientesPage({
     q?: string;
     grupo?: string;
     situacao?: string;
+    servico?: string;
     editGrupo?: string;
     novoCnpj?: string;
     duplicado?: string;
@@ -384,6 +391,7 @@ export default async function ClientesPage({
     q,
     grupo: grupoFiltro,
     situacao: situacaoRaw,
+    servico: servicoRaw,
     editGrupo: editGrupoId,
     novoCnpj: novoCnpjRaw,
     duplicado,
@@ -392,6 +400,11 @@ export default async function ClientesPage({
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
   const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
+  const servicoFiltro = parseServicoFiltro(servicoRaw);
+  const idsPorServico = await clienteIdsParaServicoFiltro(
+    supabase,
+    servicoFiltro
+  );
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
     .replace(/\D/g, "")
     .slice(0, 14);
@@ -464,6 +477,10 @@ export default async function ClientesPage({
   }
 
   clientesQuery = applySituacaoFilter(clientesQuery, situacaoFiltro);
+
+  if (idsPorServico) {
+    clientesQuery = clientesQuery.in("id", idsPorServico);
+  }
 
   const [{ data: gruposData }, { data: dataClientes }] = await Promise.all([
     gruposQuery,
@@ -1077,6 +1094,26 @@ export default async function ClientesPage({
                 <option value="ativa">Ativas</option>
                 <option value="paralisada">Paralisadas</option>
                 <option value="desativada">Desativadas / Inativas</option>
+              </select>
+              <select
+                name="servico"
+                defaultValue={servicoFiltro}
+                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[12rem]"
+              >
+                <option value="">Todos os serviços</option>
+                {(["Por categoria", "Contábil", "Jurídico"] as const).map(
+                  (grupoNome) => (
+                    <optgroup key={grupoNome} label={grupoNome}>
+                      {SERVICO_OPCOES.filter(
+                        (o: ServicoOpcao) => o.group === grupoNome
+                      ).map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                )}
               </select>
               <input
                 name="q"

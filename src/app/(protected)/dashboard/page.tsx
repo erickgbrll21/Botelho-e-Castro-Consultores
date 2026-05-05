@@ -11,6 +11,12 @@ import {
   situacaoFilterOrClause,
   type SituacaoEmpresa,
 } from "@/lib/cliente-situacao";
+import {
+  parseServicoFiltro,
+  clienteIdsParaServicoFiltro,
+  SERVICO_OPCOES,
+  type ServicoOpcao,
+} from "@/lib/servico-filter";
 import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
 import {
   ArrowTrendingDownIcon,
@@ -70,13 +76,29 @@ function formatCurrencyContrato(value: number | null | undefined) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; grupo?: string; situacao?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    grupo?: string;
+    situacao?: string;
+    servico?: string;
+  }>;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { q, grupo: grupoFiltro, situacao: situacaoRaw } = await searchParams;
+  const {
+    q,
+    grupo: grupoFiltro,
+    situacao: situacaoRaw,
+    servico: servicoRaw,
+  } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
   const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
+  const servicoFiltro = parseServicoFiltro(servicoRaw);
+
+  const idsPorServico = await clienteIdsParaServicoFiltro(
+    supabase,
+    servicoFiltro
+  );
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -171,6 +193,9 @@ export default async function DashboardPage({
     finalQuery = finalQuery.eq("grupo_id", grupoId);
   }
   finalQuery = applySituacaoFilter(finalQuery, situacaoFiltro);
+  if (idsPorServico) {
+    finalQuery = finalQuery.in("id", idsPorServico);
+  }
 
   const [
     { data: gruposLista },
@@ -329,6 +354,26 @@ export default async function DashboardPage({
             <option value="ativa">Ativas</option>
             <option value="paralisada">Paralisadas</option>
             <option value="desativada">Desativadas / Inativas</option>
+          </select>
+          <select
+            name="servico"
+            defaultValue={servicoFiltro}
+            className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[12rem]"
+          >
+            <option value="">Todos os serviços</option>
+            {(["Por categoria", "Contábil", "Jurídico"] as const).map(
+              (grupoNome) => (
+                <optgroup key={grupoNome} label={grupoNome}>
+                  {SERVICO_OPCOES.filter(
+                    (o: ServicoOpcao) => o.group === grupoNome
+                  ).map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            )}
           </select>
           <input
             name="q"

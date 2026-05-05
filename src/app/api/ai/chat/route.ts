@@ -19,6 +19,11 @@ import {
   situacaoFilterOrClause,
   type SituacaoFiltroValor,
 } from "@/lib/cliente-situacao";
+import {
+  clienteIdsParaServicoFiltro,
+  parseServicoFiltro,
+  type ServicoFiltroValor,
+} from "@/lib/servico-filter";
 
 /**
  * Nomes de grupos muitas vezes vêm do cadastro em MAIÚSCULAS. Para a resposta ao utilizador
@@ -54,7 +59,7 @@ const SYSTEM = `O objetivo do Assistente é responder perguntas com base EXCLUSI
 O CONTEXTO disponível para você é SOMENTE:
 - As mensagens desta conversa (usuário/assistente) enviadas pelo sistema.
 - Blocos anexados pelo servidor no formato "[Pré-carga BCC ...]" (cadastro interno / grupo econômico).
-- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), grupo, cidade, estado, atividade ou regime tributário.
+- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), grupo, cidade, estado, atividade, regime tributário ou serviço contratado (Contábil/Jurídico/Planejamento/BPO Financeiro, em geral ou serviço específico).
 
 CONHECIMENTO DO PAINEL (importante)
 - O sistema classifica cada empresa em uma de três situações: **ativa**, **paralisada** ou **desativada/inativa**. Empresas sem situação preenchida são tratadas como ativas (a menos que estejam marcadas como inativas).
@@ -103,7 +108,7 @@ USO DE FERRAMENTAS (uso interno — não falar disso ao utilizador)
 - Cadastro: só busque de novo se a pré-carga ainda for insuficiente.
 - Grupo econômico: para contagens, contrato ou listas, quando faltar contexto.
 - Estatísticas globais (totais do painel, contagem por situação, faturamento, entradas/saídas do mês): chame a função de estatísticas — não some nem invente. Se o utilizador não puder ver valores de contrato, esses campos virão nulos com aviso de restrição.
-- Listagem por filtros (situação ativa/paralisada/desativada, grupo, cidade, estado, atividade, regime): chame a função de listagem com os filtros corretos. Use limite razoável (10–25). Se houver mais resultados, informe quantos e ofereça refinar.
+- Listagem por filtros (situação ativa/paralisada/desativada, grupo, cidade, estado, atividade, regime, **serviço contratado**): chame a função de listagem com os filtros corretos. Para perguntas como "quem tem BPO Financeiro?", "empresas com serviço Trabalhista", "clientes com Planejamento Tributário", use o argumento de serviço apropriado. Use limite razoável (10–25). Se houver mais resultados, informe quantos e ofereça refinar.
 
 SEGURANÇA
 - Não exponha chaves, tokens, nem detalhes técnicos do servidor.
@@ -206,6 +211,11 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
           type: SchemaType.STRING,
           description:
             "Regime tributário (busca parcial, ex.: 'Simples', 'Lucro Real', 'Lucro Presumido').",
+        },
+        servico: {
+          type: SchemaType.STRING,
+          description:
+            "Filtro por serviço contratado. Categorias: 'qualquer_contabil' (qualquer Contábil), 'qualquer_juridico' (qualquer Jurídico), 'planejamento_societario_tributario', 'bpo_financeiro'. Específicos Contábil: 'contabil_fiscal', 'contabil_contabilidade', 'contabil_dp', 'contabil_pericia', 'contabil_legalizacao'. Específicos Jurídico: 'juridico_civel', 'juridico_trabalhista', 'juridico_licitacao', 'juridico_penal', 'juridico_empresarial'.",
         },
         termo: {
           type: SchemaType.STRING,
@@ -707,6 +717,7 @@ async function listarClientes(
     estado?: string | null;
     atividade?: string | null;
     regime_tributario?: string | null;
+    servico?: ServicoFiltroValor | "" | null;
     termo?: string | null;
     limite?: number;
     offset?: number;
@@ -728,6 +739,14 @@ async function listarClientes(
   });
 
   query = applySituacaoFilter(query, args.situacao ?? "");
+
+  const servicoFiltro = parseServicoFiltro(args.servico ?? "");
+  if (servicoFiltro) {
+    const ids = await clienteIdsParaServicoFiltro(supabase, servicoFiltro);
+    if (ids) {
+      query = query.in("id", ids);
+    }
+  }
 
   if (args.grupo_id) {
     query = query.eq("grupo_id", args.grupo_id);
@@ -791,6 +810,7 @@ async function listarClientes(
       estado: args.estado || null,
       atividade: args.atividade || null,
       regime_tributario: args.regime_tributario || null,
+      servico: servicoFiltro || null,
       termo: args.termo || null,
     },
     resultados: rows.map((r: any) => serializeClienteResumo(r)),
@@ -1566,6 +1586,7 @@ ${listaSituacaoPreloadJson}`
         estado?: string;
         atividade?: string;
         regime_tributario?: string;
+        servico?: string;
       };
       let toolText = "";
 
@@ -1613,6 +1634,7 @@ ${listaSituacaoPreloadJson}`
           regime_tributario: args.regime_tributario
             ? String(args.regime_tributario)
             : null,
+          servico: parseServicoFiltro(args.servico),
           termo: args.termo ? String(args.termo) : null,
           limite: Number(args.limite ?? 20),
           offset: Number(args.offset ?? 0),
