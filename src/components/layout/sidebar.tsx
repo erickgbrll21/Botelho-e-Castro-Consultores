@@ -13,8 +13,8 @@ import {
   IdentificationIcon,
   ClipboardDocumentCheckIcon,
   Bars3Icon,
-  ChevronDoubleLeftIcon,
 } from "@heroicons/react/24/outline";
+import ChevronDoubleLeftIcon from "@heroicons/react/24/outline/ChevronDoubleLeftIcon";
 import type { UserRole } from "@/types/database";
 
 type SidebarProps = {

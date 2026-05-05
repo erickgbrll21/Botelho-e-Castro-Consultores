@@ -23,10 +23,10 @@ import {
   ArrowTrendingUpIcon,
   UserGroupIcon,
   ChartPieIcon,
-  PauseCircleIcon,
-  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
+import BoltSlashIcon from "@heroicons/react/24/outline/BoltSlashIcon";
+import ArchiveBoxXMarkIcon from "@heroicons/react/24/outline/ArchiveBoxXMarkIcon";
 
 const situacaoCardUi: Record<
   SituacaoEmpresa,
@@ -290,7 +290,7 @@ export default async function DashboardPage({
         </Card>
         <Card
           title="Empresas paralisadas"
-          action={<PauseCircleIcon className="h-4 w-4 text-amber-400" />}
+          action={<BoltSlashIcon className="h-4 w-4 text-amber-400" />}
         >
           <p className="text-3xl font-semibold text-amber-300">
             {totalParalisadas}
@@ -301,7 +301,7 @@ export default async function DashboardPage({
         </Card>
         <Card
           title="Empresas inativas"
-          action={<XCircleIcon className="h-4 w-4 text-red-500" />}
+          action={<ArchiveBoxXMarkIcon className="h-4 w-4 text-red-500" />}
         >
           <p className="text-3xl font-semibold text-red-400">
             {totalDesativadas}
