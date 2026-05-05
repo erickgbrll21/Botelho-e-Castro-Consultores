@@ -19,6 +19,8 @@ import {
   getSituacaoEmpresa,
   situacaoEmpresaLabels,
   situacaoIndicatorClass,
+  applySituacaoFilter,
+  parseSituacaoFiltro,
 } from "@/lib/cliente-situacao";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -356,39 +358,6 @@ async function deleteCliente(formData: FormData) {
 
   await revalidatePath("/clientes");
   await revalidatePath("/dashboard");
-}
-
-type SituacaoFiltro = "" | "ativa" | "paralisada" | "desativada";
-
-const FILTRO_SITUACAO_VALORES: SituacaoFiltro[] = [
-  "",
-  "ativa",
-  "paralisada",
-  "desativada",
-];
-
-function parseSituacaoFiltro(raw: string | undefined | null): SituacaoFiltro {
-  const v = (raw ?? "").trim().toLowerCase();
-  return (FILTRO_SITUACAO_VALORES as string[]).includes(v)
-    ? (v as SituacaoFiltro)
-    : "";
-}
-
-function applySituacaoFilter(query: any, situacao: SituacaoFiltro) {
-  switch (situacao) {
-    case "ativa":
-      return query.or(
-        "situacao_empresa.eq.ativa,and(situacao_empresa.is.null,ativo.neq.false)"
-      );
-    case "paralisada":
-      return query.eq("situacao_empresa", "paralisada");
-    case "desativada":
-      return query.or(
-        "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
-      );
-    default:
-      return query;
-  }
 }
 
 export default async function ClientesPage({

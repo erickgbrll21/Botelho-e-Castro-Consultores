@@ -6,6 +6,9 @@ import { getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import {
   getSituacaoEmpresa,
   situacaoEmpresaLabels,
+  applySituacaoFilter,
+  parseSituacaoFiltro,
+  situacaoFilterOrClause,
   type SituacaoEmpresa,
 } from "@/lib/cliente-situacao";
 import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
@@ -64,42 +67,6 @@ function formatCurrencyContrato(value: number | null | undefined) {
   });
 }
 
-type SituacaoFiltro = "" | "ativa" | "paralisada" | "desativada";
-
-const FILTRO_SITUACAO_VALORES: SituacaoFiltro[] = [
-  "",
-  "ativa",
-  "paralisada",
-  "desativada",
-];
-
-function parseSituacaoFiltro(raw: string | undefined | null): SituacaoFiltro {
-  const v = (raw ?? "").trim().toLowerCase();
-  return (FILTRO_SITUACAO_VALORES as string[]).includes(v)
-    ? (v as SituacaoFiltro)
-    : "";
-}
-
-function applySituacaoFilter<T extends { or: any; eq: any }>(
-  query: T,
-  situacao: SituacaoFiltro
-): T {
-  switch (situacao) {
-    case "ativa":
-      return query.or(
-        "situacao_empresa.eq.ativa,and(situacao_empresa.is.null,ativo.neq.false)"
-      ) as T;
-    case "paralisada":
-      return query.eq("situacao_empresa", "paralisada") as T;
-    case "desativada":
-      return query.or(
-        "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
-      ) as T;
-    default:
-      return query;
-  }
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -148,14 +115,12 @@ export default async function DashboardPage({
   const paralisadasQuery = supabase
     .from("clientes")
     .select("id", { count: "exact", head: true })
-    .eq("situacao_empresa", "paralisada");
+    .or(situacaoFilterOrClause("paralisada"));
 
   const desativadasQuery = supabase
     .from("clientes")
     .select("id", { count: "exact", head: true })
-    .or(
-      "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
-    );
+    .or(situacaoFilterOrClause("desativada"));
 
   const clientesQuery = supabase
     .from("clientes")

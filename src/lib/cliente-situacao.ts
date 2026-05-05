@@ -50,3 +50,44 @@ export function situacaoPillProps(s: SituacaoEmpresa): {
       return { label: "Ativa", tone: "success" };
   }
 }
+
+/** Valores aceites no filtro/URL/IA. */
+export type SituacaoFiltroValor = "ativa" | "paralisada" | "desativada";
+
+/**
+ * Reflete a regra de `getSituacaoEmpresa` em SQL/PostgREST:
+ *   ativa     = situacao_empresa = 'ativa' OR (situacao_empresa IS NULL AND ativo != false)
+ *   paralisada = situacao_empresa = 'paralisada'
+ *   desativada = situacao_empresa = 'desativada' OR (situacao_empresa IS NULL AND ativo = false)
+ *
+ * Devolve a string para passar a `.or(...)` do supabase-js.
+ */
+export function situacaoFilterOrClause(s: SituacaoFiltroValor): string {
+  switch (s) {
+    case "ativa":
+      return "situacao_empresa.eq.ativa,and(situacao_empresa.is.null,ativo.neq.false)";
+    case "paralisada":
+      return "situacao_empresa.eq.paralisada";
+    case "desativada":
+      return "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)";
+  }
+}
+
+/** Aplica o filtro de situação a uma query supabase (mantém o tipo). */
+export function applySituacaoFilter<Q extends { or: (s: string) => Q }>(
+  query: Q,
+  situacao: SituacaoFiltroValor | "" | null | undefined
+): Q {
+  if (situacao === "ativa" || situacao === "paralisada" || situacao === "desativada") {
+    return query.or(situacaoFilterOrClause(situacao));
+  }
+  return query;
+}
+
+export function parseSituacaoFiltro(
+  raw: string | undefined | null
+): SituacaoFiltroValor | "" {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "ativa" || v === "paralisada" || v === "desativada") return v;
+  return "";
+}

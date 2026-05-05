@@ -14,6 +14,11 @@ import {
   lookupCnpjPublic,
 } from "@/lib/cnpj-lookup-providers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  applySituacaoFilter,
+  situacaoFilterOrClause,
+  type SituacaoFiltroValor,
+} from "@/lib/cliente-situacao";
 
 /**
  * Nomes de grupos muitas vezes vêm do cadastro em MAIÚSCULAS. Para a resposta ao utilizador
@@ -49,7 +54,13 @@ const SYSTEM = `O objetivo do Assistente é responder perguntas com base EXCLUSI
 O CONTEXTO disponível para você é SOMENTE:
 - As mensagens desta conversa (usuário/assistente) enviadas pelo sistema.
 - Blocos anexados pelo servidor no formato "[Pré-carga BCC ...]" (cadastro interno / grupo econômico).
-- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos.
+- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), grupo, cidade, estado, atividade ou regime tributário.
+
+CONHECIMENTO DO PAINEL (importante)
+- O sistema classifica cada empresa em uma de três situações: **ativa**, **paralisada** ou **desativada/inativa**. Empresas sem situação preenchida são tratadas como ativas (a menos que estejam marcadas como inativas).
+- O dashboard apresenta os totais: clientes ativos, grupos cadastrados, entradas e saídas no mês, empresas paralisadas, empresas inativas e (para Diretor/Financeiro) faturamento mensal.
+- Para perguntas como "quantas empresas paralisadas/inativas/ativas temos?" você deve usar a ferramenta de estatísticas globais.
+- Para perguntas como "quais empresas estão paralisadas?", "liste as empresas inativas", "empresas paralisadas em São Paulo", "clientes do Lucro Real" — use a ferramenta de listagem com os filtros adequados.
 
 TOM E LINGUAGEM (falar com o utilizador)
 - Português do Brasil, tom **profissional, cordial e natural** — evite respostas frias, excessivamente burocráticas ou de manual técnico.
@@ -91,6 +102,8 @@ USO DE FERRAMENTAS (uso interno — não falar disso ao utilizador)
 - CNPJ público: chame a função apropriada; nunca invente dados.
 - Cadastro: só busque de novo se a pré-carga ainda for insuficiente.
 - Grupo econômico: para contagens, contrato ou listas, quando faltar contexto.
+- Estatísticas globais (totais do painel, contagem por situação, faturamento, entradas/saídas do mês): chame a função de estatísticas — não some nem invente. Se o utilizador não puder ver valores de contrato, esses campos virão nulos com aviso de restrição.
+- Listagem por filtros (situação ativa/paralisada/desativada, grupo, cidade, estado, atividade, regime): chame a função de listagem com os filtros corretos. Use limite razoável (10–25). Se houver mais resultados, informe quantos e ofereça refinar.
 
 SEGURANÇA
 - Não exponha chaves, tokens, nem detalhes técnicos do servidor.
@@ -148,6 +161,66 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         },
       },
       required: ["nome"],
+    },
+  },
+  {
+    name: "estatisticas_painel",
+    description:
+      "Retorna métricas globais do painel: total de clientes, totais por situação (ativas, paralisadas, desativadas/inativas), total de grupos econômicos, entradas e saídas no mês corrente e (se autorizado) faturamento mensal e quebra por grupo/avulsas. Use para perguntas como 'quantas empresas paralisadas temos?', 'quantos clientes ativos?', 'qual o faturamento do mês?', 'entradas no mês?'.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {},
+    },
+  },
+  {
+    name: "listar_clientes",
+    description:
+      "Lista clientes do cadastro com filtros opcionais e devolve o total que casa com o filtro. Use para perguntas como 'liste as empresas paralisadas', 'quais empresas inativas', 'clientes do Lucro Real em SP', 'empresas de São Paulo no grupo X'. Não use para detalhe de uma única empresa pelo nome (use buscar_empresas_sistema).",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: {
+        situacao: {
+          type: SchemaType.STRING,
+          description:
+            "Situação da empresa. Aceita: 'ativa', 'paralisada', 'desativada' (sinônimos: 'inativa', 'inativas' = 'desativada').",
+        },
+        grupo_id: {
+          type: SchemaType.STRING,
+          description:
+            "ID do grupo econômico (UUID). Se só souber o nome do grupo, prefira consultar_grupo_economico.",
+        },
+        cidade: {
+          type: SchemaType.STRING,
+          description: "Filtra por cidade (busca parcial, case-insensitive).",
+        },
+        estado: {
+          type: SchemaType.STRING,
+          description: "UF do estado (ex.: 'SP', 'RJ').",
+        },
+        atividade: {
+          type: SchemaType.STRING,
+          description:
+            "Tipo de atividade. Valores válidos: 'Serviço', 'Comércio', 'Indústria', 'Ambos'.",
+        },
+        regime_tributario: {
+          type: SchemaType.STRING,
+          description:
+            "Regime tributário (busca parcial, ex.: 'Simples', 'Lucro Real', 'Lucro Presumido').",
+        },
+        termo: {
+          type: SchemaType.STRING,
+          description:
+            "Texto livre para casar razão social ou CNPJ (parcial). Combina com os outros filtros.",
+        },
+        limite: {
+          type: SchemaType.NUMBER,
+          description: "Máximo de empresas a retornar (padrão 20, máx 50).",
+        },
+        offset: {
+          type: SchemaType.NUMBER,
+          description: "Deslocamento para paginação (padrão 0).",
+        },
+      },
     },
   },
 ];
@@ -425,6 +498,308 @@ type GrupoEconomicoEmpresaResumo = {
   situacao_empresa: string | null;
 };
 
+/** Resumo barato em tokens para listas de muitas empresas. */
+function serializeClienteResumo(c: any): Record<string, unknown> {
+  const g = primeiroEmbed(c.grupos_economicos) as { nome?: string } | null;
+  return {
+    id: c.id,
+    detalhe_url: `/clientes/${c.id}`,
+    razao_social: c.razao_social ?? null,
+    cnpj: c.cnpj ?? null,
+    cidade: c.cidade ?? null,
+    estado: c.estado ?? null,
+    atividade: c.atividade ?? null,
+    regime_tributario: c.regime_tributario ?? null,
+    situacao_empresa: c.situacao_empresa ?? null,
+    ativo: c.ativo ?? null,
+    grupo_nome: g?.nome ?? c.grupo_economico ?? null,
+    grupo_nome_exibicao: g?.nome
+      ? nomeGrupoExibicaoParaResposta(g.nome)
+      : c.grupo_economico
+        ? nomeGrupoExibicaoParaResposta(String(c.grupo_economico))
+        : null,
+  };
+}
+
+function parseSituacaoToolArg(
+  raw: string | undefined | null
+): SituacaoFiltroValor | "" {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "ativa" || v === "ativas" || v === "ativo" || v === "ativos") {
+    return "ativa";
+  }
+  if (v === "paralisada" || v === "paralisadas") return "paralisada";
+  if (
+    v === "desativada" ||
+    v === "desativadas" ||
+    v === "inativa" ||
+    v === "inativas" ||
+    v === "inativo" ||
+    v === "inativos"
+  ) {
+    return "desativada";
+  }
+  return "";
+}
+
+async function estatisticasPainel(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  canSeeContrato: boolean
+): Promise<string> {
+  const now = new Date();
+  const startOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  );
+  const startOfNextMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+  );
+  const inicioMes = startOfMonth.toISOString().slice(0, 10);
+  const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
+
+  const totalClientes = (supabase.from("clientes") as any).select("id", {
+    count: "exact",
+    head: true,
+  });
+  const totalAtivas = (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .or(situacaoFilterOrClause("ativa"));
+  const totalParalisadas = (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .or(situacaoFilterOrClause("paralisada"));
+  const totalDesativadas = (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .or(situacaoFilterOrClause("desativada"));
+  const totalGrupos = (supabase.from("grupos_economicos") as any).select("id", {
+    count: "exact",
+    head: true,
+  });
+  const entradasMes = (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", startOfMonth.toISOString())
+    .lt("created_at", startOfNextMonth.toISOString());
+  const saidasMes = (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("ativo", false)
+    .not("data_saida", "is", null)
+    .gte("data_saida", inicioMes)
+    .lt("data_saida", inicioProximoMes);
+
+  const gruposFatPromise = canSeeContrato
+    ? (supabase.from("grupos_economicos") as any).select("valor_contrato")
+    : Promise.resolve({ data: null as any });
+  const avulsasFatPromise = canSeeContrato
+    ? (supabase.from("clientes") as any)
+        .select("valor_contrato")
+        .is("grupo_id", null)
+        .neq("ativo", false)
+        .not("valor_contrato", "is", null)
+    : Promise.resolve({ data: null as any });
+
+  const [
+    rTotal,
+    rAtivas,
+    rParal,
+    rDes,
+    rGrupos,
+    rEntradas,
+    rSaidas,
+    rGruposFat,
+    rAvulsasFat,
+  ] = await Promise.all([
+    totalClientes,
+    totalAtivas,
+    totalParalisadas,
+    totalDesativadas,
+    totalGrupos,
+    entradasMes,
+    saidasMes,
+    gruposFatPromise,
+    avulsasFatPromise,
+  ]);
+
+  const erros: string[] = [];
+  for (const [name, r] of [
+    ["total_clientes", rTotal],
+    ["total_ativas", rAtivas],
+    ["total_paralisadas", rParal],
+    ["total_desativadas", rDes],
+    ["total_grupos", rGrupos],
+    ["entradas_mes", rEntradas],
+    ["saidas_mes", rSaidas],
+  ] as const) {
+    if ((r as any).error) {
+      erros.push(`${name}: ${(r as any).error.message}`);
+    }
+  }
+
+  let faturamentoGrupos: number | null = null;
+  let faturamentoAvulsas: number | null = null;
+  let faturamentoMensal: number | null = null;
+  if (canSeeContrato) {
+    if (!(rGruposFat as any).error && Array.isArray((rGruposFat as any).data)) {
+      faturamentoGrupos = ((rGruposFat as any).data as any[]).reduce(
+        (acc, g) => acc + (Number(g?.valor_contrato) || 0),
+        0
+      );
+    }
+    if (
+      !(rAvulsasFat as any).error &&
+      Array.isArray((rAvulsasFat as any).data)
+    ) {
+      faturamentoAvulsas = ((rAvulsasFat as any).data as any[]).reduce(
+        (acc, c) => acc + (Number(c?.valor_contrato) || 0),
+        0
+      );
+    }
+    if (faturamentoGrupos != null && faturamentoAvulsas != null) {
+      faturamentoMensal = faturamentoGrupos + faturamentoAvulsas;
+    }
+  }
+
+  const periodoMes = {
+    referencia: `${now.getUTCFullYear()}-${String(
+      now.getUTCMonth() + 1
+    ).padStart(2, "0")}`,
+    inicio: inicioMes,
+    inicio_proximo_mes: inicioProximoMes,
+  };
+
+  return JSON.stringify({
+    periodo_mes_atual: periodoMes,
+    totais: {
+      clientes: rTotal.count ?? null,
+      ativas: rAtivas.count ?? null,
+      paralisadas: rParal.count ?? null,
+      desativadas_inativas: rDes.count ?? null,
+      grupos_economicos: rGrupos.count ?? null,
+    },
+    fluxo_mes: {
+      entradas: rEntradas.count ?? null,
+      saidas: rSaidas.count ?? null,
+    },
+    financeiro: canSeeContrato
+      ? {
+          faturamento_mensal: faturamentoMensal,
+          faturamento_grupos: faturamentoGrupos,
+          faturamento_avulsas: faturamentoAvulsas,
+          observacao:
+            "Soma de valor_contrato dos grupos econômicos + clientes avulsos ativos sem grupo.",
+        }
+      : null,
+    restricoes: canSeeContrato
+      ? null
+      : {
+          contratos_ocultos: true,
+          motivo:
+            "Faturamento e valores de contrato visíveis apenas para usuários Diretor e Financeiro.",
+        },
+    avisos: erros.length ? erros : null,
+  });
+}
+
+async function listarClientes(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  args: {
+    situacao?: SituacaoFiltroValor | "";
+    grupo_id?: string | null;
+    cidade?: string | null;
+    estado?: string | null;
+    atividade?: string | null;
+    regime_tributario?: string | null;
+    termo?: string | null;
+    limite?: number;
+    offset?: number;
+  }
+): Promise<string> {
+  const lim = Math.max(1, Math.min(50, Math.floor(args.limite ?? 20)));
+  const off = Math.max(0, Math.floor(args.offset ?? 0));
+
+  const baseSelect = `
+    id, razao_social, cnpj, cidade, estado, atividade,
+    regime_tributario, situacao_empresa, ativo, grupo_economico, grupo_id,
+    grupos_economicos ( id, nome )
+  `
+    .replace(/\s+/g, " ")
+    .trim();
+
+  let query: any = (supabase.from("clientes") as any).select(baseSelect, {
+    count: "exact",
+  });
+
+  query = applySituacaoFilter(query, args.situacao ?? "");
+
+  if (args.grupo_id) {
+    query = query.eq("grupo_id", args.grupo_id);
+  }
+  if (args.cidade && args.cidade.trim()) {
+    query = query.ilike("cidade", `%${args.cidade.trim().slice(0, 80)}%`);
+  }
+  if (args.estado && args.estado.trim()) {
+    const uf = args.estado.trim().toUpperCase().slice(0, 2);
+    query = query.eq("estado", uf);
+  }
+  if (args.atividade && args.atividade.trim()) {
+    const a = args.atividade.trim();
+    const valid = ["Serviço", "Comércio", "Indústria", "Ambos"].find(
+      (v) => v.toLowerCase() === a.toLowerCase()
+    );
+    if (valid) {
+      query = query.eq("atividade", valid);
+    } else {
+      query = query.ilike("atividade", `%${a.slice(0, 40)}%`);
+    }
+  }
+  if (args.regime_tributario && args.regime_tributario.trim()) {
+    query = query.ilike(
+      "regime_tributario",
+      `%${args.regime_tributario.trim().slice(0, 40)}%`
+    );
+  }
+  if (args.termo && args.termo.trim()) {
+    const t = args.termo.trim().slice(0, 120);
+    const digits = t.replace(/\D/g, "");
+    if (digits.length >= 3) {
+      query = query.or(
+        `razao_social.ilike.%${t}%,cnpj.ilike.%${digits}%`
+      );
+    } else {
+      query = query.ilike("razao_social", `%${t}%`);
+    }
+  }
+
+  const { data, error, count } = await query
+    .order("razao_social", { ascending: true })
+    .range(off, off + lim - 1);
+
+  if (error) {
+    return JSON.stringify({
+      erro: "Não foi possível listar clientes.",
+      detalhe: error.message,
+    });
+  }
+
+  const rows = Array.isArray(data) ? data : [];
+  return JSON.stringify({
+    total: count ?? rows.length,
+    limite: lim,
+    offset: off,
+    filtros: {
+      situacao: args.situacao || null,
+      grupo_id: args.grupo_id || null,
+      cidade: args.cidade || null,
+      estado: args.estado || null,
+      atividade: args.atividade || null,
+      regime_tributario: args.regime_tributario || null,
+      termo: args.termo || null,
+    },
+    resultados: rows.map((r: any) => serializeClienteResumo(r)),
+    observacao:
+      (count ?? rows.length) > rows.length
+        ? `Mostrando ${rows.length} de ${count}. Use offset/limite para paginar ou refine com mais filtros.`
+        : null,
+  });
+}
+
 async function consultarGrupoEconomico(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   nome: string,
@@ -690,6 +1065,40 @@ function shouldPrefetchGrupoEconomico(msg: string): boolean {
       t
     )
   );
+}
+
+/**
+ * Detecta perguntas sobre métricas globais do painel para pré-carregar
+ * `estatisticas_painel` (totais por situação, fluxo do mês, faturamento).
+ */
+function shouldPrefetchEstatisticas(msg: string): boolean {
+  const t = msg.trim().toLowerCase();
+  if (t.length < 4) return false;
+  if (/\bgrupo\b/.test(t)) return false; // perguntas sobre grupo já têm pré-carga própria
+  const palavrasMetrica =
+    /(total|totais|quant[ao]s?|qtd|m[eé]dia|m[ée]tricas?|m[ée]tricos?|estat[ií]sticas?|painel|dashboard|faturamento|fatura[cç][aã]o|receita|mensal|entradas?|sa[ií]das?)/;
+  const palavrasEntidade =
+    /(empresas?|clientes?|paralisad[ao]s?|inativ[ao]s?|desativad[ao]s?|ativ[ao]s?|grupos?|cadastr[ao]s?)/;
+  return palavrasMetrica.test(t) && palavrasEntidade.test(t);
+}
+
+/**
+ * Detecta perguntas que pedem listagem por situação ("liste paralisadas",
+ * "quais empresas inativas", etc.) para pré-carregar `listar_clientes`.
+ */
+function detectSituacaoFiltroDoTexto(
+  msg: string
+): SituacaoFiltroValor | "" {
+  const t = msg.trim().toLowerCase();
+  if (t.length < 4) return "";
+  // Tem que ter intenção de listagem para pré-carregar.
+  const intencao =
+    /(liste|listar|mostre|mostrar|quais|quem|quantos?|relacione|relacionar|filtre|filtrar|empresas|clientes)/;
+  if (!intencao.test(t)) return "";
+  if (/\bparalisad[ao]s?\b/.test(t)) return "paralisada";
+  if (/\b(inativ[ao]s?|desativad[ao]s?)\b/.test(t)) return "desativada";
+  if (/\bativas?\b/.test(t) && !/(par|inat|desat)/.test(t)) return "ativa";
+  return "";
 }
 
 function extractGrupoNomeDoTexto(msg: string): string | null {
@@ -966,7 +1375,7 @@ export async function POST(req: Request) {
     });
 
   const supabase = await createSupabaseServerClient();
-  const maxModelCalls = 5;
+  const maxModelCalls = 7;
 
   const termoBuscaRapida = termoParaPreloadCadastro(incoming);
   const termoPreloadNormalizado = normalizarTermoBusca(termoBuscaRapida);
@@ -1003,6 +1412,35 @@ export async function POST(req: Request) {
       }
     }
   }
+
+  let estatisticasPreloadJson: string | null = null;
+  if (shouldPrefetchEstatisticas(lastUserText)) {
+    try {
+      estatisticasPreloadJson = await estatisticasPainel(
+        supabase,
+        canSeeContrato
+      );
+    } catch (e) {
+      console.warn("[/api/ai/chat] pré-carga estatisticas_painel", e);
+    }
+  }
+
+  let listaSituacaoPreloadJson: string | null = null;
+  let listaSituacaoPreloadValor: SituacaoFiltroValor | "" = "";
+  const situacaoDetectada = detectSituacaoFiltroDoTexto(lastUserText);
+  if (situacaoDetectada) {
+    listaSituacaoPreloadValor = situacaoDetectada;
+    try {
+      listaSituacaoPreloadJson = await listarClientes(supabase, {
+        situacao: situacaoDetectada,
+        limite: 25,
+        offset: 0,
+      });
+    } catch (e) {
+      console.warn("[/api/ai/chat] pré-carga listar_clientes", e);
+    }
+  }
+
   const lastUserComPreload =
     cadastroPreloadJson != null
       ? `${lastUserText}
@@ -1018,6 +1456,22 @@ ${cadastroPreloadJson}`
 [Pré-carga BCC — Grupo econômico, termo «${grupoPreloadNome}». Use isto para responder contagens/contrato do grupo. Para listar empresas, chame consultar_grupo_economico com incluir_empresas=true.]
 ${grupoPreloadJson}`
       : lastUserComPreload;
+
+  const lastUserComPreload3 =
+    estatisticasPreloadJson != null
+      ? `${lastUserComPreload2}
+
+[Pré-carga BCC — Estatísticas globais do painel (totais por situação, fluxo do mês, faturamento se permitido). Use estes números diretamente para responder; não chame estatisticas_painel novamente, salvo se o utilizador pedir actualização explícita.]
+${estatisticasPreloadJson}`
+      : lastUserComPreload2;
+
+  const lastUserComPreload4 =
+    listaSituacaoPreloadJson != null && listaSituacaoPreloadValor
+      ? `${lastUserComPreload3}
+
+[Pré-carga BCC — Lista de empresas (situação=${listaSituacaoPreloadValor}). Para outros filtros (cidade, estado, grupo, atividade, regime) chame listar_clientes com os argumentos adequados. Mostre uma lista enxuta ao utilizador (razão social, CNPJ, cidade/UF) e ofereça refinar.]
+${listaSituacaoPreloadJson}`
+      : lastUserComPreload3;
 
   const genAI = new GoogleGenerativeAI(key.trim());
   const model = genAI.getGenerativeModel({
@@ -1049,7 +1503,7 @@ ${grupoPreloadJson}`
   let result: Awaited<ReturnType<typeof chat.sendMessage>>;
   try {
     result = await withGemini429Retry("sendMessage", () =>
-      chat.sendMessage(lastUserComPreload2)
+      chat.sendMessage(lastUserComPreload4)
     );
   } catch (err) {
     const { status, message } = responseForGeminiFailure(err);
@@ -1104,6 +1558,13 @@ ${grupoPreloadJson}`
         nome?: string;
         incluir_empresas?: boolean;
         limite?: number;
+        offset?: number;
+        situacao?: string;
+        grupo_id?: string;
+        cidade?: string;
+        estado?: string;
+        atividade?: string;
+        regime_tributario?: string;
       };
       let toolText = "";
 
@@ -1138,6 +1599,23 @@ ${grupoPreloadJson}`
           limite,
           canSeeContrato
         );
+      } else if (name === "estatisticas_painel") {
+        toolText = await estatisticasPainel(supabase, canSeeContrato);
+      } else if (name === "listar_clientes") {
+        const situacao = parseSituacaoToolArg(args.situacao);
+        toolText = await listarClientes(supabase, {
+          situacao,
+          grupo_id: args.grupo_id ? String(args.grupo_id) : null,
+          cidade: args.cidade ? String(args.cidade) : null,
+          estado: args.estado ? String(args.estado) : null,
+          atividade: args.atividade ? String(args.atividade) : null,
+          regime_tributario: args.regime_tributario
+            ? String(args.regime_tributario)
+            : null,
+          termo: args.termo ? String(args.termo) : null,
+          limite: Number(args.limite ?? 20),
+          offset: Number(args.offset ?? 0),
+        });
       } else {
         toolText = JSON.stringify({ erro: "função desconhecida" });
       }
