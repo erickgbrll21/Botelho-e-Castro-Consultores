@@ -14,6 +14,8 @@ import {
   ArrowTrendingUpIcon,
   UserGroupIcon,
   ChartPieIcon,
+  PauseCircleIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
 import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
 
@@ -62,15 +64,52 @@ function formatCurrencyContrato(value: number | null | undefined) {
   });
 }
 
+type SituacaoFiltro = "" | "ativa" | "paralisada" | "desativada";
+
+const FILTRO_SITUACAO_VALORES: SituacaoFiltro[] = [
+  "",
+  "ativa",
+  "paralisada",
+  "desativada",
+];
+
+function parseSituacaoFiltro(raw: string | undefined | null): SituacaoFiltro {
+  const v = (raw ?? "").trim().toLowerCase();
+  return (FILTRO_SITUACAO_VALORES as string[]).includes(v)
+    ? (v as SituacaoFiltro)
+    : "";
+}
+
+function applySituacaoFilter<T extends { or: any; eq: any }>(
+  query: T,
+  situacao: SituacaoFiltro
+): T {
+  switch (situacao) {
+    case "ativa":
+      return query.or(
+        "situacao_empresa.eq.ativa,and(situacao_empresa.is.null,ativo.neq.false)"
+      ) as T;
+    case "paralisada":
+      return query.eq("situacao_empresa", "paralisada") as T;
+    case "desativada":
+      return query.or(
+        "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
+      ) as T;
+    default:
+      return query;
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; grupo?: string }>;
+  searchParams: Promise<{ q?: string; grupo?: string; situacao?: string }>;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { q, grupo: grupoFiltro } = await searchParams;
+  const { q, grupo: grupoFiltro, situacao: situacaoRaw } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
+  const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -105,6 +144,18 @@ export default async function DashboardPage({
     .not("data_saida", "is", null)
     .gte("data_saida", inicioMes)
     .lt("data_saida", inicioProximoMes);
+
+  const paralisadasQuery = supabase
+    .from("clientes")
+    .select("id", { count: "exact", head: true })
+    .eq("situacao_empresa", "paralisada");
+
+  const desativadasQuery = supabase
+    .from("clientes")
+    .select("id", { count: "exact", head: true })
+    .or(
+      "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
+    );
 
   const clientesQuery = supabase
     .from("clientes")
@@ -147,19 +198,22 @@ export default async function DashboardPage({
     )
     .order("razao_social", { ascending: true });
 
-  let finalQuery = clientesQuery;
+  let finalQuery: any = clientesQuery;
   if (term) {
     finalQuery = finalQuery.ilike("razao_social", `%${term}%`);
   }
   if (grupoId) {
     finalQuery = finalQuery.eq("grupo_id", grupoId);
   }
+  finalQuery = applySituacaoFilter(finalQuery, situacaoFiltro);
 
   const [
     { data: gruposLista },
     { data: avulsasData },
     { count: entradasMes },
     { count: saidasMesCount },
+    { count: paralisadasCount },
+    { count: desativadasCount },
     { data: dataClientes },
     profile,
   ] = await Promise.all([
@@ -167,6 +221,8 @@ export default async function DashboardPage({
     avulsasQuery,
     entradasQuery,
     saidasQuery,
+    paralisadasQuery,
+    desativadasQuery,
     finalQuery,
     getCurrentProfile(),
   ]);
@@ -201,6 +257,8 @@ export default async function DashboardPage({
   );
   const faturamentoMensal = faturamentoGrupos + faturamentoAvulsas;
   const saidasMes = saidasMesCount ?? 0;
+  const totalParalisadas = paralisadasCount ?? 0;
+  const totalDesativadas = desativadasCount ?? 0;
   const clientes: any[] = dataClientes ?? [];
 
   return (
@@ -240,6 +298,28 @@ export default async function DashboardPage({
             Empresas desativadas no mês atual
           </p>
         </Card>
+        <Card
+          title="Empresas paralisadas"
+          action={<PauseCircleIcon className="h-4 w-4 text-amber-400" />}
+        >
+          <p className="text-3xl font-semibold text-amber-300">
+            {totalParalisadas}
+          </p>
+          <p className="text-xs text-neutral-400">
+            Total de empresas marcadas como paralisadas
+          </p>
+        </Card>
+        <Card
+          title="Empresas inativas"
+          action={<XCircleIcon className="h-4 w-4 text-red-500" />}
+        >
+          <p className="text-3xl font-semibold text-red-400">
+            {totalDesativadas}
+          </p>
+          <p className="text-xs text-neutral-400">
+            Total de empresas desativadas no sistema
+          </p>
+        </Card>
         {showContractValue ? (
           <Card
             title="Faturamento mensal"
@@ -274,6 +354,16 @@ export default async function DashboardPage({
                 {grupo.nome}
               </option>
             ))}
+          </select>
+          <select
+            name="situacao"
+            defaultValue={situacaoFiltro}
+            className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+          >
+            <option value="">Todas as situações</option>
+            <option value="ativa">Ativas</option>
+            <option value="paralisada">Paralisadas</option>
+            <option value="desativada">Desativadas / Inativas</option>
           </select>
           <input
             name="q"

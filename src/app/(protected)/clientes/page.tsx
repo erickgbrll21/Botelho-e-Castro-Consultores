@@ -358,12 +358,46 @@ async function deleteCliente(formData: FormData) {
   await revalidatePath("/dashboard");
 }
 
+type SituacaoFiltro = "" | "ativa" | "paralisada" | "desativada";
+
+const FILTRO_SITUACAO_VALORES: SituacaoFiltro[] = [
+  "",
+  "ativa",
+  "paralisada",
+  "desativada",
+];
+
+function parseSituacaoFiltro(raw: string | undefined | null): SituacaoFiltro {
+  const v = (raw ?? "").trim().toLowerCase();
+  return (FILTRO_SITUACAO_VALORES as string[]).includes(v)
+    ? (v as SituacaoFiltro)
+    : "";
+}
+
+function applySituacaoFilter(query: any, situacao: SituacaoFiltro) {
+  switch (situacao) {
+    case "ativa":
+      return query.or(
+        "situacao_empresa.eq.ativa,and(situacao_empresa.is.null,ativo.neq.false)"
+      );
+    case "paralisada":
+      return query.eq("situacao_empresa", "paralisada");
+    case "desativada":
+      return query.or(
+        "situacao_empresa.eq.desativada,and(situacao_empresa.is.null,ativo.eq.false)"
+      );
+    default:
+      return query;
+  }
+}
+
 export default async function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<{
     q?: string;
     grupo?: string;
+    situacao?: string;
     editGrupo?: string;
     novoCnpj?: string;
     duplicado?: string;
@@ -378,6 +412,7 @@ export default async function ClientesPage({
   const {
     q,
     grupo: grupoFiltro,
+    situacao: situacaoRaw,
     editGrupo: editGrupoId,
     novoCnpj: novoCnpjRaw,
     duplicado,
@@ -385,6 +420,7 @@ export default async function ClientesPage({
   } = await searchParams;
   const term = q?.trim() ?? "";
   const grupoId = grupoFiltro?.trim() ?? "";
+  const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
     .replace(/\D/g, "")
     .slice(0, 14);
@@ -455,6 +491,8 @@ export default async function ClientesPage({
   if (grupoId) {
     clientesQuery = clientesQuery.eq("grupo_id", grupoId);
   }
+
+  clientesQuery = applySituacaoFilter(clientesQuery, situacaoFiltro);
 
   const [{ data: gruposData }, { data: dataClientes }] = await Promise.all([
     gruposQuery,
@@ -1048,6 +1086,16 @@ export default async function ClientesPage({
                     {grupo.nome}
                   </option>
                 ))}
+              </select>
+              <select
+                name="situacao"
+                defaultValue={situacaoFiltro}
+                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+              >
+                <option value="">Todas as situações</option>
+                <option value="ativa">Ativas</option>
+                <option value="paralisada">Paralisadas</option>
+                <option value="desativada">Desativadas / Inativas</option>
               </select>
               <input
                 name="q"
