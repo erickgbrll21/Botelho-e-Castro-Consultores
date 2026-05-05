@@ -311,6 +311,7 @@ function serializarServicosBooleans(s: Record<string, unknown> | null) {
       key: "planejamento_societario_tributario",
       label: "Planejamento societário/tributário",
     },
+    { key: "bpo_financeiro", label: "BPO Financeiro" },
   ];
   const contratados = m
     .filter(({ key }) => s[key] === true)

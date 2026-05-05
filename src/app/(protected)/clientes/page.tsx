@@ -131,6 +131,7 @@ async function createCliente(formData: FormData) {
     formData,
     "planejamento_societario_tributario"
   );
+  const bpo_financeiro = parseFormCheckbox(formData, "bpo_financeiro");
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -203,6 +204,7 @@ async function createCliente(formData: FormData) {
       juridico_penal,
       juridico_empresarial,
       planejamento_societario_tributario,
+      bpo_financeiro,
     })
     .select("juridico_civel, juridico_trabalhista")
     .single();
@@ -849,7 +851,7 @@ export default async function ClientesPage({
             <div className="md:col-span-2 space-y-4 border-t border-neutral-800 pt-4">
               <p className="font-semibold text-neutral-200">Serviços Contratados</p>
               
-              <div className="grid gap-6 md:grid-cols-3">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-amber-500 uppercase tracking-wider">1. Serviço Contábil</p>
                   <div className="grid grid-cols-1 gap-2">
@@ -908,6 +910,16 @@ export default async function ClientesPage({
                     <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
                       <input type="checkbox" name="planejamento_societario_tributario" className="accent-emerald-500 h-4 w-4" />
                       Societário e Tributário
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-fuchsia-500 uppercase tracking-wider">4. BPO</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                      <input type="checkbox" name="bpo_financeiro" className="accent-fuchsia-500 h-4 w-4" />
+                      Financeiro
                     </label>
                   </div>
                 </div>

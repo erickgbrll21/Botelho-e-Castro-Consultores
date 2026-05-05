@@ -116,6 +116,7 @@ async function updateCliente(formData: FormData) {
     formData,
     "planejamento_societario_tributario"
   );
+  const bpo_financeiro = parseFormCheckbox(formData, "bpo_financeiro");
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -181,6 +182,7 @@ async function updateCliente(formData: FormData) {
         juridico_penal,
         juridico_empresarial,
         planejamento_societario_tributario,
+        bpo_financeiro,
       },
       { onConflict: "cliente_id" }
     )
@@ -666,7 +668,7 @@ export default async function EditClientePage({
           </Card>
 
           <Card title="Serviços Contratados">
-            <div className="grid gap-8 md:grid-cols-3">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-4">
                 <p className="text-sm font-bold text-amber-500 uppercase tracking-widest border-b border-amber-500/20 pb-2">1. Serviço Contábil</p>
                 <div className="grid grid-cols-1 gap-3">
@@ -780,6 +782,21 @@ export default async function EditClientePage({
                       className="accent-emerald-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-emerald-400 transition-colors">Societário e Tributário</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-fuchsia-500 uppercase tracking-widest border-b border-fuchsia-500/20 pb-2">4. BPO</p>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      name="bpo_financeiro"
+                      defaultChecked={Boolean(servicos?.bpo_financeiro)}
+                      className="accent-fuchsia-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800"
+                    />
+                    <span className="group-hover:text-fuchsia-400 transition-colors">Financeiro</span>
                   </label>
                 </div>
               </div>

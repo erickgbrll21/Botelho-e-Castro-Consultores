@@ -212,6 +212,7 @@ export interface Database {
           juridico_penal: boolean
           juridico_empresarial: boolean
           planejamento_societario_tributario: boolean
+          bpo_financeiro: boolean
           created_at: string
         }
         Insert: {
@@ -228,6 +229,7 @@ export interface Database {
           juridico_penal?: boolean
           juridico_empresarial?: boolean
           planejamento_societario_tributario?: boolean
+          bpo_financeiro?: boolean
           created_at?: string
         }
         Update: {
@@ -244,6 +246,7 @@ export interface Database {
           juridico_penal?: boolean
           juridico_empresarial?: boolean
           planejamento_societario_tributario?: boolean
+          bpo_financeiro?: boolean
           created_at?: string
         }
       }

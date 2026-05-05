@@ -383,8 +383,9 @@ export default async function DashboardPage({
                 !!servicos?.juridico_penal ||
                 !!servicos?.juridico_empresarial;
               const hasPlanejamento = !!servicos?.planejamento_societario_tributario;
+              const hasBpo = !!servicos?.bpo_financeiro;
               const hasAnyServicoAtivo =
-                hasContabil || hasJuridico || hasPlanejamento;
+                hasContabil || hasJuridico || hasPlanejamento || hasBpo;
               const situacao = getSituacaoEmpresa(cliente);
               const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
               const ui = situacaoCardUi[situacao];
@@ -484,6 +485,9 @@ export default async function DashboardPage({
                       ) : null}
                       {hasPlanejamento ? (
                         <Pill label="Planejamento" tone="neutral" />
+                      ) : null}
+                      {hasBpo ? (
+                        <Pill label="BPO" tone="neutral" />
                       ) : null}
                       {!hasAnyServicoAtivo ? (
                         <p className="text-[10px] text-neutral-600 italic">

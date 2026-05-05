@@ -91,6 +91,8 @@ export default async function ClienteDetalhe({
 
   const hasPlanejamento = servicos?.planejamento_societario_tributario;
 
+  const hasBpo = servicos?.bpo_financeiro;
+
   const socios = cliente.quadro_socios ?? [];
   const situacao = getSituacaoEmpresa(cliente);
   const situacaoPill = situacaoPillProps(situacao);
@@ -233,7 +235,7 @@ export default async function ClienteDetalhe({
           </div>
 
           <Card title="Serviços Ativos" className="bg-neutral-900/20">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-3">
                 <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">1. Serviço Contábil</p>
                 <div className="flex flex-wrap gap-2">
@@ -266,6 +268,15 @@ export default async function ClienteDetalhe({
                   {servicos?.planejamento_societario_tributario && <Pill label="Societário e Tributário" tone="success" />}
                   {!hasPlanejamento && (
                     <p className="text-xs text-neutral-600 italic">Nenhum planejamento ativo</p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-fuchsia-500 uppercase tracking-widest">4. BPO</p>
+                <div className="flex flex-wrap gap-2">
+                  {servicos?.bpo_financeiro && <Pill label="Financeiro" tone="neutral" />}
+                  {!hasBpo && (
+                    <p className="text-xs text-neutral-600 italic">Nenhum BPO ativo</p>
                   )}
                 </div>
               </div>
