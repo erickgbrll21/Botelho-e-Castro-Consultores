@@ -117,6 +117,9 @@ async function updateCliente(formData: FormData) {
     "planejamento_societario_tributario"
   );
   const bpo_financeiro = parseFormCheckbox(formData, "bpo_financeiro");
+  const valor_bpo_financeiro = bpo_financeiro
+    ? parseOptionalMoney(formData, "valor_bpo_financeiro")
+    : null;
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -183,6 +186,7 @@ async function updateCliente(formData: FormData) {
         juridico_empresarial,
         planejamento_societario_tributario,
         bpo_financeiro,
+        valor_bpo_financeiro,
       },
       { onConflict: "cliente_id" }
     )
@@ -798,6 +802,22 @@ export default async function EditClientePage({
                     />
                     <span className="group-hover:text-fuchsia-400 transition-colors">Financeiro</span>
                   </label>
+                  <div className="space-y-2 pt-1">
+                    <label className="text-xs text-neutral-400">
+                      Valor do BPO Financeiro (mensal)
+                    </label>
+                    <CurrencyInput
+                      name="valor_bpo_financeiro"
+                      defaultValue={servicos?.valor_bpo_financeiro ?? ""}
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                      placeholder="0,00"
+                      showSymbol
+                      min={0}
+                    />
+                    <p className="text-xs text-neutral-500">
+                      Preencha apenas se o serviço de BPO Financeiro estiver contratado.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

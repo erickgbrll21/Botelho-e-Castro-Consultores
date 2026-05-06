@@ -213,6 +213,7 @@ export interface Database {
           juridico_empresarial: boolean
           planejamento_societario_tributario: boolean
           bpo_financeiro: boolean
+          valor_bpo_financeiro: number | null
           created_at: string
         }
         Insert: {
@@ -230,6 +231,7 @@ export interface Database {
           juridico_empresarial?: boolean
           planejamento_societario_tributario?: boolean
           bpo_financeiro?: boolean
+          valor_bpo_financeiro?: number | null
           created_at?: string
         }
         Update: {
@@ -247,6 +249,7 @@ export interface Database {
           juridico_empresarial?: boolean
           planejamento_societario_tributario?: boolean
           bpo_financeiro?: boolean
+          valor_bpo_financeiro?: number | null
           created_at?: string
         }
       }

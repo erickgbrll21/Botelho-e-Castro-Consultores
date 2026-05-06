@@ -429,6 +429,16 @@ export default async function DashboardPage({
                 !!servicos?.juridico_empresarial;
               const hasPlanejamento = !!servicos?.planejamento_societario_tributario;
               const hasBpo = !!servicos?.bpo_financeiro;
+              const valorBpoFinanceiro =
+                typeof servicos?.valor_bpo_financeiro === "number"
+                  ? servicos.valor_bpo_financeiro
+                  : servicos?.valor_bpo_financeiro == null
+                    ? null
+                    : Number(servicos.valor_bpo_financeiro);
+              const valorBpoFinanceiroOk =
+                Number.isFinite(valorBpoFinanceiro as number)
+                  ? (valorBpoFinanceiro as number)
+                  : null;
               const hasAnyServicoAtivo =
                 hasContabil || hasJuridico || hasPlanejamento || hasBpo;
               const situacao = getSituacaoEmpresa(cliente);
@@ -537,6 +547,14 @@ export default async function DashboardPage({
                       {!hasAnyServicoAtivo ? (
                         <p className="text-[10px] text-neutral-600 italic">
                           Sem serviços ativos
+                        </p>
+                      ) : null}
+                      {hasBpo && valorBpoFinanceiroOk != null ? (
+                        <p className="w-full pt-1 text-[10px] text-neutral-300 tabular-nums">
+                          <span className="text-neutral-500">BPO Financeiro:</span>{" "}
+                          <span className="font-semibold text-fuchsia-200/90">
+                            {formatCurrencyContrato(valorBpoFinanceiroOk)}
+                          </span>
                         </p>
                       ) : null}
                     </div>
