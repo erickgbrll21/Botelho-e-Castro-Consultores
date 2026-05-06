@@ -60,6 +60,7 @@ O CONTEXTO disponível para você é SOMENTE:
 - As mensagens desta conversa (usuário/assistente) enviadas pelo sistema.
 - Blocos anexados pelo servidor no formato "[Pré-carga BCC ...]" (cadastro interno / grupo econômico).
 - Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), grupo, cidade, estado, atividade, regime tributário ou serviço contratado (Contábil/Jurídico/Planejamento/BPO Financeiro, em geral ou serviço específico).
+- Ficha e listagens incluem **BPO Financeiro** (contratado ou não); o valor mensal aparece apenas para Diretor/Financeiro. Estatísticas globais podem trazer quantas empresas têm BPO ativo e a soma dos valores mensais, quando autorizado.
 
 CONHECIMENTO DO PAINEL (importante)
 - O sistema classifica cada empresa em uma de três situações: **ativa**, **paralisada** ou **desativada/inativa**. Empresas sem situação preenchida são tratadas como ativas (a menos que estejam marcadas como inativas).
@@ -171,7 +172,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "estatisticas_painel",
     description:
-      "Retorna métricas globais do painel: total de clientes, totais por situação (ativas, paralisadas, desativadas/inativas), total de grupos econômicos, entradas e saídas no mês corrente e (se autorizado) faturamento mensal e quebra por grupo/avulsas. Use para perguntas como 'quantas empresas paralisadas temos?', 'quantos clientes ativos?', 'qual o faturamento do mês?', 'entradas no mês?'.",
+      "Retorna métricas globais do painel: total de clientes, totais por situação (ativas, paralisadas, desativadas/inativas), total de grupos econômicos, entradas e saídas no mês corrente, contagens relacionadas ao serviço BPO Financeiro (e, para Diretor/Financeiro, soma dos valores mensais cadastrados) e (se autorizado) faturamento mensal e quebra por grupo/avulsas. Use também para perguntas como quantas empresas têm BPO Financeiro ou qual a soma dos valores do BPO.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {},
@@ -304,8 +305,50 @@ function primeiroEmbed<T>(x: T | T[] | null | undefined): T | null {
   return Array.isArray(x) ? (x[0] ?? null) : x;
 }
 
+function numeroOuNull(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Remove valores sensíveis do embed bruto quando o utilizador não vê contratos monetários */
+function sanitizarRawServicosParaIa(
+  raw: Record<string, unknown> | null | undefined,
+  canSeeContrato: boolean
+): Record<string, unknown> | null {
+  if (!raw) return null;
+  const copy = { ...raw };
+  if (!canSeeContrato) delete copy.valor_bpo_financeiro;
+  return copy;
+}
+
+/** Payload de serviços para o modelo: booleans/lista explícitos + bloco BPO + raw sanitizado */
+function montarServicosContratadosIa(
+  sRow: Record<string, unknown> | null,
+  canSeeContrato: boolean
+) {
+  const { contratados, raw } = serializarServicosBooleans(sRow);
+  const bpoContratado = Boolean(sRow?.bpo_financeiro);
+  const valorBpoMensal =
+    canSeeContrato && bpoContratado
+      ? numeroOuNull(sRow?.valor_bpo_financeiro)
+      : null;
+  return {
+    contratados,
+    bpo_financeiro: {
+      contratado: bpoContratado,
+      valor_mensal_brl: canSeeContrato ? valorBpoMensal : null,
+    },
+    raw: sanitizarRawServicosParaIa(
+      raw as Record<string, unknown> | null,
+      canSeeContrato
+    ),
+  };
+}
+
 function serializarServicosBooleans(s: Record<string, unknown> | null) {
-  if (!s) return { contratados: [] as string[] };
+  if (!s) return { contratados: [] as string[], raw: null as Record<string, unknown> | null };
   const m: { key: string; label: string }[] = [
     { key: "contabil_fiscal", label: "Contábil-Fiscal" },
     { key: "contabil_contabilidade", label: "Contabilidade" },
@@ -334,7 +377,7 @@ function serializeClienteCompleto(c: any, canSeeContrato: boolean) {
   const g = primeiroEmbed(c.grupos_economicos);
   const r = primeiroEmbed(c.responsaveis_internos) as Record<string, string | null> | null;
   const sRow = primeiroEmbed(c.servicos_contratados) as Record<string, unknown> | null;
-  const servicos = serializarServicosBooleans(sRow);
+  const servicos = montarServicosContratadosIa(sRow, canSeeContrato);
   const socios = (Array.isArray(c.quadro_socios) ? c.quadro_socios : []).map(
     (q: { nome_socio: string; percentual_participacao: number }) => ({
       nome: q.nome_socio,
@@ -421,7 +464,7 @@ function serializeClienteCompleto(c: any, canSeeContrato: boolean) {
       : {
           contratos_ocultos: true,
           motivo:
-            "Valores de contrato (cliente e grupo) são visíveis apenas para usuários Diretor e Financeiro.",
+            "Valores de contrato (cliente e grupo) e valor mensal do BPO Financeiro são visíveis apenas para usuários Diretor e Financeiro.",
         },
   };
 }
@@ -510,8 +553,17 @@ type GrupoEconomicoEmpresaResumo = {
 };
 
 /** Resumo barato em tokens para listas de muitas empresas. */
-function serializeClienteResumo(c: any): Record<string, unknown> {
+function serializeClienteResumo(
+  c: any,
+  canSeeContrato: boolean
+): Record<string, unknown> {
   const g = primeiroEmbed(c.grupos_economicos) as { nome?: string } | null;
+  const sRow = primeiroEmbed(c.servicos_contratados) as Record<string, unknown> | null;
+  const bpoContratado = Boolean(sRow?.bpo_financeiro);
+  const valorBpo =
+    canSeeContrato && bpoContratado
+      ? numeroOuNull(sRow?.valor_bpo_financeiro)
+      : null;
   return {
     id: c.id,
     detalhe_url: `/clientes/${c.id}`,
@@ -529,6 +581,8 @@ function serializeClienteResumo(c: any): Record<string, unknown> {
       : c.grupo_economico
         ? nomeGrupoExibicaoParaResposta(String(c.grupo_economico))
         : null,
+    bpo_financeiro_contratado: sRow != null ? bpoContratado : null,
+    valor_bpo_financeiro_mensal_brl: canSeeContrato ? valorBpo : null,
   };
 }
 
@@ -606,6 +660,16 @@ async function estatisticasPainel(
         .not("valor_contrato", "is", null)
     : Promise.resolve({ data: null as any });
 
+  const totalComBpoFinanceiro = (supabase.from("servicos_contratados") as any)
+    .select("cliente_id", { count: "exact", head: true })
+    .eq("bpo_financeiro", true);
+
+  const valoresBpoPromise = canSeeContrato
+    ? (supabase.from("servicos_contratados") as any)
+        .select("valor_bpo_financeiro")
+        .eq("bpo_financeiro", true)
+    : Promise.resolve({ data: null as any, error: null as any });
+
   const [
     rTotal,
     rAtivas,
@@ -616,6 +680,8 @@ async function estatisticasPainel(
     rSaidas,
     rGruposFat,
     rAvulsasFat,
+    rBpoCount,
+    rBpoVals,
   ] = await Promise.all([
     totalClientes,
     totalAtivas,
@@ -626,6 +692,8 @@ async function estatisticasPainel(
     saidasMes,
     gruposFatPromise,
     avulsasFatPromise,
+    totalComBpoFinanceiro,
+    valoresBpoPromise,
   ]);
 
   const erros: string[] = [];
@@ -641,6 +709,26 @@ async function estatisticasPainel(
     if ((r as any).error) {
       erros.push(`${name}: ${(r as any).error.message}`);
     }
+  }
+  if ((rBpoCount as any).error) {
+    erros.push(`bpo_financeiro_count: ${(rBpoCount as any).error.message}`);
+  }
+  if (canSeeContrato && (rBpoVals as any).error) {
+    erros.push(`bpo_financeiro_valores: ${(rBpoVals as any).error.message}`);
+  }
+
+  let sumValorBpoMensal: number | null = null;
+  if (
+    canSeeContrato &&
+    !(rBpoVals as any).error &&
+    Array.isArray((rBpoVals as any).data)
+  ) {
+    sumValorBpoMensal = (
+      (rBpoVals as any).data as Array<{ valor_bpo_financeiro?: unknown }>
+    ).reduce(
+      (acc, row) => acc + (numeroOuNull(row?.valor_bpo_financeiro) ?? 0),
+      0
+    );
   }
 
   let faturamentoGrupos: number | null = null;
@@ -688,6 +776,14 @@ async function estatisticasPainel(
       entradas: rEntradas.count ?? null,
       saidas: rSaidas.count ?? null,
     },
+    bpo_financeiro: {
+      empresas_com_servico_ativo: rBpoCount.count ?? null,
+      soma_valor_mensal_cadastrado_brl: canSeeContrato ? sumValorBpoMensal : null,
+      observacao:
+        canSeeContrato && sumValorBpoMensal != null
+          ? "Soma dos valores mensais cadastrados (valor_bpo_financeiro) nas fichas em que BPO Financeiro está ativo."
+          : "Contagem pelo registo de serviços contratados; valores só para Diretor/Financeiro.",
+    },
     financeiro: canSeeContrato
       ? {
           faturamento_mensal: faturamentoMensal,
@@ -721,7 +817,8 @@ async function listarClientes(
     termo?: string | null;
     limite?: number;
     offset?: number;
-  }
+  },
+  canSeeContrato: boolean
 ): Promise<string> {
   const lim = Math.max(1, Math.min(50, Math.floor(args.limite ?? 20)));
   const off = Math.max(0, Math.floor(args.offset ?? 0));
@@ -729,7 +826,8 @@ async function listarClientes(
   const baseSelect = `
     id, razao_social, cnpj, cidade, estado, atividade,
     regime_tributario, situacao_empresa, ativo, grupo_economico, grupo_id,
-    grupos_economicos ( id, nome )
+    grupos_economicos ( id, nome ),
+    servicos_contratados ( bpo_financeiro, valor_bpo_financeiro )
   `
     .replace(/\s+/g, " ")
     .trim();
@@ -813,11 +911,18 @@ async function listarClientes(
       servico: servicoFiltro || null,
       termo: args.termo || null,
     },
-    resultados: rows.map((r: any) => serializeClienteResumo(r)),
+    resultados: rows.map((r: any) => serializeClienteResumo(r, canSeeContrato)),
     observacao:
       (count ?? rows.length) > rows.length
         ? `Mostrando ${rows.length} de ${count}. Use offset/limite para paginar ou refine com mais filtros.`
         : null,
+    restricoes: canSeeContrato
+      ? null
+      : {
+          valores_bpo_ocultos: true,
+          motivo:
+            "O campo valor_bpo_financeiro_mensal_brl vem nulo para o seu perfil; bpo_financeiro_contratado indica se o serviço está ativo.",
+        },
   });
 }
 
@@ -1452,11 +1557,15 @@ export async function POST(req: Request) {
   if (situacaoDetectada) {
     listaSituacaoPreloadValor = situacaoDetectada;
     try {
-      listaSituacaoPreloadJson = await listarClientes(supabase, {
-        situacao: situacaoDetectada,
-        limite: 25,
-        offset: 0,
-      });
+      listaSituacaoPreloadJson = await listarClientes(
+        supabase,
+        {
+          situacao: situacaoDetectada,
+          limite: 25,
+          offset: 0,
+        },
+        canSeeContrato
+      );
     } catch (e) {
       console.warn("[/api/ai/chat] pré-carga listar_clientes", e);
     }
@@ -1625,20 +1734,24 @@ ${listaSituacaoPreloadJson}`
         toolText = await estatisticasPainel(supabase, canSeeContrato);
       } else if (name === "listar_clientes") {
         const situacao = parseSituacaoToolArg(args.situacao);
-        toolText = await listarClientes(supabase, {
-          situacao,
-          grupo_id: args.grupo_id ? String(args.grupo_id) : null,
-          cidade: args.cidade ? String(args.cidade) : null,
-          estado: args.estado ? String(args.estado) : null,
-          atividade: args.atividade ? String(args.atividade) : null,
-          regime_tributario: args.regime_tributario
-            ? String(args.regime_tributario)
-            : null,
-          servico: parseServicoFiltro(args.servico),
-          termo: args.termo ? String(args.termo) : null,
-          limite: Number(args.limite ?? 20),
-          offset: Number(args.offset ?? 0),
-        });
+        toolText = await listarClientes(
+          supabase,
+          {
+            situacao,
+            grupo_id: args.grupo_id ? String(args.grupo_id) : null,
+            cidade: args.cidade ? String(args.cidade) : null,
+            estado: args.estado ? String(args.estado) : null,
+            atividade: args.atividade ? String(args.atividade) : null,
+            regime_tributario: args.regime_tributario
+              ? String(args.regime_tributario)
+              : null,
+            servico: parseServicoFiltro(args.servico),
+            termo: args.termo ? String(args.termo) : null,
+            limite: Number(args.limite ?? 20),
+            offset: Number(args.offset ?? 0),
+          },
+          canSeeContrato
+        );
       } else {
         toolText = JSON.stringify({ erro: "função desconhecida" });
       }

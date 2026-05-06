@@ -135,6 +135,21 @@ export default async function DashboardPage({
   const { data: dataClientes } = await finalQuery;
   const clientes: any[] = dataClientes ?? [];
 
+  const grupoFiltrado =
+    grupoId.trim() !== ""
+      ? gruposFiltro.find((g: any) => String(g?.id) === grupoId)
+      : undefined;
+  const valorGrupo =
+    grupoFiltrado != null && grupoFiltrado.valor_contrato != null
+      ? Number(grupoFiltrado.valor_contrato)
+      : null;
+  const faturamentoMensalExibicao =
+    grupoFiltrado != null
+      ? Number.isFinite(valorGrupo as number)
+        ? (valorGrupo as number)
+        : null
+      : faturamentoMensal;
+
   return (
     <div className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -174,14 +189,20 @@ export default async function DashboardPage({
         </Card>
         {showContractValue ? (
           <Card
-            title="Faturamento mensal"
+            title={
+              grupoFiltrado
+                ? `Faturamento mensal — ${String(grupoFiltrado.nome ?? "Grupo")}`
+                : "Faturamento mensal"
+            }
             action={<BanknotesIcon className="h-4 w-4 text-amber-400" />}
           >
             <p className="text-3xl font-semibold text-amber-200/95 tabular-nums">
-              {formatCurrencyContrato(faturamentoMensal)}
+              {formatCurrencyContrato(faturamentoMensalExibicao)}
             </p>
             <p className="text-xs text-neutral-400">
-              Soma do valor de contrato de todos os grupos.
+              {grupoFiltrado
+                ? "Valor de contrato mensal cadastrado para este grupo econômico."
+                : "Soma do valor de contrato de todos os grupos e clientes avulsos."}
             </p>
           </Card>
         ) : null}
