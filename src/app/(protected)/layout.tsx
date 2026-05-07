@@ -18,16 +18,24 @@ export default async function ProtectedLayout({
   }
 
   if (!profile) {
-    // Evita tela vazia e loop login ↔ dashboard: sessão sem linha em `usuarios` (ou RLS).
+    // Evita tela vazia e loop login ↔ dashboard quando a sessão não tem linha em `usuarios`
+    // (ex.: usuário foi excluído ou bloqueado por RLS). Usamos `scope: 'local'` para
+    // apenas limpar cookies, sem chamar o Supabase (que dispararia AuthApiError quando
+    // o refresh token já foi revogado).
     const supabase = await createSupabaseServerClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
     redirect("/login?erro=perfil");
   }
 
   async function signOut() {
     "use server";
     const supabase = await createSupabaseServerClient();
-    await supabase.auth.signOut();
+    // Tenta logout completo (revoga no servidor); se o refresh token já estiver inválido,
+    // cai no fallback `local` para garantir limpeza dos cookies sem erro no console.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    }
     redirect("/login");
   }
 

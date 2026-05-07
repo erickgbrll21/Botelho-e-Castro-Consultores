@@ -17,7 +17,9 @@ export async function getSessionClearingStaleRefresh(
   } = await supabase.auth.getSession();
 
   if (error && isStaleRefreshAuthError(error.message)) {
-    await supabase.auth.signOut().catch(() => {});
+    // `scope: 'local'` apenas remove cookies/storage; sem chamada ao Supabase
+    // (evita "AuthApiError: Refresh Token Not Found" no console do servidor).
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
     return null;
   }
 
@@ -33,7 +35,7 @@ export async function getUserClearingStaleRefresh(
   } = await supabase.auth.getUser();
 
   if (error && isStaleRefreshAuthError(error.message)) {
-    await supabase.auth.signOut().catch(() => {});
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
     return { user: null };
   }
 
