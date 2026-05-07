@@ -3,7 +3,7 @@
 -- Sem isso: "there is no unique or exclusion constraint matching the ON CONFLICT specification".
 --
 -- Deduplicação: não usamos max(id) porque id costuma ser uuid e max(uuid) não existe no PG.
--- Mantemos uma linha por cliente_id (preferindo created_at mais recente; empate por id::text).
+-- Mantemos uma linha por cliente_id (ordem deterministica por id::text; nao usa created_at — nem todas as bases tem essa coluna).
 
 -- servicos_contratados
 delete from public.servicos_contratados s
@@ -13,7 +13,7 @@ where s.id in (
     select id,
            row_number() over (
              partition by cliente_id
-             order by created_at desc nulls last, id::text desc
+             order by id::text desc
            ) as rn
     from public.servicos_contratados
   ) x
@@ -34,7 +34,7 @@ where r.id in (
     select id,
            row_number() over (
              partition by cliente_id
-             order by created_at desc nulls last, id::text desc
+             order by id::text desc
            ) as rn
     from public.responsaveis_internos
   ) x
