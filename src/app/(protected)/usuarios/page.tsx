@@ -6,6 +6,7 @@ import type { UserRole } from "@/types/database";
 import {
   getServiceRoleClient,
   requireAdminProfile,
+  requireAdminOrDiretorProfile,
 } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { registrarLog } from "@/lib/logs";
@@ -83,8 +84,53 @@ async function deleteUser(formData: FormData) {
   await revalidatePath("/usuarios");
 }
 
+async function updateUserCargo(formData: FormData) {
+  "use server";
+  const profile = await requireAdminOrDiretorProfile();
+  const supabaseAdmin = getServiceRoleClient();
+
+  const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!serviceKeyPresent) {
+    throw new Error(
+      "Configuração ausente: defina SUPABASE_SERVICE_ROLE_KEY para editar usuários."
+    );
+  }
+
+  const userId = String(formData.get("user_id") ?? "").trim();
+  const cargoRaw = String(formData.get("cargo") ?? "").trim();
+  const cargo = cargoRaw ? cargoRaw.slice(0, 120) : null;
+
+  if (!userId) {
+    throw new Error("ID do usuário é obrigatório.");
+  }
+
+  const { error: updErr } = await (supabaseAdmin.from("usuarios") as any)
+    .update({ cargo })
+    .eq("id", userId);
+  if (updErr) {
+    throw new Error(updErr.message || "Não foi possível atualizar o cargo.");
+  }
+
+  const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(
+    userId,
+    { user_metadata: { cargo } }
+  );
+  if (authErr) {
+    // Não bloqueia (o dado principal está no cadastro), mas registra para diagnóstico.
+    console.warn("[usuarios] updateUserCargo: auth metadata", authErr.message);
+  }
+
+  await registrarLog("Edição de Cargo (Usuário)", {
+    actor: profile.email,
+    user_id: userId,
+    cargo,
+  });
+
+  await revalidatePath("/usuarios");
+}
+
 export default async function UsuariosPage() {
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
 
   const { data: usuariosData } = await (supabase
@@ -94,6 +140,8 @@ export default async function UsuariosPage() {
   const usuarios: any[] = usuariosData ?? [];
 
   const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const canEditCargo =
+    profile != null && ["admin", "diretor"].includes(profile.tipo_usuario);
 
   return (
     <div className="space-y-6">
@@ -190,11 +238,22 @@ export default async function UsuariosPage() {
       </Card>
 
       <Card title="Usuários cadastrados">
+        {!canEditCargo ? (
+          <div className="mb-4 rounded-lg border border-neutral-800/80 bg-neutral-900/30 p-3 text-sm text-neutral-300">
+            Apenas <span className="font-semibold">Administradores</span> e{" "}
+            <span className="font-semibold">Diretores</span> podem editar o cargo dos usuários.
+          </div>
+        ) : !serviceKeyPresent ? (
+          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+            Configure a variável SUPABASE_SERVICE_ROLE_KEY para habilitar a edição de cargos.
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Usuário</th>
+                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Cargo</th>
                 <th className="py-3 pr-4 font-medium hidden sm:table-cell">Tipo / Status</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
@@ -205,6 +264,9 @@ export default async function UsuariosPage() {
                   <td className="py-4 pr-4">
                     <p className="font-semibold text-neutral-50 leading-tight">{usuario.nome}</p>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{usuario.email}</p>
+                    <p className="mt-1 text-[10px] text-neutral-500 lg:hidden">
+                      Cargo: <span className="text-neutral-300">{usuario.cargo ?? "—"}</span>
+                    </p>
                     <div className="flex sm:hidden gap-2 mt-2">
                       <Pill
                         label={
@@ -231,6 +293,30 @@ export default async function UsuariosPage() {
                         tone={usuario.ativo ? "success" : "critical"}
                       />
                     </div>
+                  </td>
+                  <td className="py-4 pr-4 hidden lg:table-cell">
+                    {canEditCargo && serviceKeyPresent ? (
+                      <form
+                        action={updateUserCargo}
+                        className="flex min-w-[16rem] max-w-[22rem] items-center gap-2"
+                      >
+                        <input type="hidden" name="user_id" value={usuario.id} />
+                        <input
+                          name="cargo"
+                          defaultValue={usuario.cargo ?? ""}
+                          placeholder="Cargo (ex.: Controladoria)"
+                          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-200 transition hover:bg-neutral-800"
+                        >
+                          Salvar
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-neutral-300">{usuario.cargo ?? "—"}</span>
+                    )}
                   </td>
                   <td className="py-4 pr-4 hidden sm:table-cell">
                     <div className="flex flex-col gap-2 items-start">

@@ -66,6 +66,15 @@ export async function requireAdminProfile() {
   return profile;
 }
 
+/** Admin e Diretor (ex.: permissões de gestão de usuários). */
+export async function requireAdminOrDiretorProfile() {
+  const profile = await getCurrentProfile();
+  if (!profile || !["admin", "diretor"].includes(profile.tipo_usuario)) {
+    redirect("/dashboard");
+  }
+  return profile;
+}
+
 export function assertAdmin(profile: { tipo_usuario: UserRole }) {
   if (!["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario)) {
     throw new Error("Ação permitida apenas para administradores.");
