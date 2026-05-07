@@ -90,13 +90,13 @@ begin
 
     if q is not null and q ~* $regex$'admin'\s*,\s*'diretor'\s*,\s*'financeiro'$regex$
                     and q !~* $regex$'controladoria'$regex$ then
-      q := regexp_replace(q, pattern, $$\1, 'controladoria'$$, 'gi');
+      q := regexp_replace(q, pattern, $rep$\1, 'controladoria'$rep$, 'gi');
       changed := true;
     end if;
 
     if c is not null and c ~* $regex$'admin'\s*,\s*'diretor'\s*,\s*'financeiro'$regex$
                     and c !~* $regex$'controladoria'$regex$ then
-      c := regexp_replace(c, pattern, $$\1, 'controladoria'$$, 'gi');
+      c := regexp_replace(c, pattern, $rep$\1, 'controladoria'$rep$, 'gi');
       changed := true;
     end if;
 
