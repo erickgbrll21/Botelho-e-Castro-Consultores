@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
-import { DeleteUserButton } from "@/components/users/delete-user-button";
+import { HardDeleteUserButton } from "@/components/users/hard-delete-user-button";
 import type { UserRole } from "@/types/database";
 import {
   getServiceRoleClient,
@@ -55,22 +55,37 @@ async function createUser(formData: FormData) {
   await revalidatePath("/usuarios");
 }
 
-async function deleteUser(formData: FormData) {
+async function deleteUserAndAccount(formData: FormData) {
   "use server";
   await requireAdminProfile();
   const supabaseAdmin = getServiceRoleClient();
-  const userId = String(formData.get("user_id") ?? "");
+  const userId = String(formData.get("user_id") ?? "").trim();
 
-  if (!userId) {
-    throw new Error("ID do usuário é obrigatório.");
+  const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!serviceKeyPresent) {
+    throw new Error(
+      "Configuração ausente: defina SUPABASE_SERVICE_ROLE_KEY para excluir usuários."
+    );
   }
 
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-  if (error) {
-    throw new Error(error.message);
+  if (!userId) throw new Error("ID do usuário é obrigatório.");
+
+  // 1) Exclui no Auth
+  const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  if (authErr) {
+    throw new Error(authErr.message || "Não foi possível excluir a conta (Auth).");
   }
 
-  await registrarLog("Exclusão de Usuário", { user_id: userId });
+  // 2) Exclui no cadastro do painel
+  // (FK dos logs deve estar como ON DELETE SET NULL)
+  const { error: cadastroErr } = await (supabaseAdmin.from("usuarios") as any)
+    .delete()
+    .eq("id", userId);
+  if (cadastroErr) {
+    throw new Error(cadastroErr.message || "Não foi possível excluir o usuário.");
+  }
+
+  await registrarLog("Exclusão Definitiva de Usuário", { user_id: userId });
 
   await revalidatePath("/usuarios");
 }
@@ -248,7 +263,10 @@ export default async function UsuariosPage() {
                     </div>
                   </td>
                   <td className="py-4 pr-4 text-right">
-                    <DeleteUserButton userId={usuario.id} action={deleteUser} />
+                    <HardDeleteUserButton
+                      userId={usuario.id}
+                      action={deleteUserAndAccount}
+                    />
                   </td>
                 </tr>
               ))}

@@ -2,7 +2,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
-import { DeleteUserButton } from "@/components/users/delete-user-button";
+import { HardDeleteUserButton } from "@/components/users/hard-delete-user-button";
 import type { UserRole } from "@/types/database";
 import {
   getServiceRoleClient,
@@ -63,55 +63,6 @@ async function createUser(formData: FormData) {
   await registrarLog("Criação de Usuário", { email, nome, tipo_usuario });
 
   await revalidatePath("/usuarios");
-}
-
-async function deleteUser(formData: FormData) {
-  "use server";
-  await requireAdminProfile();
-  const supabaseAdmin = getServiceRoleClient();
-  const userId = String(formData.get("user_id") ?? "");
-
-  if (!userId) {
-    throw new Error("ID do usuário é obrigatório.");
-  }
-
-  const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  if (!serviceKeyPresent) {
-    throw new Error(
-      "Configuração ausente: defina SUPABASE_SERVICE_ROLE_KEY para desativar usuários."
-    );
-  }
-
-  // Não apagamos da tabela `usuarios` porque existem FKs (ex.: logs_sistema.usuario_id).
-  // Em vez disso, fazemos **desativação** preservando histórico/auditoria.
-  const { error: delCadastroErr } = await (supabaseAdmin.from("usuarios") as any)
-    .update({ ativo: false })
-    .eq("id", userId);
-  if (delCadastroErr) {
-    throw new Error(delCadastroErr.message || "Não foi possível desativar o usuário.");
-  }
-
-  // Bloqueia login no Auth (ban). Isso é suficiente para impedir acesso.
-  // (Se você quiser exclusão total do Auth, dá para tentar deleteUser depois; mas ban é estável.)
-  const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    ban_duration: "876000h", // ~100 anos
-  });
-
-  if (banErr) {
-    await registrarLog("Desativação de Usuário (parcial)", {
-      user_id: userId,
-      auth_error: banErr.message,
-      cadastro_desativado: true,
-      ban_aplicado: false,
-    });
-    await revalidatePath("/usuarios");
-    redirect("/usuarios?remocao=parcial");
-  }
-
-  await registrarLog("Desativação de Usuário", { user_id: userId });
-
-  await revalidatePath("/usuarios");
-  redirect("/usuarios?remocao=ok");
 }
 
 async function deleteUserAndAccount(formData: FormData) {
@@ -261,25 +212,11 @@ export default async function UsuariosPage({
         </div>
       ) : null}
 
-      {remocao === "ok" ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-          <p className="font-semibold">Usuário desativado com sucesso.</p>
-          <p className="mt-1 text-emerald-100/90">
-            O usuário foi desativado e não terá mais acesso ao sistema.
-          </p>
-        </div>
-      ) : remocao === "excluido" ? (
+      {remocao === "excluido" ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
           <p className="font-semibold">Usuário excluído com sucesso.</p>
           <p className="mt-1 text-emerald-100/90">
             A conta foi removida do Auth e do cadastro do painel.
-          </p>
-        </div>
-      ) : remocao === "parcial" ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-          <p className="font-semibold">Desativação concluída parcialmente.</p>
-          <p className="mt-1 text-amber-200/90">
-            O usuário foi desativado no cadastro do painel. O bloqueio de login no Auth falhou; tente novamente.
           </p>
         </div>
       ) : null}
@@ -487,25 +424,10 @@ export default async function UsuariosPage({
                   </td>
                   <td className="py-4 pr-4 text-right">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <DeleteUserButton userId={usuario.id} action={deleteUser} />
-                      <form action={deleteUserAndAccount} className="inline">
-                        <input type="hidden" name="user_id" value={usuario.id} />
-                        <button
-                          type="submit"
-                          className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20"
-                          onClick={(e) => {
-                            if (
-                              !confirm(
-                                "Excluir definitivamente? Isso remove a conta e o cadastro. Os logs ficarão sem usuário vinculado."
-                              )
-                            ) {
-                              e.preventDefault();
-                            }
-                          }}
-                        >
-                          Excluir
-                        </button>
-                      </form>
+                      <HardDeleteUserButton
+                        userId={usuario.id}
+                        action={deleteUserAndAccount}
+                      />
                     </div>
                   </td>
                 </tr>
