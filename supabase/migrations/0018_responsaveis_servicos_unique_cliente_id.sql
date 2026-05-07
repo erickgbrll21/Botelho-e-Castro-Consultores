@@ -1,13 +1,23 @@
 -- 0018_responsaveis_servicos_unique_cliente_id.sql
 -- O PostgREST precisa de UNIQUE (ou índice de exclusão) em cliente_id para upsert ON CONFLICT.
 -- Sem isso: "there is no unique or exclusion constraint matching the ON CONFLICT specification".
+--
+-- Deduplicação: não usamos max(id) porque id costuma ser uuid e max(uuid) não existe no PG.
+-- Mantemos uma linha por cliente_id (preferindo created_at mais recente; empate por id::text).
 
--- servicos_contratados: no máximo uma linha por cliente (mantém o maior id por cliente_id)
+-- servicos_contratados
 delete from public.servicos_contratados s
-where s.id not in (
-  select max(s2.id)
-  from public.servicos_contratados s2
-  group by s2.cliente_id
+where s.id in (
+  select id
+  from (
+    select id,
+           row_number() over (
+             partition by cliente_id
+             order by created_at desc nulls last, id::text desc
+           ) as rn
+    from public.servicos_contratados
+  ) x
+  where x.rn > 1
 );
 
 create unique index if not exists servicos_contratados_cliente_id_uidx
@@ -16,12 +26,19 @@ create unique index if not exists servicos_contratados_cliente_id_uidx
 comment on index public.servicos_contratados_cliente_id_uidx is
   'Permite upsert/onConflict(cliente_id) no app — um registro de serviços por cliente.';
 
--- responsaveis_internos: no máximo uma linha por cliente (mantém o maior id por cliente_id)
+-- responsaveis_internos
 delete from public.responsaveis_internos r
-where r.id not in (
-  select max(r2.id)
-  from public.responsaveis_internos r2
-  group by r2.cliente_id
+where r.id in (
+  select id
+  from (
+    select id,
+           row_number() over (
+             partition by cliente_id
+             order by created_at desc nulls last, id::text desc
+           ) as rn
+    from public.responsaveis_internos
+  ) x
+  where x.rn > 1
 );
 
 create unique index if not exists responsaveis_internos_cliente_id_uidx
