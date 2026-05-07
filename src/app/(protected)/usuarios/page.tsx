@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { DeleteUserButton } from "@/components/users/delete-user-button";
@@ -74,14 +75,48 @@ async function deleteUser(formData: FormData) {
     throw new Error("ID do usuário é obrigatório.");
   }
 
+  const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!serviceKeyPresent) {
+    throw new Error(
+      "Configuração ausente: defina SUPABASE_SERVICE_ROLE_KEY para remover usuários."
+    );
+  }
+
+  // 1) Sempre remove o perfil no cadastro do painel (impede acesso ao sistema mesmo se
+  // a remoção do Auth falhar por motivo interno do Supabase).
+  const { error: delCadastroErr } = await (supabaseAdmin.from("usuarios") as any)
+    .delete()
+    .eq("id", userId);
+  if (delCadastroErr) {
+    throw new Error(delCadastroErr.message || "Não foi possível remover o usuário.");
+  }
+
+  // 2) Tenta remover a conta no Auth (pode falhar com "Database error deleting user").
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
   if (error) {
-    throw new Error(error.message);
+    // Fallback: banir usuário no Auth para garantir que não consegue logar.
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      ban_duration: "876000h", // ~100 anos
+    });
+    if (banErr) {
+      console.warn("[usuarios] deleteUser: ban fallback falhou", banErr.message);
+    }
+
+    await registrarLog("Exclusão de Usuário (parcial)", {
+      user_id: userId,
+      auth_error: error.message,
+      cadastro_removido: true,
+      ban_aplicado: !banErr,
+    });
+
+    await revalidatePath("/usuarios");
+    redirect("/usuarios?remocao=parcial");
   }
 
   await registrarLog("Exclusão de Usuário", { user_id: userId });
 
   await revalidatePath("/usuarios");
+  redirect("/usuarios?remocao=ok");
 }
 
 async function updateUserCargo(formData: FormData) {
@@ -129,9 +164,14 @@ async function updateUserCargo(formData: FormData) {
   await revalidatePath("/usuarios");
 }
 
-export default async function UsuariosPage() {
+export default async function UsuariosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ remocao?: string }>;
+}) {
   const profile = await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
+  const { remocao } = await searchParams;
 
   const { data: usuariosData } = await (supabase
     .from("usuarios") as any)
@@ -154,6 +194,22 @@ export default async function UsuariosPage() {
           Apenas administradores podem criar contas. Não existe auto cadastro.
         </p>
       </div>
+
+      {remocao === "ok" ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          <p className="font-semibold">Usuário removido com sucesso.</p>
+          <p className="mt-1 text-emerald-100/90">
+            A conta foi excluída e não terá mais acesso ao sistema.
+          </p>
+        </div>
+      ) : remocao === "parcial" ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+          <p className="font-semibold">Remoção concluída parcialmente.</p>
+          <p className="mt-1 text-amber-200/90">
+            O usuário foi removido do cadastro do painel (sem acesso). A exclusão no Auth falhou por um erro interno do Supabase; aplicamos bloqueio no login como fallback.
+          </p>
+        </div>
+      ) : null}
 
       <Card
         title="Criar novo usuário"
