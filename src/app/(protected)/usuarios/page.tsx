@@ -114,7 +114,34 @@ async function deleteUser(formData: FormData) {
   redirect("/usuarios?remocao=ok");
 }
 
-async function updateUserCargo(formData: FormData) {
+function parseUserRole(raw: unknown): UserRole {
+  const v = String(raw ?? "").trim();
+  const allowed: UserRole[] = [
+    "user",
+    "admin",
+    "diretor",
+    "financeiro",
+    "controladoria",
+  ];
+  return (allowed as string[]).includes(v) ? (v as UserRole) : "user";
+}
+
+function labelTipoUsuario(role: UserRole): string {
+  switch (role) {
+    case "admin":
+      return "Administrador";
+    case "diretor":
+      return "Diretor";
+    case "financeiro":
+      return "Financeiro";
+    case "controladoria":
+      return "Controladoria";
+    default:
+      return "Usuário";
+  }
+}
+
+async function updateUserTipoUsuario(formData: FormData) {
   "use server";
   const profile = await requireAdminOrDiretorProfile();
   const supabaseAdmin = getServiceRoleClient();
@@ -127,33 +154,32 @@ async function updateUserCargo(formData: FormData) {
   }
 
   const userId = String(formData.get("user_id") ?? "").trim();
-  const cargoRaw = String(formData.get("cargo") ?? "").trim();
-  const cargo = cargoRaw ? cargoRaw.slice(0, 120) : null;
+  const tipo_usuario = parseUserRole(formData.get("tipo_usuario"));
 
   if (!userId) {
     throw new Error("ID do usuário é obrigatório.");
   }
 
   const { error: updErr } = await (supabaseAdmin.from("usuarios") as any)
-    .update({ cargo })
+    .update({ tipo_usuario })
     .eq("id", userId);
   if (updErr) {
-    throw new Error(updErr.message || "Não foi possível atualizar o cargo.");
+    throw new Error(updErr.message || "Não foi possível atualizar o tipo de usuário.");
   }
 
-  const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(
-    userId,
-    { user_metadata: { cargo } }
-  );
+  const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    user_metadata: { tipo_usuario },
+    app_metadata: { tipo_usuario },
+  });
   if (authErr) {
     // Não bloqueia (o dado principal está no cadastro), mas registra para diagnóstico.
-    console.warn("[usuarios] updateUserCargo: auth metadata", authErr.message);
+    console.warn("[usuarios] updateUserTipoUsuario: auth metadata", authErr.message);
   }
 
-  await registrarLog("Edição de Cargo (Usuário)", {
+  await registrarLog("Edição de Tipo de Usuário", {
     actor: profile.email,
     user_id: userId,
-    cargo,
+    tipo_usuario,
   });
 
   await revalidatePath("/usuarios");
@@ -175,7 +201,7 @@ export default async function UsuariosPage({
   const usuarios: any[] = usuariosData ?? [];
 
   const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const canEditCargo =
+  const canEditTipoUsuario =
     profile != null && ["admin", "diretor"].includes(profile.tipo_usuario);
 
   return (
@@ -289,14 +315,14 @@ export default async function UsuariosPage({
       </Card>
 
       <Card title="Usuários cadastrados">
-        {!canEditCargo ? (
+        {!canEditTipoUsuario ? (
           <div className="mb-4 rounded-lg border border-neutral-800/80 bg-neutral-900/30 p-3 text-sm text-neutral-300">
             Apenas <span className="font-semibold">Administradores</span> e{" "}
-            <span className="font-semibold">Diretores</span> podem editar o cargo dos usuários.
+            <span className="font-semibold">Diretores</span> podem editar o tipo de usuário.
           </div>
         ) : !serviceKeyPresent ? (
           <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-            Configure a variável SUPABASE_SERVICE_ROLE_KEY para habilitar a edição de cargos.
+            Configure a variável SUPABASE_SERVICE_ROLE_KEY para habilitar a edição do tipo de usuário.
           </div>
         ) : null}
         <div className="overflow-x-auto">
@@ -304,7 +330,7 @@ export default async function UsuariosPage({
             <thead className="text-left text-neutral-400">
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Usuário</th>
-                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Cargo</th>
+                <th className="py-3 pr-4 font-medium hidden lg:table-cell">Tipo de usuário</th>
                 <th className="py-3 pr-4 font-medium hidden sm:table-cell">Tipo / Status</th>
                 <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
@@ -316,7 +342,10 @@ export default async function UsuariosPage({
                     <p className="font-semibold text-neutral-50 leading-tight">{usuario.nome}</p>
                     <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{usuario.email}</p>
                     <p className="mt-1 text-[10px] text-neutral-500 lg:hidden">
-                      Cargo: <span className="text-neutral-300">{usuario.cargo ?? "—"}</span>
+                      Tipo:{" "}
+                      <span className="text-neutral-300">
+                        {labelTipoUsuario(usuario.tipo_usuario as UserRole)}
+                      </span>
                     </p>
                     <div className="flex sm:hidden gap-2 mt-2">
                       <Pill
@@ -346,18 +375,23 @@ export default async function UsuariosPage({
                     </div>
                   </td>
                   <td className="py-4 pr-4 hidden lg:table-cell">
-                    {canEditCargo && serviceKeyPresent ? (
+                    {canEditTipoUsuario && serviceKeyPresent ? (
                       <form
-                        action={updateUserCargo}
+                        action={updateUserTipoUsuario}
                         className="flex min-w-[16rem] max-w-[22rem] items-center gap-2"
                       >
                         <input type="hidden" name="user_id" value={usuario.id} />
-                        <input
-                          name="cargo"
-                          defaultValue={usuario.cargo ?? ""}
-                          placeholder="Cargo (ex.: Controladoria)"
+                        <select
+                          name="tipo_usuario"
+                          defaultValue={String(usuario.tipo_usuario ?? "user")}
                           className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                        />
+                        >
+                          <option value="user">Usuário</option>
+                          <option value="admin">Administrador (TI)</option>
+                          <option value="diretor">Diretor</option>
+                          <option value="financeiro">Financeiro</option>
+                          <option value="controladoria">Controladoria</option>
+                        </select>
                         <button
                           type="submit"
                           className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-200 transition hover:bg-neutral-800"
@@ -366,7 +400,9 @@ export default async function UsuariosPage({
                         </button>
                       </form>
                     ) : (
-                      <span className="text-neutral-300">{usuario.cargo ?? "—"}</span>
+                      <span className="text-neutral-300">
+                        {labelTipoUsuario(usuario.tipo_usuario as UserRole)}
+                      </span>
                     )}
                   </td>
                   <td className="py-4 pr-4 hidden sm:table-cell">
