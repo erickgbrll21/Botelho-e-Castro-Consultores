@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
 import { messageFromSupabaseError } from "@/lib/supabase-errors";
+import { serverLog } from "@/lib/server-log";
 import { getSituacaoEmpresa, type SituacaoEmpresa } from "@/lib/cliente-situacao";
 import {
   RESPONSAVEL_PADRAO_CONTABIL,
@@ -161,6 +162,13 @@ async function updateCliente(formData: FormData) {
     .eq("id", id);
 
   if (updateError) {
+    serverLog("clientes/edit:update", "error", "UPDATE clientes falhou", {
+      cliente_id: id,
+      pg_code: (updateError as any)?.code,
+      pg_message: (updateError as any)?.message,
+      pg_details: (updateError as any)?.details,
+      pg_hint: (updateError as any)?.hint,
+    });
     throw new Error(
       messageFromSupabaseError(
         updateError,
@@ -194,6 +202,13 @@ async function updateCliente(formData: FormData) {
     .single();
 
   if (servUpsertErr) {
+    serverLog("clientes/edit:servicos", "error", "UPSERT servicos_contratados falhou", {
+      cliente_id: id,
+      pg_code: (servUpsertErr as any)?.code,
+      pg_message: (servUpsertErr as any)?.message,
+      pg_details: (servUpsertErr as any)?.details,
+      pg_hint: (servUpsertErr as any)?.hint,
+    });
     throw new Error(
       servUpsertErr.message || "Não foi possível salvar os serviços contratados."
     );
@@ -202,7 +217,7 @@ async function updateCliente(formData: FormData) {
   const juridicoCivelDb = Boolean(servRow?.juridico_civel);
   const juridicoTrabalhistaDb = Boolean(servRow?.juridico_trabalhista);
 
-  await (supabase.from("responsaveis_internos") as any)
+  const { error: respErr } = await (supabase.from("responsaveis_internos") as any)
     .upsert(
       {
         cliente_id: id,
@@ -220,6 +235,19 @@ async function updateCliente(formData: FormData) {
       },
       { onConflict: "cliente_id" }
     );
+
+  if (respErr) {
+    serverLog("clientes/edit:responsaveis", "error", "UPSERT responsaveis_internos falhou", {
+      cliente_id: id,
+      pg_code: (respErr as any)?.code,
+      pg_message: (respErr as any)?.message,
+      pg_details: (respErr as any)?.details,
+      pg_hint: (respErr as any)?.hint,
+    });
+    throw new Error(
+      (respErr as any).message || "Não foi possível salvar os responsáveis internos."
+    );
+  }
 
   await registrarLog("Edição de Cliente", {
     id,
