@@ -48,11 +48,18 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   const isAuthRoute = req.nextUrl.pathname.startsWith("/login");
+  const loginErro = req.nextUrl.searchParams.get("erro");
+  const forceLogin = isAuthRoute && loginErro === "perfil";
 
   if (!session && !isAuthRoute) {
     const redirectUrl = new URL("/login", req.url);
     redirectUrl.searchParams.set("redirectedFrom", req.nextUrl.pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (session && forceLogin) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    return res;
   }
 
   if (session && isAuthRoute) {

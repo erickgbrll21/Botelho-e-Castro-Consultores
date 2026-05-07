@@ -135,11 +135,20 @@ export async function middleware(req: NextRequest) {
   }
 
   const isAuthRoute = pathname.startsWith("/login");
+  const loginErro = req.nextUrl.searchParams.get("erro");
+  const forceLogin = isAuthRoute && loginErro === "perfil";
 
   if (!session && !isAuthRoute) {
     const redirectUrl = new URL("/login", req.url);
     redirectUrl.searchParams.set("redirectedFrom", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Evita loop /login ↔ /dashboard quando o layout detecta perfil ausente e manda para /login?erro=perfil.
+  // Aqui conseguimos limpar cookies (Set-Cookie é permitido no middleware).
+  if (session && forceLogin) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    return res;
   }
 
   if (session && isAuthRoute) {
