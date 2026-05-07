@@ -114,6 +114,41 @@ async function deleteUser(formData: FormData) {
   redirect("/usuarios?remocao=ok");
 }
 
+async function deleteUserAndAccount(formData: FormData) {
+  "use server";
+  await requireAdminProfile();
+  const supabaseAdmin = getServiceRoleClient();
+
+  const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!serviceKeyPresent) {
+    throw new Error(
+      "Configuração ausente: defina SUPABASE_SERVICE_ROLE_KEY para excluir usuários."
+    );
+  }
+
+  const userId = String(formData.get("user_id") ?? "").trim();
+  if (!userId) throw new Error("ID do usuário é obrigatório.");
+
+  // 1) Exclui no Auth
+  const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
+  if (authErr) {
+    throw new Error(authErr.message || "Não foi possível excluir a conta (Auth).");
+  }
+
+  // 2) Exclui no cadastro do painel
+  // (FK dos logs agora é ON DELETE SET NULL)
+  const { error: cadastroErr } = await (supabaseAdmin.from("usuarios") as any)
+    .delete()
+    .eq("id", userId);
+  if (cadastroErr) {
+    throw new Error(cadastroErr.message || "Não foi possível excluir o usuário.");
+  }
+
+  await registrarLog("Exclusão Definitiva de Usuário", { user_id: userId });
+  await revalidatePath("/usuarios");
+  redirect("/usuarios?remocao=excluido");
+}
+
 function parseUserRole(raw: unknown): UserRole {
   const v = String(raw ?? "").trim();
   const allowed: UserRole[] = [
@@ -183,16 +218,17 @@ async function updateUserTipoUsuario(formData: FormData) {
   });
 
   await revalidatePath("/usuarios");
+  redirect("/usuarios?atualizacao=tipo_ok");
 }
 
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ remocao?: string }>;
+  searchParams: Promise<{ remocao?: string; atualizacao?: string }>;
 }) {
   const profile = await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const { remocao } = await searchParams;
+  const { remocao, atualizacao } = await searchParams;
 
   const { data: usuariosData } = await (supabase
     .from("usuarios") as any)
@@ -216,11 +252,27 @@ export default async function UsuariosPage({
         </p>
       </div>
 
+      {atualizacao === "tipo_ok" ? (
+        <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-100">
+          <p className="font-semibold">Tipo de usuário atualizado com sucesso.</p>
+          <p className="mt-1 text-sky-100/90">
+            A permissão do usuário foi atualizada no sistema.
+          </p>
+        </div>
+      ) : null}
+
       {remocao === "ok" ? (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
           <p className="font-semibold">Usuário desativado com sucesso.</p>
           <p className="mt-1 text-emerald-100/90">
             O usuário foi desativado e não terá mais acesso ao sistema.
+          </p>
+        </div>
+      ) : remocao === "excluido" ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          <p className="font-semibold">Usuário excluído com sucesso.</p>
+          <p className="mt-1 text-emerald-100/90">
+            A conta foi removida do Auth e do cadastro do painel.
           </p>
         </div>
       ) : remocao === "parcial" ? (
@@ -434,7 +486,27 @@ export default async function UsuariosPage({
                     </div>
                   </td>
                   <td className="py-4 pr-4 text-right">
-                    <DeleteUserButton userId={usuario.id} action={deleteUser} />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <DeleteUserButton userId={usuario.id} action={deleteUser} />
+                      <form action={deleteUserAndAccount} className="inline">
+                        <input type="hidden" name="user_id" value={usuario.id} />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20"
+                          onClick={(e) => {
+                            if (
+                              !confirm(
+                                "Excluir definitivamente? Isso remove a conta e o cadastro. Os logs ficarão sem usuário vinculado."
+                              )
+                            ) {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
+                          Excluir
+                        </button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               ))}
