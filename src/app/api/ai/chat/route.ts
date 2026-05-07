@@ -20,8 +20,9 @@ import {
   type SituacaoFiltroValor,
 } from "@/lib/cliente-situacao";
 import {
-  clienteIdsParaServicoFiltro,
   parseServicoFiltro,
+  servicosContratadosEmbedAlias,
+  applyServicoContratadoFiltersOnClienteQuery,
   type ServicoFiltroValor,
 } from "@/lib/servico-filter";
 
@@ -823,11 +824,17 @@ async function listarClientes(
   const lim = Math.max(1, Math.min(50, Math.floor(args.limite ?? 20)));
   const off = Math.max(0, Math.floor(args.offset ?? 0));
 
+  const servicoFiltro = parseServicoFiltro(args.servico ?? "");
+  const servicosEmbed = servicosContratadosEmbedAlias(
+    !!servicoFiltro,
+    "bpo_financeiro, valor_bpo_financeiro"
+  );
+
   const baseSelect = `
     id, razao_social, cnpj, cidade, estado, atividade,
     regime_tributario, situacao_empresa, ativo, grupo_economico, grupo_id,
     grupos_economicos ( id, nome ),
-    servicos_contratados ( bpo_financeiro, valor_bpo_financeiro )
+    ${servicosEmbed}
   `
     .replace(/\s+/g, " ")
     .trim();
@@ -837,14 +844,7 @@ async function listarClientes(
   });
 
   query = applySituacaoFilter(query, args.situacao ?? "");
-
-  const servicoFiltro = parseServicoFiltro(args.servico ?? "");
-  if (servicoFiltro) {
-    const ids = await clienteIdsParaServicoFiltro(supabase, servicoFiltro);
-    if (ids) {
-      query = query.in("id", ids);
-    }
-  }
+  query = applyServicoContratadoFiltersOnClienteQuery(query, servicoFiltro);
 
   if (args.grupo_id) {
     query = query.eq("grupo_id", args.grupo_id);
@@ -1443,7 +1443,10 @@ export async function POST(req: Request) {
   if (!profile) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
-  const canSeeContrato = profile.tipo_usuario === "diretor" || profile.tipo_usuario === "financeiro";
+  const canSeeContrato =
+    profile.tipo_usuario === "diretor" ||
+    profile.tipo_usuario === "financeiro" ||
+    profile.tipo_usuario === "controladoria";
   const key = process.env.GEMINI_API_KEY;
   if (!key?.trim()) {
     return NextResponse.json(

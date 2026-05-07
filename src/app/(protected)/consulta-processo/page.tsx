@@ -7,14 +7,14 @@ export default async function ConsultaProcessoPage() {
   const profile = await getCurrentProfile();
   const podeConsultar =
     profile != null &&
-    ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
+    ["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario);
 
   if (!podeConsultar) {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Consulta de processos</h1>
         <p className="text-sm text-neutral-400">
-          Acesso restrito a administradores, diretoria e financeiro.
+          Acesso restrito a administradores, diretoria, financeiro e controladoria.
         </p>
       </div>
     );

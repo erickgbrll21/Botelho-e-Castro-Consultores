@@ -13,7 +13,8 @@ import {
 } from "@/lib/cliente-situacao";
 import {
   parseServicoFiltro,
-  clienteIdsParaServicoFiltro,
+  servicosContratadosEmbedAlias,
+  applyServicoContratadoFiltersOnClienteQuery,
   SERVICO_OPCOES,
   type ServicoOpcao,
 } from "@/lib/servico-filter";
@@ -94,11 +95,7 @@ export default async function DashboardPage({
   const grupoId = grupoFiltro?.trim() ?? "";
   const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
   const servicoFiltro = parseServicoFiltro(servicoRaw);
-
-  const idsPorServico = await clienteIdsParaServicoFiltro(
-    supabase,
-    servicoFiltro
-  );
+  const servicosEmbed = servicosContratadosEmbedAlias(!!servicoFiltro);
 
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -179,7 +176,7 @@ export default async function DashboardPage({
         ativo,
         situacao_empresa,
         responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
-        servicos_contratados (*),
+        ${servicosEmbed},
         quadro_socios (nome_socio, percentual_participacao)
       `
     )
@@ -193,9 +190,10 @@ export default async function DashboardPage({
     finalQuery = finalQuery.eq("grupo_id", grupoId);
   }
   finalQuery = applySituacaoFilter(finalQuery, situacaoFiltro);
-  if (idsPorServico) {
-    finalQuery = finalQuery.in("id", idsPorServico);
-  }
+  finalQuery = applyServicoContratadoFiltersOnClienteQuery(
+    finalQuery,
+    servicoFiltro
+  );
 
   const [
     { data: gruposLista },

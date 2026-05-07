@@ -7,7 +7,7 @@ export default async function ConsultaCnpjPage() {
   const profile = await getCurrentProfile();
   const canCadastrarCliente =
     profile != null &&
-    ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
+    ["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario);
 
   return (
     <div className="space-y-6">

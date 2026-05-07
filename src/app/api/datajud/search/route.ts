@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
   if (
     !profile ||
-    !["admin", "diretor", "financeiro"].includes(profile.tipo_usuario)
+    !["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario)
   ) {
     return NextResponse.json(
       { error: "Acesso negado." },

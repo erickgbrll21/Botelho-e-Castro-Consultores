@@ -315,7 +315,12 @@ export interface Database {
   }
 }
 
-export type UserRole = "admin" | "user" | "diretor" | "financeiro"
+export type UserRole =
+  | "admin"
+  | "user"
+  | "diretor"
+  | "financeiro"
+  | "controladoria"
 
 export type Tables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Row"]

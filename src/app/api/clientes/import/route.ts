@@ -20,7 +20,7 @@ const MAX_BODY_BYTES = 2_500_000;
 export async function POST(req: NextRequest) {
   try {
     const profile = await getCurrentProfile();
-    if (!profile || !["admin", "diretor", "financeiro"].includes(profile.tipo_usuario)) {
+    if (!profile || !["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario)) {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores podem importar dados." }, { status: 403 });
     }
 

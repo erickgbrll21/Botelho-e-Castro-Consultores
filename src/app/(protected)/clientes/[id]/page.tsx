@@ -122,7 +122,9 @@ export default async function ClienteDetalhe({
                   tone="neutral"
                 />
                 <Pill label={situacaoPill.label} tone={situacaoPill.tone} />
-                {["admin", "diretor", "financeiro"].includes(profile?.tipo_usuario as string) && (
+                {["admin", "diretor", "financeiro", "controladoria"].includes(
+                  profile?.tipo_usuario as string
+                ) && (
                   <a
                     href={`/clientes/${id}/edit`}
                     className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"

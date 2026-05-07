@@ -1,15 +1,9 @@
 /**
- * Filtro de serviços contratados (compartilhado pelo dashboard, página de
- * clientes e pela função `listar_clientes` do assistente de IA).
+ * Filtro de serviços contratados (dashboard, página de clientes e IA).
  *
- * Como `servicos_contratados` é uma tabela 1-1 com `clientes`, optámos por
- * resolver o filtro em duas etapas:
- *   1) buscar os `cliente_id` em `servicos_contratados` que casam com o filtro;
- *   2) restringir a query principal de `clientes` com `.in("id", ids)`.
- *
- * Esta abordagem evita reescrever o `select(...)` para usar `!inner` e
- * funciona para filtros simples (uma coluna) ou de categoria (qualquer das
- * colunas Contábil/Jurídico).
+ * Filtros ativos: embed `servicos_contratados!inner (...)` na query de
+ * `clientes` + `applyServicoContratadoFiltersOnClienteQuery` ( filtros `.or`/`.eq`
+ * em `servicos_contratados`). Evita buscar todas as FKs para `.in("id", …)`.
  */
 
 export type ServicoFiltroValor =
@@ -75,6 +69,44 @@ const COLUNAS_JURIDICO = [
   "juridico_empresarial",
 ] as const;
 
+/** Nome do relacionamento FK em PostgREST (match com FK no schema). */
+export const SERVICOS_CONTRATADOS_FK = "servicos_contratados";
+
+/** Embed na `select(...)`: usar `inner` quando for aplicar filtros em servicos via PostgREST. */
+export function servicosContratadosEmbedAlias(
+  inner: boolean,
+  columns: string = "*"
+): string {
+  const sel = columns.trim() === "*" ? " * " : ` ${columns.trim()} `;
+  return inner
+    ? `${SERVICOS_CONTRATADOS_FK}!inner (${sel})`
+    : `${SERVICOS_CONTRATADOS_FK} (${sel})`;
+}
+
+/**
+ * Filtros em `servicos_contratados`; combinar com `servicosContratadosEmbedAlias(true)`
+ * na `select(...)` para inner join.
+ */
+export function applyServicoContratadoFiltersOnClienteQuery(
+  query: any,
+  servico: ServicoFiltroValor | "" | null | undefined
+): any {
+  if (!servico) return query;
+  if (servico === "qualquer_contabil") {
+    return query.or(
+      COLUNAS_CONTABIL.map((c) => `${c}.eq.true`).join(","),
+      { foreignTable: SERVICOS_CONTRATADOS_FK }
+    );
+  }
+  if (servico === "qualquer_juridico") {
+    return query.or(
+      COLUNAS_JURIDICO.map((c) => `${c}.eq.true`).join(","),
+      { foreignTable: SERVICOS_CONTRATADOS_FK }
+    );
+  }
+  return query.eq(`${SERVICOS_CONTRATADOS_FK}.${servico}`, true);
+}
+
 export function parseServicoFiltro(
   raw: string | undefined | null
 ): ServicoFiltroValor | "" {
@@ -87,36 +119,4 @@ export function labelDoServicoFiltro(s: ServicoFiltroValor | ""): string {
   if (!s) return "";
   const op = SERVICO_OPCOES.find((o) => o.value === s);
   return op?.label ?? s;
-}
-
-/** UUID “impossível” usado para forçar nenhum resultado. */
-const SENTINEL_VAZIO = "00000000-0000-0000-0000-000000000000";
-
-/**
- * Devolve uma lista de IDs de clientes cujos serviços casam com o filtro.
- * Quando o filtro está vazio retorna `null` (sinaliza “não restringir”).
- * Quando casa zero registos devolve `[SENTINEL_VAZIO]` para que `.in("id", …)`
- * resulte em conjunto vazio sem precisar de tratamento especial nos chamadores.
- */
-export async function clienteIdsParaServicoFiltro(
-  supabase: any,
-  servico: ServicoFiltroValor | "" | null | undefined
-): Promise<string[] | null> {
-  if (!servico) return null;
-  let q = supabase.from("servicos_contratados").select("cliente_id");
-  if (servico === "qualquer_contabil") {
-    q = q.or(COLUNAS_CONTABIL.map((c) => `${c}.eq.true`).join(","));
-  } else if (servico === "qualquer_juridico") {
-    q = q.or(COLUNAS_JURIDICO.map((c) => `${c}.eq.true`).join(","));
-  } else {
-    q = q.eq(servico, true);
-  }
-  const { data, error } = await q;
-  if (error || !Array.isArray(data)) {
-    return [SENTINEL_VAZIO];
-  }
-  const ids = Array.from(
-    new Set((data as Array<{ cliente_id: unknown }>).map((r) => String(r.cliente_id)))
-  ).filter((s) => s.length > 0);
-  return ids.length ? ids : [SENTINEL_VAZIO];
 }

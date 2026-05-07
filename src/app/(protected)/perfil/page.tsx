@@ -68,7 +68,8 @@ export default async function PerfilPage() {
               <p className="text-neutral-200 font-medium capitalize">
                 {profile.tipo_usuario === "admin" ? "Administrador" : 
                  profile.tipo_usuario === "diretor" ? "Diretor" :
-                 profile.tipo_usuario === "financeiro" ? "Financeiro" : "Usuário"}
+                 profile.tipo_usuario === "financeiro" ? "Financeiro" :
+                 profile.tipo_usuario === "controladoria" ? "Controladoria" : "Usuário"}
               </p>
             </div>
           </div>

@@ -120,7 +120,7 @@ export function Sidebar({ role }: SidebarProps) {
           .filter(
             (link) =>
               !link.adminOnly ||
-              ["admin", "diretor", "financeiro"].includes(role)
+              ["admin", "diretor", "financeiro", "controladoria"].includes(role)
           )
           .map((link) => {
             const isActive = pathname === link.href;

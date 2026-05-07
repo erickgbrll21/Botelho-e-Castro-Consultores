@@ -24,7 +24,8 @@ import {
 } from "@/lib/cliente-situacao";
 import {
   parseServicoFiltro,
-  clienteIdsParaServicoFiltro,
+  servicosContratadosEmbedAlias,
+  applyServicoContratadoFiltersOnClienteQuery,
   SERVICO_OPCOES,
   type ServicoOpcao,
 } from "@/lib/servico-filter";
@@ -388,7 +389,8 @@ export default async function ClientesPage({
 }) {
   const supabase = await createSupabaseServerClient();
   const profile = await getCurrentProfile();
-  const isAdmin = profile && ["admin", "diretor", "financeiro"].includes(profile.tipo_usuario);
+  const isAdmin =
+    profile && ["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario);
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
   const {
@@ -405,10 +407,6 @@ export default async function ClientesPage({
   const grupoId = grupoFiltro?.trim() ?? "";
   const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
   const servicoFiltro = parseServicoFiltro(servicoRaw);
-  const idsPorServico = await clienteIdsParaServicoFiltro(
-    supabase,
-    servicoFiltro
-  );
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
     .replace(/\D/g, "")
     .slice(0, 14);
@@ -429,47 +427,24 @@ export default async function ClientesPage({
     .select("id, nome, descricao, valor_contrato")
     .order("nome", { ascending: true });
 
-  let clientesQuery = supabase
-    .from("clientes")
-    .select(
-      `
+  const clientesListSelect = `
         id,
         razao_social,
         cnpj,
-        dominio,
-        tipo_unidade,
-        identificacao_filial,
-        responsavel_fiscal,
-        cep,
-        logradouro,
-        bairro,
-        complemento,
-        cidade,
-        estado,
-        atividade,
-        constituicao,
-        inscricao_estadual,
-        inscricao_municipal,
-        grupo_economico,
         grupo_id,
-        grupos_economicos ( nome ),
-        socio_responsavel_pj,
-        capital_social,
-        data_abertura_cliente,
-        data_entrada_contabilidade,
-        data_saida,
-        regime_tributario,
-        contato_nome,
-        contato_telefone,
-        valor_contrato,
-        cobranca_por_grupo,
         ativo,
         situacao_empresa,
-        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
-        servicos_contratados (*),
-        created_at
-      `
-    )
+        created_at,
+        grupos_economicos ( nome )${
+          servicoFiltro
+            ? `,\n        ${servicosContratadosEmbedAlias(true, "id")}`
+            : ""
+        }
+      `.trim();
+
+  let clientesQuery = supabase
+    .from("clientes")
+    .select(clientesListSelect)
     .order("razao_social", { ascending: true });
 
   if (term) {
@@ -481,10 +456,10 @@ export default async function ClientesPage({
   }
 
   clientesQuery = applySituacaoFilter(clientesQuery, situacaoFiltro);
-
-  if (idsPorServico) {
-    clientesQuery = clientesQuery.in("id", idsPorServico);
-  }
+  clientesQuery = applyServicoContratadoFiltersOnClienteQuery(
+    clientesQuery,
+    servicoFiltro
+  );
 
   const [{ data: gruposData }, { data: dataClientes }] = await Promise.all([
     gruposQuery,

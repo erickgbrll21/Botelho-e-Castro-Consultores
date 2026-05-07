@@ -161,6 +161,7 @@ export default async function UsuariosPage() {
                 <option value="admin">Administrador (TI)</option>
                 <option value="diretor">Diretor</option>
                 <option value="financeiro">Financeiro</option>
+                <option value="controladoria">Controladoria</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -213,10 +214,12 @@ export default async function UsuariosPage() {
                             ? "Diretor"
                             : usuario.tipo_usuario === "financeiro"
                             ? "Financ."
+                            : usuario.tipo_usuario === "controladoria"
+                            ? "Control."
                             : "User"
                         }
                         tone={
-                          ["admin", "diretor", "financeiro"].includes(
+                          ["admin", "diretor", "financeiro", "controladoria"].includes(
                             usuario.tipo_usuario
                           )
                             ? "warning"
@@ -239,10 +242,12 @@ export default async function UsuariosPage() {
                             ? "Diretor"
                             : usuario.tipo_usuario === "financeiro"
                             ? "Financeiro"
+                            : usuario.tipo_usuario === "controladoria"
+                            ? "Controladoria"
                             : "Usuário"
                         }
                         tone={
-                          ["admin", "diretor", "financeiro"].includes(
+                          ["admin", "diretor", "financeiro", "controladoria"].includes(
                             usuario.tipo_usuario
                           )
                             ? "warning"

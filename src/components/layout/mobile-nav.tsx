@@ -85,7 +85,11 @@ export function MobileNav({ role, signOutAction }: MobileNavProps) {
 
           <nav className="flex flex-col gap-2">
             {links
-              .filter((link) => !link.adminOnly || ["admin", "diretor", "financeiro"].includes(role))
+              .filter(
+                (link) =>
+                  !link.adminOnly ||
+                  ["admin", "diretor", "financeiro", "controladoria"].includes(role)
+              )
               .map((link) => {
                 const isActive = pathname === link.href;
                 const Icon = link.icon;
