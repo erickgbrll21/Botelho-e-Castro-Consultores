@@ -85,6 +85,11 @@ export function canSeeContractValue(role: UserRole) {
   return ["diretor", "financeiro", "controladoria"].includes(role);
 }
 
+/** Exportação da lista completa (Empresa + CNPJ/CPF) — Administrador (TI) e Diretor. */
+export function canExportClientesPlanilha(role: UserRole) {
+  return role === "admin" || role === "diretor";
+}
+
 export function getServiceRoleClient() {
   return createSupabaseServiceRoleClient();
 }

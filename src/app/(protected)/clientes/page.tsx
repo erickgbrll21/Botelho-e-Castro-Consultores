@@ -3,9 +3,17 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
+import {
+  requireAdminProfile,
+  getCurrentProfile,
+  canSeeContractValue,
+  canExportClientesPlanilha,
+} from "@/lib/auth";
 import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
 import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
+import { ExportClientesButton } from "@/components/clientes/export-clientes-button";
+import { SincronizarEnderecosButton } from "@/components/clientes/sincronizar-enderecos-button";
+import { contarClientesEnderecoIncompleto } from "@/lib/sincronizar-enderecos-clientes";
 import { registrarLog } from "@/lib/logs";
 import { formatDateTimePtBR } from "@/lib/format-date";
 import { messageFromSupabaseError } from "@/lib/supabase-errors";
@@ -391,6 +399,12 @@ export default async function ClientesPage({
   const profile = await getCurrentProfile();
   const isAdmin =
     profile && ["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario);
+  const canExportPlanilha = Boolean(
+    profile && canExportClientesPlanilha(profile.tipo_usuario)
+  );
+  const enderecosIncompletos = canExportPlanilha
+    ? await contarClientesEnderecoIncompleto()
+    : 0;
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
   
   const {
@@ -471,7 +485,7 @@ export default async function ClientesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
             Clientes
@@ -481,6 +495,12 @@ export default async function ClientesPage({
             Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
           </p>
         </div>
+        {canExportPlanilha ? (
+          <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start md:pt-1">
+            <SincronizarEnderecosButton pendentes={enderecosIncompletos} />
+            <ExportClientesButton />
+          </div>
+        ) : null}
       </div>
 
       {isAdmin && (

@@ -25,7 +25,7 @@ import {
   UserGroupIcon,
   ChartPieIcon,
 } from "@heroicons/react/24/outline";
-import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
+import { FaturamentoMensalCard } from "@/components/dashboard/faturamento-mensal-card";
 import BoltSlashIcon from "@heroicons/react/24/outline/BoltSlashIcon";
 import ArchiveBoxXMarkIcon from "@heroicons/react/24/outline/ArchiveBoxXMarkIcon";
 
@@ -319,23 +319,19 @@ export default async function DashboardPage({
           </p>
         </Card>
         {showContractValue ? (
-          <Card
+          <FaturamentoMensalCard
             title={
               grupoFiltrado
                 ? `Faturamento mensal — ${grupoFiltrado.nome}`
                 : "Faturamento mensal"
             }
-            action={<BanknotesIcon className="h-4 w-4 text-amber-400" />}
-          >
-            <p className="text-3xl font-semibold text-amber-200/95 tabular-nums">
-              {formatCurrencyContrato(faturamentoMensalExibicao)}
-            </p>
-            <p className="text-xs text-neutral-400">
-              {grupoFiltrado
+            valorFormatado={formatCurrencyContrato(faturamentoMensalExibicao)}
+            subtitulo={
+              grupoFiltrado
                 ? "Valor de contrato mensal cadastrado para este grupo econômico."
-                : "Soma do valor de contrato de todos os grupos e clientes avulsos."}
-            </p>
-          </Card>
+                : "Soma do valor de contrato de todos os grupos e clientes avulsos."
+            }
+          />
         ) : null}
       </div>
 
