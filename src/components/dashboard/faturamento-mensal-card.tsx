@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import BanknotesIcon from "@heroicons/react/24/outline/BanknotesIcon";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 const STORAGE_KEY = "bcc-dashboard-faturamento-visivel";
 
@@ -48,9 +49,11 @@ export function FaturamentoMensalCard({
             }
             aria-pressed={visivel}
           >
-            <span className="text-xs font-medium">
-              {visivel ? "Ocultar" : "Ver"}
-            </span>
+            {visivel ? (
+              <EyeSlashIcon className="h-4 w-4" aria-hidden />
+            ) : (
+              <EyeIcon className="h-4 w-4" aria-hidden />
+            )}
           </button>
           <BanknotesIcon className="h-4 w-4 text-amber-400" aria-hidden />
         </div>

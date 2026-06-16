@@ -13,6 +13,8 @@ declare module "@heroicons/react/24/outline" {
   export const ChartPieIcon: HeroIcon;
   export const ClipboardDocumentCheckIcon: HeroIcon;
   export const DocumentTextIcon: HeroIcon;
+  export const EyeIcon: HeroIcon;
+  export const EyeSlashIcon: HeroIcon;
   export const GlobeAltIcon: HeroIcon;
   export const HomeIcon: HeroIcon;
   export const IdentificationIcon: HeroIcon;
