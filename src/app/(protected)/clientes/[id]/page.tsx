@@ -23,6 +23,8 @@ import {
 } from "@/lib/cliente-situacao";
 import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
 import { responsavelJuridicoParaExibicao } from "@/lib/responsaveis-padrao";
+import { isPessoaFisica } from "@/lib/cliente-tipo-pessoa";
+import { ClienteDetalhePessoaFisica } from "@/components/clientes/cliente-detalhe-pessoa-fisica";
 
 function formatCurrency(value: number | null | undefined) {
   if (!value && value !== 0) return "—";
@@ -77,11 +79,10 @@ export default async function ClienteDetalhe({
     ? cliente.servicos_contratados[0]
     : cliente.servicos_contratados;
 
-  const hasContabil = servicos?.contabil_fiscal || 
-                      servicos?.contabil_contabilidade || 
-                      servicos?.contabil_dp || 
-                      servicos?.contabil_pericia || 
-                      servicos?.contabil_legalizacao;
+  const hasContabil =
+    servicos?.contabil_contabilidade ||
+    servicos?.contabil_dp ||
+    servicos?.contabil_pericia;
 
   const hasJuridico = servicos?.juridico_civel || 
                       servicos?.juridico_trabalhista || 
@@ -96,6 +97,23 @@ export default async function ClienteDetalhe({
   const socios = cliente.quadro_socios ?? [];
   const situacao = getSituacaoEmpresa(cliente);
   const situacaoPill = situacaoPillProps(situacao);
+  const canEdit = ["admin", "diretor", "financeiro", "controladoria"].includes(
+    profile?.tipo_usuario as string
+  );
+
+  if (isPessoaFisica(cliente)) {
+    return (
+      <ClienteDetalhePessoaFisica
+        id={id}
+        cliente={cliente}
+        servicos={servicos}
+        responsaveis={responsaveis}
+        grupoNome={grupoNome}
+        situacao={situacao}
+        canEdit={canEdit}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -122,9 +140,7 @@ export default async function ClienteDetalhe({
                   tone="neutral"
                 />
                 <Pill label={situacaoPill.label} tone={situacaoPill.tone} />
-                {["admin", "diretor", "financeiro", "controladoria"].includes(
-                  profile?.tipo_usuario as string
-                ) && (
+                {canEdit ? (
                   <a
                     href={`/clientes/${id}/edit`}
                     className="inline-flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1 md:px-3 md:py-1 text-[10px] md:text-xs font-medium text-neutral-300 transition hover:border-neutral-700 hover:text-white"
@@ -132,7 +148,7 @@ export default async function ClienteDetalhe({
                     <PencilIcon className="h-3 w-3" />
                     Editar
                   </a>
-                )}
+                ) : null}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs md:text-sm text-neutral-400">
@@ -241,11 +257,9 @@ export default async function ClienteDetalhe({
               <div className="space-y-3">
                 <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">1. Serviço Contábil</p>
                 <div className="flex flex-wrap gap-2">
-                  {servicos?.contabil_fiscal && <Pill label="Fiscal" tone="success" />}
                   {servicos?.contabil_contabilidade && <Pill label="Contabilidade" tone="success" />}
                   {servicos?.contabil_dp && <Pill label="Depto. Pessoal" tone="success" />}
                   {servicos?.contabil_pericia && <Pill label="Perícia" tone="success" />}
-                  {servicos?.contabil_legalizacao && <Pill label="Legalização" tone="success" />}
                   {!hasContabil && (
                     <p className="text-xs text-neutral-600 italic">Nenhum serviço contábil ativo</p>
                   )}
@@ -403,6 +417,10 @@ export default async function ClienteDetalhe({
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Telefone</p>
                 <p className="font-medium text-neutral-200">{cliente.contato_telefone ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Celular</p>
+                <p className="font-medium text-neutral-200">{cliente.contato_celular ?? "—"}</p>
               </div>
             </div>
           </Card>

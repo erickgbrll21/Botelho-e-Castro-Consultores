@@ -22,7 +22,7 @@ async function createUser(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const nome = String(formData.get("nome") ?? "");
   const cargo = formData.get("cargo") ? String(formData.get("cargo")) : null;
-  const tipo_usuario = String(formData.get("tipo_usuario") ?? "user") as UserRole;
+  const tipo_usuario = parseUserRole(formData.get("tipo_usuario"));
 
   if (!email || !password || !nome) {
     throw new Error("Preencha todos os campos obrigatórios.");

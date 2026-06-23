@@ -63,6 +63,8 @@ export interface Database {
           id: string
           razao_social: string
           cnpj: string
+          tipo_pessoa: "pj" | "pf"
+          email: string | null
           dominio: string | null
           tipo_unidade: "Matriz" | "Filial" | null
           identificacao_filial?: string | null
@@ -87,6 +89,7 @@ export interface Database {
           regime_tributario: string | null
           contato_nome: string | null
           contato_telefone: string | null
+          contato_celular: string | null
           valor_contrato: number | null
           cobranca_por_grupo: boolean
           ativo: boolean
@@ -121,6 +124,9 @@ export interface Database {
           regime_tributario?: string | null
           contato_nome?: string | null
           contato_telefone?: string | null
+          contato_celular?: string | null
+          tipo_pessoa?: "pj" | "pf"
+          email?: string | null
           valor_contrato?: number | null
           cobranca_por_grupo?: boolean
           ativo?: boolean
@@ -155,6 +161,9 @@ export interface Database {
           regime_tributario?: string | null
           contato_nome?: string | null
           contato_telefone?: string | null
+          contato_celular?: string | null
+          tipo_pessoa?: "pj" | "pf"
+          email?: string | null
           valor_contrato?: number | null
           cobranca_por_grupo?: boolean
           ativo?: boolean
@@ -273,6 +282,38 @@ export interface Database {
           cliente_id?: string
           nome_socio?: string
           percentual_participacao?: number
+          created_at?: string
+        }
+      }
+      quadro_socios_grupo: {
+        Row: {
+          id: string
+          grupo_id: string
+          nome_socio: string
+          cpf: string | null
+          email: string | null
+          telefone: string | null
+          percentual_participacao: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          grupo_id: string
+          nome_socio: string
+          cpf?: string | null
+          email?: string | null
+          telefone?: string | null
+          percentual_participacao?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          grupo_id?: string
+          nome_socio?: string
+          cpf?: string | null
+          email?: string | null
+          telefone?: string | null
+          percentual_participacao?: number | null
           created_at?: string
         }
       }

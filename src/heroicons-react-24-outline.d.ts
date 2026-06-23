@@ -4,6 +4,7 @@ declare module "@heroicons/react/24/outline" {
   type HeroIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
   export const ArrowRightOnRectangleIcon: HeroIcon;
+  export const ArrowLeftIcon: HeroIcon;
   export const ArrowTrendingDownIcon: HeroIcon;
   export const ArrowTrendingUpIcon: HeroIcon;
   export const Bars3Icon: HeroIcon;
@@ -11,8 +12,12 @@ declare module "@heroicons/react/24/outline" {
   export const CalendarDaysIcon: HeroIcon;
   export const ChartBarIcon: HeroIcon;
   export const ChartPieIcon: HeroIcon;
+  export const CheckIcon: HeroIcon;
   export const ClipboardDocumentCheckIcon: HeroIcon;
+  export const ClipboardDocumentIcon: HeroIcon;
+  export const DevicePhoneMobileIcon: HeroIcon;
   export const DocumentTextIcon: HeroIcon;
+  export const EnvelopeIcon: HeroIcon;
   export const EyeIcon: HeroIcon;
   export const EyeSlashIcon: HeroIcon;
   export const GlobeAltIcon: HeroIcon;
@@ -20,6 +25,8 @@ declare module "@heroicons/react/24/outline" {
   export const IdentificationIcon: HeroIcon;
   export const MapPinIcon: HeroIcon;
   export const PencilIcon: HeroIcon;
+  export const PhoneIcon: HeroIcon;
+  export const ScaleIcon: HeroIcon;
   export const UserGroupIcon: HeroIcon;
   export const UserIcon: HeroIcon;
   export const UsersIcon: HeroIcon;

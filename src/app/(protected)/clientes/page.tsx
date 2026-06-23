@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -10,12 +11,10 @@ import {
   canExportClientesPlanilha,
 } from "@/lib/auth";
 import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
-import { DeleteClienteButton } from "@/components/clientes/delete-cliente-button";
 import { ExportClientesButton } from "@/components/clientes/export-clientes-button";
 import { SincronizarEnderecosButton } from "@/components/clientes/sincronizar-enderecos-button";
 import { contarClientesEnderecoIncompleto } from "@/lib/sincronizar-enderecos-clientes";
 import { registrarLog } from "@/lib/logs";
-import { formatDateTimePtBR } from "@/lib/format-date";
 import { messageFromSupabaseError } from "@/lib/supabase-errors";
 import {
   RESPONSAVEL_PADRAO_CONTABIL,
@@ -23,22 +22,15 @@ import {
   RESPONSAVEL_PADRAO_FINANCEIRO,
   responsavelJuridicoSalvo,
 } from "@/lib/responsaveis-padrao";
-import {
-  getSituacaoEmpresa,
-  situacaoEmpresaLabels,
-  situacaoIndicatorClass,
-  applySituacaoFilter,
-  parseSituacaoFiltro,
-} from "@/lib/cliente-situacao";
-import {
-  parseServicoFiltro,
-  servicosContratadosEmbedAlias,
-  applyServicoContratadoFiltersOnClienteQuery,
-  SERVICO_OPCOES,
-  type ServicoOpcao,
-} from "@/lib/servico-filter";
 import { parseFormCheckbox } from "@/lib/parse-form-checkbox";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { CadastroTipoTabs } from "@/components/clientes/cadastro-tipo-tabs";
+import { CepEnderecoLookup } from "@/components/clientes/cep-endereco-lookup";
+import {
+  parseCpfDigits,
+  parseTipoCadastro,
+  type TipoPessoaCliente,
+} from "@/lib/cliente-tipo-pessoa";
 
 function parseOptionalMoney(formData: FormData, key: string): number | null {
   const raw = String(formData.get(key) ?? "").trim();
@@ -129,12 +121,12 @@ async function createCliente(formData: FormData) {
   const socioPercentNum = Number(formData.get("socio_percentual") ?? 100);
   const socio_percentual = Number.isFinite(socioPercentNum) ? socioPercentNum : 100;
 
-  // Serviços Contábeis
-  const contabil_fiscal = parseFormCheckbox(formData, "contabil_fiscal");
+  // Serviços Contábeis (Fiscal e Legalização não são mais marcáveis no formulário)
+  const contabil_fiscal = false;
   const contabil_contabilidade = parseFormCheckbox(formData, "contabil_contabilidade");
   const contabil_dp = parseFormCheckbox(formData, "contabil_dp");
   const contabil_pericia = parseFormCheckbox(formData, "contabil_pericia");
-  const contabil_legalizacao = parseFormCheckbox(formData, "contabil_legalizacao");
+  const contabil_legalizacao = false;
 
   // Serviços Jurídicos
   const juridico_civel = parseFormCheckbox(formData, "juridico_civel");
@@ -187,6 +179,7 @@ async function createCliente(formData: FormData) {
       cobranca_por_grupo,
       ativo: true,
       situacao_empresa: "ativa",
+      tipo_pessoa: "pj",
     })
     .select("id")
     .maybeSingle();
@@ -274,7 +267,128 @@ async function createCliente(formData: FormData) {
   });
 
   await revalidatePath("/clientes");
-  redirect("/clientes?cadastrado=1");
+  redirect("/clientes?cadastrado=1&tipo=pj");
+}
+
+async function createPessoaFisica(formData: FormData) {
+  "use server";
+  await requireAdminProfile();
+  const supabase = await createSupabaseServerClient();
+
+  const nome = String(formData.get("nome") ?? "").trim();
+  const cpf = parseCpfDigits(String(formData.get("cpf") ?? ""));
+  const cepRaw = String(formData.get("cep") ?? "").replace(/\D/g, "");
+  const cep = cepRaw.length === 8 ? cepRaw : null;
+  const rua = String(formData.get("logradouro") ?? "").trim();
+  const numero = String(formData.get("numero") ?? "").trim();
+  const logradouro =
+    [rua, numero].filter(Boolean).join(", ") || null;
+  const bairro = String(formData.get("bairro") ?? "").trim() || null;
+  const cidade = String(formData.get("cidade") ?? "").trim() || null;
+  const estadoRaw = String(formData.get("estado") ?? "").trim().toUpperCase();
+  const estado = estadoRaw.length === 2 ? estadoRaw : null;
+  const email = String(formData.get("email") ?? "").trim() || null;
+  const telefone = String(formData.get("telefone") ?? "").trim() || null;
+  const celular = String(formData.get("celular") ?? "").trim() || null;
+  const grupo_id = String(formData.get("grupo_id") ?? "").trim() || null;
+  const responsavel_juridico = String(
+    formData.get("responsavel_juridico") ?? ""
+  ).trim();
+
+  const juridico_civel = parseFormCheckbox(formData, "juridico_civel");
+  const juridico_trabalhista = parseFormCheckbox(formData, "juridico_trabalhista");
+  const juridico_licitacao = parseFormCheckbox(formData, "juridico_licitacao");
+  const juridico_penal = parseFormCheckbox(formData, "juridico_penal");
+  const juridico_empresarial = parseFormCheckbox(formData, "juridico_empresarial");
+
+  if (!nome) {
+    throw new Error("Nome é obrigatório.");
+  }
+  if (cpf.length !== 11) {
+    throw new Error("CPF válido (11 dígitos) é obrigatório.");
+  }
+
+  const { data: cliente, error } = await (supabase.from("clientes") as any)
+    .insert({
+      razao_social: nome,
+      cnpj: cpf,
+      tipo_pessoa: "pf",
+      cep,
+      logradouro,
+      bairro,
+      cidade,
+      estado,
+      email,
+      contato_telefone: telefone,
+      contato_celular: celular,
+      grupo_id,
+      ativo: true,
+      situacao_empresa: "ativa",
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (error || !cliente?.id) {
+    const msg = error
+      ? messageFromSupabaseError(error, "Não foi possível cadastrar a pessoa física.")
+      : "Não foi possível cadastrar a pessoa física.";
+    const isUniqueViolation =
+      !!error &&
+      (error.code === "23505" ||
+        /duplicate key|unique constraint/i.test(error.message ?? ""));
+    if (isUniqueViolation) {
+      redirect(`/clientes?tipo=pf&novoCpf=${encodeURIComponent(cpf)}&duplicado=1#cadastro-novo-cliente`);
+    }
+    throw new Error(msg);
+  }
+
+  const { data: servRow, error: servErr } = await (supabase
+    .from("servicos_contratados") as any)
+    .insert({
+      cliente_id: cliente.id,
+      juridico_civel,
+      juridico_trabalhista,
+      juridico_licitacao,
+      juridico_penal,
+      juridico_empresarial,
+    })
+    .select("juridico_civel, juridico_trabalhista")
+    .single();
+  if (servErr) {
+    throw new Error(
+      servErr.message || "Não foi possível salvar os serviços contratados."
+    );
+  }
+
+  const juridicoCivelDb = Boolean(servRow?.juridico_civel);
+  const juridicoTrabalhistaDb = Boolean(servRow?.juridico_trabalhista);
+
+  const { error: respErr } = await (supabase.from("responsaveis_internos") as any).insert({
+    cliente_id: cliente.id,
+    responsavel_contabil: RESPONSAVEL_PADRAO_CONTABIL,
+    responsavel_juridico: responsavelJuridicoSalvo(
+      responsavel_juridico,
+      juridicoCivelDb,
+      juridicoTrabalhistaDb
+    ),
+    responsavel_dp: RESPONSAVEL_PADRAO_DP,
+    responsavel_financeiro: RESPONSAVEL_PADRAO_FINANCEIRO,
+  });
+  if (respErr) {
+    throw new Error(
+      respErr.message || "Não foi possível salvar os responsáveis internos."
+    );
+  }
+
+  await registrarLog("Cadastro de Pessoa Física", {
+    nome,
+    cpf,
+    id: cliente.id,
+  });
+
+  await revalidatePath("/clientes");
+  await revalidatePath("/dashboard");
+  redirect("/clientes?cadastrado=1&tipo=pf");
 }
 
 async function createGrupo(formData: FormData) {
@@ -360,39 +474,16 @@ async function deleteGrupo(formData: FormData) {
   await revalidatePath("/clientes");
 }
 
-async function deleteCliente(formData: FormData) {
-  "use server";
-  await requireAdminProfile();
-  const supabase = await createSupabaseServerClient();
-  const cliente_id = String(formData.get("cliente_id") ?? "").trim();
-
-  if (!cliente_id) {
-    throw new Error("ID da cliente é obrigatório.");
-  }
-
-  const { error } = await (supabase.from("clientes") as any).delete().eq("id", cliente_id);
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  await registrarLog("Exclusão de Cliente", { cliente_id });
-
-  await revalidatePath("/clientes");
-  await revalidatePath("/dashboard");
-}
-
 export default async function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    q?: string;
-    grupo?: string;
-    situacao?: string;
-    servico?: string;
     editGrupo?: string;
     novoCnpj?: string;
+    novoCpf?: string;
     duplicado?: string;
     cadastrado?: string;
+    tipo?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -406,26 +497,25 @@ export default async function ClientesPage({
     ? await contarClientesEnderecoIncompleto()
     : 0;
   const showContractValue = profile ? canSeeContractValue(profile.tipo_usuario) : false;
-  
+
   const {
-    q,
-    grupo: grupoFiltro,
-    situacao: situacaoRaw,
-    servico: servicoRaw,
     editGrupo: editGrupoId,
     novoCnpj: novoCnpjRaw,
+    novoCpf: novoCpfRaw,
     duplicado,
     cadastrado,
+    tipo: tipoRaw,
   } = await searchParams;
-  const term = q?.trim() ?? "";
-  const grupoId = grupoFiltro?.trim() ?? "";
-  const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
-  const servicoFiltro = parseServicoFiltro(servicoRaw);
+  const tipoCadastro: TipoPessoaCliente = parseTipoCadastro(tipoRaw);
   const novoCnpjDigits = String(novoCnpjRaw ?? "")
     .replace(/\D/g, "")
     .slice(0, 14);
   const cnpjParaCadastro =
     novoCnpjDigits.length === 14 ? novoCnpjDigits : null;
+  const cpfParaCadastro = (() => {
+    const cpf = parseCpfDigits(String(novoCpfRaw ?? ""));
+    return cpf.length === 11 ? cpf : null;
+  })();
   const showDuplicateBanner = duplicado === "1";
   const showCreatedBanner = cadastrado === "1";
 
@@ -434,65 +524,32 @@ export default async function ClientesPage({
         .select("id, razao_social, cnpj")
         .eq("cnpj", cnpjParaCadastro)
         .maybeSingle()
-    : { data: null as { id: string; razao_social: string; cnpj: string } | null };
+    : cpfParaCadastro
+      ? await (supabase.from("clientes") as any)
+          .select("id, razao_social, cnpj")
+          .eq("cnpj", cpfParaCadastro)
+          .maybeSingle()
+      : { data: null as { id: string; razao_social: string; cnpj: string } | null };
 
   const gruposQuery = supabase
     .from("grupos_economicos")
     .select("id, nome, descricao, valor_contrato")
     .order("nome", { ascending: true });
 
-  const clientesListSelect = `
-        id,
-        razao_social,
-        cnpj,
-        grupo_id,
-        ativo,
-        situacao_empresa,
-        created_at,
-        grupos_economicos ( nome )${
-          servicoFiltro
-            ? `,\n        ${servicosContratadosEmbedAlias(true, "id")}`
-            : ""
-        }
-      `.trim();
-
-  let clientesQuery = supabase
-    .from("clientes")
-    .select(clientesListSelect)
-    .order("razao_social", { ascending: true });
-
-  if (term) {
-    clientesQuery = clientesQuery.ilike("razao_social", `%${term}%`);
-  }
-
-  if (grupoId) {
-    clientesQuery = clientesQuery.eq("grupo_id", grupoId);
-  }
-
-  clientesQuery = applySituacaoFilter(clientesQuery, situacaoFiltro);
-  clientesQuery = applyServicoContratadoFiltersOnClienteQuery(
-    clientesQuery,
-    servicoFiltro
-  );
-
-  const [{ data: gruposData }, { data: dataClientes }] = await Promise.all([
-    gruposQuery,
-    clientesQuery,
-  ]);
+  const { data: gruposData } = await gruposQuery;
   const grupos: any[] = gruposData ?? [];
   const editingGrupo = editGrupoId ? grupos.find(g => g.id === editGrupoId) : null;
-  const clientes: any[] = dataClientes ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Clientes
+            Cadastro
           </p>
           <h1 className="text-2xl font-semibold sm:text-3xl">Cadastro e consulta</h1>
           <p className="text-neutral-400">
-            Administradores podem cadastrar; todos os usuários podem visualizar a lista completa.
+            Administradores podem cadastrar clientes e gerenciar grupos econômicos.
           </p>
         </div>
         {canExportPlanilha ? (
@@ -510,21 +567,31 @@ export default async function ClientesPage({
           className="scroll-mt-24 border-amber-500/30"
           action={<Pill label="Restrito a admins" tone="critical" />}
         >
+          <div className="mb-6">
+            <CadastroTipoTabs tipo={tipoCadastro} />
+          </div>
           {showCreatedBanner ? (
             <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-              <p className="font-semibold">Empresa cadastrada com sucesso.</p>
+              <p className="font-semibold">
+                {tipoCadastro === "pf"
+                  ? "Pessoa física cadastrada com sucesso."
+                  : "Empresa cadastrada com sucesso."}
+              </p>
               <p className="mt-1 text-emerald-100/90">
-                O cadastro foi salvo e já aparece na lista de clientes.
+                O cadastro foi salvo com sucesso.
               </p>
             </div>
           ) : null}
           {clienteJaCadastrado ? (
             <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
               <p className="font-semibold">
-                CNPJ ou Empresa já foi cadastrado.
+                {tipoCadastro === "pf"
+                  ? "CPF já cadastrado."
+                  : "CNPJ ou Empresa já foi cadastrado."}
               </p>
               <p className="mt-1 text-amber-200/90">
-                Já existe um cliente com este CNPJ:{" "}
+                Já existe um cliente com este{" "}
+                {tipoCadastro === "pf" ? "CPF" : "CNPJ"}:{" "}
                 <span className="font-mono">{clienteJaCadastrado.cnpj}</span>{" "}
                 —{" "}
                 <a
@@ -540,10 +607,172 @@ export default async function ClientesPage({
             <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
               <p className="font-semibold">Cliente já está cadastrado.</p>
               <p className="mt-1 text-amber-200/90">
-                Use a busca na lista ou abra o cadastro existente para editar.
+                Abra o cadastro existente pelo link acima para editar.
               </p>
             </div>
           ) : null}
+          {tipoCadastro === "pf" ? (
+            <form id="cadastro-pf-form" action={createPessoaFisica} className="space-y-6">
+              <Card title="Dados da pessoa física">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm text-neutral-300">Nome *</label>
+                    <input
+                      name="nome"
+                      required
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">CPF *</label>
+                    <input
+                      name="cpf"
+                      required
+                      inputMode="numeric"
+                      defaultValue={cpfParaCadastro ?? ""}
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Grupo econômico</label>
+                    <select
+                      name="grupo_id"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                      defaultValue=""
+                    >
+                      <option value="">Selecionar grupo</option>
+                      {grupos.map((grupo) => (
+                        <option key={grupo.id} value={grupo.id}>
+                          {grupo.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <CepEnderecoLookup formId="cadastro-pf-form" />
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm text-neutral-300">Rua</label>
+                    <input
+                      name="logradouro"
+                      type="text"
+                      placeholder="Rua, avenida..."
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Número</label>
+                    <input
+                      name="numero"
+                      type="text"
+                      placeholder="123"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Bairro</label>
+                    <input
+                      name="bairro"
+                      type="text"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Cidade</label>
+                    <input
+                      name="cidade"
+                      type="text"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Estado</label>
+                    <input
+                      name="estado"
+                      type="text"
+                      maxLength={2}
+                      placeholder="UF"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">E-mail</label>
+                    <input
+                      name="email"
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Telefone</label>
+                    <input
+                      name="telefone"
+                      placeholder="(00) 0000-0000"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Celular</label>
+                    <input
+                      name="celular"
+                      placeholder="(00) 00000-0000"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              <Card title="Serviços Jurídicos">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-blue-500 uppercase tracking-wider">
+                      Serviços contratados
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                        <input type="checkbox" name="juridico_civel" className="accent-blue-500 h-4 w-4" />
+                        Cível
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                        <input type="checkbox" name="juridico_trabalhista" className="accent-blue-500 h-4 w-4" />
+                        Trabalhista
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                        <input type="checkbox" name="juridico_licitacao" className="accent-blue-500 h-4 w-4" />
+                        Licitação
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                        <input type="checkbox" name="juridico_penal" className="accent-blue-500 h-4 w-4" />
+                        Penal
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
+                        <input type="checkbox" name="juridico_empresarial" className="accent-blue-500 h-4 w-4" />
+                        Empresarial
+                      </label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-neutral-300">Responsável jurídico</label>
+                    <input
+                      name="responsavel_juridico"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                      placeholder="Opcional — preenchido automaticamente se Cível/Trabalhista"
+                    />
+                  </div>
+                </div>
+              </Card>
+
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                <button
+                  type="submit"
+                  className="w-full rounded-lg bg-white px-8 py-3 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
+                >
+                  Cadastrar pessoa física
+                </button>
+              </div>
+            </form>
+          ) : (
           <form
             id="cadastro-cliente-form"
             action={createCliente}
@@ -618,16 +847,7 @@ export default async function ClientesPage({
                     card do dashboard.
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-neutral-300">CEP</label>
-                  <input
-                    name="cep"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="00000-000"
-                    className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                  />
-                </div>
+                <CepEnderecoLookup formId="cadastro-cliente-form" />
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm text-neutral-300">Logradouro</label>
                   <input
@@ -877,10 +1097,6 @@ export default async function ClientesPage({
                   <p className="text-sm font-medium text-amber-500 uppercase tracking-wider">1. Serviço Contábil</p>
                   <div className="grid grid-cols-1 gap-2">
                     <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                      <input type="checkbox" name="contabil_fiscal" className="accent-amber-500 h-4 w-4" />
-                      Fiscal
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
                       <input type="checkbox" name="contabil_contabilidade" className="accent-amber-500 h-4 w-4" />
                       Contabilidade
                     </label>
@@ -891,10 +1107,6 @@ export default async function ClientesPage({
                     <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
                       <input type="checkbox" name="contabil_pericia" className="accent-amber-500 h-4 w-4" />
                       Perícia
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-neutral-300 hover:text-white transition-colors cursor-pointer">
-                      <input type="checkbox" name="contabil_legalizacao" className="accent-amber-500 h-4 w-4" />
-                      Legalização
                     </label>
                   </div>
                 </div>
@@ -992,6 +1204,7 @@ export default async function ClientesPage({
               </button>
             </div>
           </form>
+          )}
         </Card>
       )}
 
@@ -1049,14 +1262,19 @@ export default async function ClientesPage({
               <tr className="border-b border-neutral-800/80">
                 <th className="py-3 pr-4 font-medium">Nome do Grupo</th>
                 {showContractValue && <th className="py-3 pr-4 font-medium">Valor do Contrato</th>}
-                {isAdmin && <th className="py-3 pr-4 font-medium text-right">Ações</th>}
+                <th className="py-3 pr-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-900">
               {grupos.map((grupo) => (
                 <tr key={grupo.id}>
                   <td className="py-3 pr-4 font-semibold text-neutral-50">
-                    {grupo.nome}
+                    <Link
+                      href={`/grupos/${grupo.id}`}
+                      className="transition hover:text-white hover:underline"
+                    >
+                      {grupo.nome}
+                    </Link>
                   </td>
                   {showContractValue && (
                     <td className="py-3 pr-4 text-neutral-300">
@@ -1070,9 +1288,16 @@ export default async function ClientesPage({
                         : "—"}
                     </td>
                   )}
-                  {isAdmin && (
-                    <td className="py-3 pr-4">
-                      <div className="flex flex-wrap justify-end gap-2">
+                  <td className="py-3 pr-4">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Link
+                        href={`/grupos/${grupo.id}`}
+                        className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
+                      >
+                        Ver grupo
+                      </Link>
+                      {isAdmin ? (
+                        <>
                       <a
                         href={`?editGrupo=${grupo.id}`}
                         className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-neutral-800 hover:text-white"
@@ -1088,150 +1313,16 @@ export default async function ClientesPage({
                           Remover
                         </button>
                       </form>
+                        </>
+                      ) : null}
                       </div>
                     </td>
-                  )}
                 </tr>
               ))}
               {grupos.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? (showContractValue ? 3 : 2) : (showContractValue ? 2 : 1)} className="py-4 text-center text-neutral-400">
+                  <td colSpan={showContractValue ? 3 : 2} className="py-4 text-center text-neutral-400">
                     Nenhum grupo cadastrado ainda.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card
-        title="Clientes"
-        action={
-          <div className="flex w-full flex-col gap-2 sm:items-end">
-            <p className="max-w-full text-xs text-neutral-400 break-words sm:max-w-md sm:text-right">
-              {isAdmin ? "Você tem permissão para cadastrar e editar dados." : "Visualização permitida para todos os usuários."}
-            </p>
-            <form className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-stretch">
-              <select
-                name="grupo"
-                defaultValue={grupoId}
-                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
-              >
-                <option value="">Todos os grupos</option>
-                {grupos.map((grupo) => (
-                  <option key={grupo.id} value={grupo.id}>
-                    {grupo.nome}
-                  </option>
-                ))}
-              </select>
-              <select
-                name="situacao"
-                defaultValue={situacaoFiltro}
-                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
-              >
-                <option value="">Todas as situações</option>
-                <option value="ativa">Ativas</option>
-                <option value="paralisada">Paralisadas</option>
-                <option value="desativada">Desativadas / Inativas</option>
-              </select>
-              <select
-                name="servico"
-                defaultValue={servicoFiltro}
-                className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[12rem]"
-              >
-                <option value="">Todos os serviços</option>
-                {(["Por categoria", "Contábil", "Jurídico"] as const).map(
-                  (grupoNome) => (
-                    <optgroup key={grupoNome} label={grupoNome}>
-                      {SERVICO_OPCOES.filter(
-                        (o: ServicoOpcao) => o.group === grupoNome
-                      ).map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )
-                )}
-              </select>
-              <input
-                name="q"
-                defaultValue={term}
-                placeholder="Buscar cliente..."
-                className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:min-w-[16rem]"
-              />
-              <button
-                type="submit"
-                className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
-              >
-                Buscar
-              </button>
-            </form>
-          </div>
-        }
-        className="overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-left text-neutral-400">
-              <tr className="border-b border-neutral-800/80">
-                <th className="py-3 pr-4 font-medium">Razão Social</th>
-                <th className="py-3 pr-4 font-medium hidden md:table-cell">Grupo</th>
-                <th className="py-3 pr-4 font-medium hidden sm:table-cell">Data de Inscrição</th>
-                <th className="py-3 pr-4 font-medium text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-900">
-              {clientes.map((cliente) => {
-                const situacao = getSituacaoEmpresa(cliente);
-                const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
-                return (
-                <tr key={cliente.id} className="align-top">
-                  <td className="py-4 pr-4">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`h-2.5 w-2.5 rounded-full shrink-0 ${situacaoIndicatorClass(situacao)}`}
-                        title={situacaoTitulo}
-                      />
-                      <p className="font-semibold text-neutral-50 leading-tight">{cliente.razao_social}</p>
-                    </div>
-                    <p className="text-[10px] md:text-xs text-neutral-500 mt-1">{cliente.cnpj}</p>
-                  </td>
-                  <td className="py-4 pr-4 text-neutral-300 hidden md:table-cell">
-                    {cliente.grupos_economicos?.nome ?? "—"}
-                  </td>
-                  <td className="py-4 pr-4 text-neutral-300 hidden sm:table-cell">
-                    {formatDateTimePtBR(cliente.created_at, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </td>
-                  <td className="py-4 pr-4 text-right flex flex-col sm:flex-row justify-end items-end gap-2 sm:gap-3">
-                    <a
-                      href={`/clientes/${cliente.id}`}
-                      className="inline-flex items-center rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-semibold text-neutral-200 transition hover:border-neutral-700 hover:bg-neutral-800"
-                    >
-                      Ver detalhes
-                    </a>
-                    {isAdmin && (
-                      <DeleteClienteButton
-                        clienteId={cliente.id}
-                        action={deleteCliente}
-                      />
-                    )}
-                  </td>
-                </tr>
-              );
-              })}
-
-              {clientes.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="py-6 text-center text-sm text-neutral-400"
-                  >
-                    Nenhum cliente encontrado para este filtro.
                   </td>
                 </tr>
               ) : null}

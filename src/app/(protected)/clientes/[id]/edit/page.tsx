@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Card } from "@/components/ui/card";
 import { CnpjReceitaLookup } from "@/components/clientes/cnpj-receita-lookup";
+import { CepEnderecoLookup } from "@/components/clientes/cep-endereco-lookup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAdminProfile, getCurrentProfile, canSeeContractValue } from "@/lib/auth";
 import { registrarLog } from "@/lib/logs";
@@ -90,6 +91,7 @@ async function updateCliente(formData: FormData) {
   const regime_tributario = String(formData.get("regime_tributario") ?? "").trim();
   const contato_nome = String(formData.get("contato_nome") ?? "").trim();
   const contato_telefone = String(formData.get("contato_telefone") ?? "").trim();
+  const contato_celular = String(formData.get("contato_celular") ?? "").trim();
   const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
   const cobranca_por_grupo = formData.get("cobranca_por_grupo") === "Sim";
 
@@ -101,11 +103,17 @@ async function updateCliente(formData: FormData) {
   const responsavel_financeiro = String(formData.get("responsavel_financeiro") ?? "").trim();
 
   // Serviços Contábeis
-  const contabil_fiscal = parseFormCheckbox(formData, "contabil_fiscal");
   const contabil_contabilidade = parseFormCheckbox(formData, "contabil_contabilidade");
   const contabil_dp = parseFormCheckbox(formData, "contabil_dp");
   const contabil_pericia = parseFormCheckbox(formData, "contabil_pericia");
-  const contabil_legalizacao = parseFormCheckbox(formData, "contabil_legalizacao");
+
+  const { data: servicosExistentes } = await (supabase
+    .from("servicos_contratados") as any)
+    .select("contabil_fiscal, contabil_legalizacao")
+    .eq("cliente_id", id)
+    .maybeSingle();
+  const contabil_fiscal = Boolean(servicosExistentes?.contabil_fiscal);
+  const contabil_legalizacao = Boolean(servicosExistentes?.contabil_legalizacao);
 
   // Serviços Jurídicos
   const juridico_civel = parseFormCheckbox(formData, "juridico_civel");
@@ -122,8 +130,10 @@ async function updateCliente(formData: FormData) {
     ? parseOptionalMoney(formData, "valor_bpo_financeiro")
     : null;
 
-  if (!razao_social || !cnpj || cnpj.length !== 14) {
-    throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
+  if (!razao_social || !cnpj || (cnpj.length !== 11 && cnpj.length !== 14)) {
+    throw new Error(
+      "Razão social e documento válido (CPF ou CNPJ) são obrigatórios."
+    );
   }
 
   const { error: updateError } = await (supabase
@@ -154,6 +164,7 @@ async function updateCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
+      contato_celular: contato_celular || null,
       valor_contrato,
       cobranca_por_grupo,
       ativo,
@@ -456,20 +467,10 @@ export default async function EditClientePage({
                   dashboard).
                 </p>
               </div>
-            <div className="space-y-2">
-              <label className="text-sm text-neutral-300">CEP</label>
-              <input
-                name="cep"
-                type="text"
-                inputMode="numeric"
-                defaultValue={
-                  cliente.cep && String(cliente.cep).replace(/\D/g, "").length === 8
-                    ? String(cliente.cep).replace(/\D/g, "").replace(/^(\d{5})(\d{3})$/, "$1-$2")
-                    : cliente.cep ?? ""
-                }
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-              />
-            </div>
+            <CepEnderecoLookup
+              formId="edit-cliente-form"
+              initialCep={cliente.cep}
+            />
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm text-neutral-300">Logradouro</label>
               <input
@@ -638,6 +639,16 @@ export default async function EditClientePage({
                   name="contato_telefone"
                   defaultValue={cliente.contato_telefone}
                   className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                  placeholder="(00) 0000-0000"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Celular</label>
+                <input
+                  name="contato_celular"
+                  defaultValue={cliente.contato_celular}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                  placeholder="(00) 00000-0000"
                 />
               </div>
             </div>
@@ -707,15 +718,6 @@ export default async function EditClientePage({
                   <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
                     <input 
                       type="checkbox" 
-                      name="contabil_fiscal" 
-                      defaultChecked={Boolean(servicos?.contabil_fiscal)}
-                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
-                    />
-                    <span className="group-hover:text-amber-400 transition-colors">Fiscal</span>
-                  </label>
-                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
                       name="contabil_contabilidade" 
                       defaultChecked={Boolean(servicos?.contabil_contabilidade)}
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
@@ -739,15 +741,6 @@ export default async function EditClientePage({
                       className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
                     />
                     <span className="group-hover:text-amber-400 transition-colors">Perícia</span>
-                  </label>
-                  <label className="flex items-center gap-3 text-sm text-neutral-200 cursor-pointer group">
-                    <input 
-                      type="checkbox" 
-                      name="contabil_legalizacao" 
-                      defaultChecked={Boolean(servicos?.contabil_legalizacao)}
-                      className="accent-amber-500 h-5 w-5 rounded border-neutral-700 bg-neutral-800" 
-                    />
-                    <span className="group-hover:text-amber-400 transition-colors">Legalização</span>
                   </label>
                 </div>
               </div>

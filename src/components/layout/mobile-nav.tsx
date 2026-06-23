@@ -15,6 +15,8 @@ import {
   DocumentTextIcon,
   IdentificationIcon,
   ClipboardDocumentCheckIcon,
+  ScaleIcon,
+  ChartBarIcon,
 } from "@heroicons/react/24/outline";
 import type { UserRole } from "@/types/database";
 
@@ -27,7 +29,17 @@ type MobileNavProps = {
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { href: "/clientes", label: "Clientes", icon: BuildingOffice2Icon },
+  {
+    href: "/departamento-juridico",
+    label: "Departamento Jurídico",
+    icon: ScaleIcon,
+  },
+  {
+    href: "/departamento-contabil",
+    label: "Departamento Contábil",
+    icon: ChartBarIcon,
+  },
+  { href: "/clientes", label: "Cadastro", icon: BuildingOffice2Icon },
   { href: "/consulta-cnpj", label: "Consulta CNPJ", icon: IdentificationIcon },
   {
     href: "/consulta-processo",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { isSameOrigin } from "@/lib/assert-same-origin";
 import {
   buildDatajudSearchUrl,
   buildNumeroProcessoQuery,
@@ -11,6 +12,9 @@ import {
 } from "@/lib/datajud";
 
 export async function POST(req: NextRequest) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origem não permitida." }, { status: 403 });
+  }
   const profile = await getCurrentProfile();
   if (
     !profile ||

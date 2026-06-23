@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { isSameOrigin } from "@/lib/assert-same-origin";
 import { registrarLog } from "@/lib/logs";
 import {
   validateImportClientsPayload,
@@ -19,6 +20,9 @@ const MAX_BODY_BYTES = 2_500_000;
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isSameOrigin(req)) {
+      return NextResponse.json({ error: "Origem não permitida." }, { status: 403 });
+    }
     const profile = await getCurrentProfile();
     if (!profile || !["admin", "diretor", "financeiro", "controladoria"].includes(profile.tipo_usuario)) {
       return NextResponse.json({ error: "Acesso negado. Apenas administradores podem importar dados." }, { status: 403 });

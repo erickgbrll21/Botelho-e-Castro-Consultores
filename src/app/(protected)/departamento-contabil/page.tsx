@@ -1,0 +1,531 @@
+import clsx from "clsx";
+import { Card } from "@/components/ui/card";
+import { Pill } from "@/components/ui/pill";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentProfile, canSeeContractValue } from "@/lib/auth";
+import {
+  getSituacaoEmpresa,
+  situacaoEmpresaLabels,
+  applySituacaoFilter,
+  parseSituacaoFiltro,
+  type SituacaoEmpresa,
+} from "@/lib/cliente-situacao";
+import {
+  applyContabilFilter,
+  servicosContratadosEmbedAlias,
+} from "@/lib/servico-filter";
+import { labelTipoUnidadeExibicao } from "@/lib/unidade-label";
+import {
+  ArrowTrendingDownIcon,
+  ArrowTrendingUpIcon,
+  UserGroupIcon,
+  ChartPieIcon,
+  ChartBarIcon,
+} from "@heroicons/react/24/outline";
+import { FaturamentoMensalCard } from "@/components/dashboard/faturamento-mensal-card";
+import BoltSlashIcon from "@heroicons/react/24/outline/BoltSlashIcon";
+import ArchiveBoxXMarkIcon from "@heroicons/react/24/outline/ArchiveBoxXMarkIcon";
+import {
+  applyGrupoFilterOnClienteQuery,
+  buildGruposMaps,
+  fetchGruposParaFiltro,
+} from "@/lib/grupos-filtro";
+import {
+  calcFaturamentoMensalDepartamento,
+  fetchClientesAtivosDepartamentoFaturamento,
+  fetchDepartamentoDashboardMetrics,
+} from "@/lib/departamento-dashboard-metrics";
+
+const contabilServicosEmbed = servicosContratadosEmbedAlias(
+  true,
+  "contabil_contabilidade, contabil_dp, contabil_pericia"
+);
+
+const situacaoCardUi: Record<
+  SituacaoEmpresa,
+  {
+    border: string;
+    card: string;
+    banner: string;
+    dot: string;
+  }
+> = {
+  ativa: {
+    border: "border-l-emerald-500",
+    card: "",
+    banner: "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/35",
+    dot: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.75)]",
+  },
+  paralisada: {
+    border: "border-l-amber-400",
+    card: "bg-amber-950/10 ring-1 ring-amber-500/30",
+    banner: "bg-amber-500/20 text-amber-100 ring-1 ring-amber-500/45",
+    dot: "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]",
+  },
+  desativada: {
+    border: "border-l-red-500",
+    card: "bg-red-950/15 ring-1 ring-red-500/25",
+    banner: "bg-red-500/20 text-red-100 ring-1 ring-red-500/40",
+    dot: "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.7)]",
+  },
+};
+
+function formatCurrencyContrato(value: number | null | undefined) {
+  if (value == null || (typeof value === "number" && Number.isNaN(value))) {
+    return "—";
+  }
+  if (!value && value !== 0) return "—";
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function withContabilFilter(query: any): any {
+  return applyContabilFilter(query);
+}
+
+export default async function DepartamentoContabilPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    grupo?: string;
+    situacao?: string;
+  }>;
+}) {
+  const supabase = await createSupabaseServerClient();
+  const { q, grupo: grupoFiltro, situacao: situacaoRaw } = await searchParams;
+  const term = q?.trim() ?? "";
+  const grupoId = grupoFiltro?.trim() ?? "";
+  const situacaoFiltro = parseSituacaoFiltro(situacaoRaw);
+
+  const gruposFiltro = await fetchGruposParaFiltro(supabase);
+  const { gruposById, gruposByNome } = buildGruposMaps(gruposFiltro);
+
+  const now = new Date();
+  const startOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  );
+  const startOfNextMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
+  );
+  const inicioMes = startOfMonth.toISOString().slice(0, 10);
+  const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
+
+  let clientesQuery = withContabilFilter(
+    supabase
+      .from("clientes")
+      .select(
+        `
+        id,
+        razao_social,
+        cnpj,
+        dominio,
+        tipo_unidade,
+        identificacao_filial,
+        responsavel_fiscal,
+        cep,
+        logradouro,
+        bairro,
+        complemento,
+        cidade,
+        estado,
+        atividade,
+        constituicao,
+        inscricao_estadual,
+        inscricao_municipal,
+        grupo_economico,
+        grupo_id,
+        valor_contrato,
+        cobranca_por_grupo,
+        grupos_economicos ( nome, valor_contrato ),
+        socio_responsavel_pj,
+        capital_social,
+        data_abertura_cliente,
+        data_entrada_contabilidade,
+        data_saida,
+        regime_tributario,
+        ativo,
+        situacao_empresa,
+        responsaveis_internos (responsavel_comercial, responsavel_contabil, responsavel_juridico, responsavel_planejamento_tributario, responsavel_dp, responsavel_financeiro),
+        ${contabilServicosEmbed},
+        quadro_socios (nome_socio, percentual_participacao)
+      `
+      )
+      .order("razao_social", { ascending: true })
+  );
+
+  if (term) {
+    clientesQuery = clientesQuery.ilike("razao_social", `%${term}%`);
+  }
+  if (grupoId) {
+    clientesQuery = applyGrupoFilterOnClienteQuery(
+      clientesQuery,
+      grupoId,
+      gruposById
+    );
+  }
+  clientesQuery = applySituacaoFilter(clientesQuery, situacaoFiltro);
+
+  const [
+    metrics,
+    clientesFaturamento,
+    { data: dataClientes },
+    profile,
+  ] = await Promise.all([
+    fetchDepartamentoDashboardMetrics(supabase, {
+      servicosEmbed: contabilServicosEmbed,
+      applyDepartmentFilter: withContabilFilter,
+      grupoId,
+      gruposById,
+      startOfMonth,
+      startOfNextMonth,
+      inicioMes,
+      inicioProximoMes,
+    }),
+    fetchClientesAtivosDepartamentoFaturamento(supabase, {
+      servicosEmbed: contabilServicosEmbed,
+      applyDepartmentFilter: withContabilFilter,
+      grupoId,
+      gruposById,
+    }),
+    clientesQuery,
+    getCurrentProfile(),
+  ]);
+
+  const showContractValue =
+    profile != null && canSeeContractValue(profile.tipo_usuario);
+
+  const clientes: any[] = dataClientes ?? [];
+  const {
+    entradasMes,
+    saidasMes,
+    totalParalisadas,
+    totalDesativadas,
+    totalAtivos,
+    totalGrupos,
+  } = metrics;
+
+  const grupoFiltrado =
+    grupoId.trim() !== "" ? gruposById.get(grupoId) : undefined;
+
+  const faturamentoMensal = calcFaturamentoMensalDepartamento(
+    clientesFaturamento,
+    gruposById,
+    gruposByNome
+  );
+
+  const faturamentoMensalExibicao =
+    grupoFiltrado != null ? grupoFiltrado.valor_contrato : faturamentoMensal;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 md:text-xs md:tracking-[0.3em]">
+            Departamento Contábil
+          </p>
+          <h1 className="text-2xl font-semibold md:text-3xl">Dashboard</h1>
+          <p className="text-xs text-neutral-400 md:text-sm">
+            Empresas com serviços contábeis contratados (Contabilidade,
+            DP ou Perícia).
+          </p>
+        </div>
+        <ChartBarIcon
+          className="hidden h-8 w-8 text-emerald-400 sm:block"
+          aria-hidden
+        />
+      </div>
+
+      <div className="card-grid">
+        <Card
+          title="Clientes ativos"
+          action={<UserGroupIcon className="h-4 w-4 text-emerald-500" />}
+        >
+          <p className="text-3xl font-semibold">{totalAtivos}</p>
+          <p className="text-xs text-neutral-400">
+            Clientes ativos com serviços contábeis
+          </p>
+        </Card>
+        <Card
+          title="Grupos ativos"
+          action={<ChartPieIcon className="h-4 w-4 text-blue-500" />}
+        >
+          <p className="text-3xl font-semibold">{totalGrupos}</p>
+          <p className="text-xs text-neutral-400">
+            Grupos com empresas contábeis
+          </p>
+        </Card>
+        <Card
+          title="Entradas de clientes (mês)"
+          action={<ArrowTrendingUpIcon className="h-4 w-4 text-emerald-500" />}
+        >
+          <p className="text-3xl font-semibold">{entradasMes}</p>
+          <p className="text-xs text-neutral-400">
+            Novos cadastros contábeis no mês atual
+          </p>
+        </Card>
+        <Card
+          title="Saída de clientes (mês)"
+          action={
+            <ArrowTrendingDownIcon className="h-4 w-4 text-red-500" />
+          }
+        >
+          <p className="text-3xl font-semibold text-red-500">{saidasMes}</p>
+          <p className="text-xs text-neutral-400">
+            Empresas contábeis desativadas no mês
+          </p>
+        </Card>
+        <Card
+          title="Empresas paralisadas"
+          action={<BoltSlashIcon className="h-4 w-4 text-amber-400" />}
+        >
+          <p className="text-3xl font-semibold text-amber-300">
+            {totalParalisadas}
+          </p>
+          <p className="text-xs text-neutral-400">
+            Empresas contábeis paralisadas
+          </p>
+        </Card>
+        <Card
+          title="Empresas inativas"
+          action={<ArchiveBoxXMarkIcon className="h-4 w-4 text-red-500" />}
+        >
+          <p className="text-3xl font-semibold text-red-400">
+            {totalDesativadas}
+          </p>
+          <p className="text-xs text-neutral-400">
+            Empresas contábeis desativadas
+          </p>
+        </Card>
+        {showContractValue ? (
+          <FaturamentoMensalCard
+            title={
+              grupoFiltrado
+                ? `Faturamento mensal — ${grupoFiltrado.nome}`
+                : "Faturamento mensal"
+            }
+            valorFormatado={formatCurrencyContrato(faturamentoMensalExibicao)}
+            subtitulo={
+              grupoFiltrado
+                ? "Valor de contrato mensal deste grupo (empresas contábeis)."
+                : "Soma do valor de contrato das empresas com serviços contábeis."
+            }
+          />
+        ) : null}
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold sm:text-xl">Empresas</h2>
+          <p className="text-xs text-neutral-400 sm:text-sm">
+            {clientes.length}{" "}
+            {clientes.length === 1 ? "empresa encontrada" : "empresas encontradas"}
+          </p>
+        </div>
+        <form className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:max-w-2xl sm:flex-row sm:flex-wrap sm:items-stretch">
+          <select
+            name="grupo"
+            defaultValue={grupoId}
+            className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+          >
+            <option value="">Todos os grupos</option>
+            {gruposFiltro.map((grupo) => (
+              <option key={grupo.id} value={grupo.id}>
+                {grupo.nome}
+              </option>
+            ))}
+          </select>
+          <select
+            name="situacao"
+            defaultValue={situacaoFiltro}
+            className="w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none sm:w-auto sm:min-w-[11rem]"
+          >
+            <option value="">Todas as situações</option>
+            <option value="ativa">Ativas</option>
+            <option value="paralisada">Paralisadas</option>
+            <option value="desativada">Desativadas / Inativas</option>
+          </select>
+          <input
+            name="q"
+            defaultValue={term}
+            placeholder="Buscar empresa..."
+            className="w-full min-w-0 flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none sm:min-w-[16rem]"
+          />
+          <button
+            type="submit"
+            className="w-full shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 sm:w-auto"
+          >
+            Buscar
+          </button>
+        </form>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {clientes.map((cliente) => {
+          const gruposRel = cliente.grupos_economicos;
+          const grupoNome =
+            (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) ||
+            cliente.grupo_economico ||
+            "—";
+          const grupoValorContrato = Array.isArray(gruposRel)
+            ? gruposRel[0]?.valor_contrato
+            : gruposRel?.valor_contrato;
+          const grupoValorContratoFallback =
+            grupoValorContrato != null
+              ? grupoValorContrato
+              : cliente.grupo_id
+                ? (gruposById.get(String(cliente.grupo_id))?.valor_contrato ??
+                  null)
+                : typeof cliente.grupo_economico === "string" &&
+                    cliente.grupo_economico.trim()
+                  ? (gruposByNome.get(
+                      cliente.grupo_economico.trim().toLowerCase()
+                    )?.valor_contrato ?? null)
+                  : null;
+          const usaContratoGrupo =
+            cliente.cobranca_por_grupo === true ||
+            (grupoValorContratoFallback != null &&
+              (cliente.valor_contrato == null || cliente.valor_contrato === 0) &&
+              (cliente.grupo_id != null ||
+                typeof cliente.grupo_economico === "string"));
+          const responsaveis = cliente.responsaveis_internos?.[0];
+          const servicosEmbed = cliente.servicos_contratados;
+          const servicos = Array.isArray(servicosEmbed)
+            ? servicosEmbed[0]
+            : servicosEmbed;
+          const hasContabilidade = !!servicos?.contabil_contabilidade;
+          const hasDp = !!servicos?.contabil_dp;
+          const hasPericia = !!servicos?.contabil_pericia;
+          const situacao = getSituacaoEmpresa(cliente);
+          const { titulo: situacaoTitulo } = situacaoEmpresaLabels(situacao);
+          const ui = situacaoCardUi[situacao];
+
+          return (
+            <a
+              key={cliente.id}
+              href={`/clientes/${cliente.id}`}
+              aria-label={`${cliente.razao_social} — ${situacaoTitulo.toLowerCase()}`}
+              className={clsx(
+                "glass-panel group flex flex-col justify-between rounded-2xl border-l-[5px] p-4 transition-all hover:border-neutral-100 hover:bg-neutral-900/50 md:p-5",
+                ui.border,
+                ui.card
+              )}
+            >
+              <div className="space-y-4">
+                <div
+                  className={clsx(
+                    "flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-wider sm:text-xs",
+                    ui.banner
+                  )}
+                >
+                  <span
+                    className={clsx("h-2 w-2 shrink-0 rounded-full", ui.dot)}
+                    aria-hidden
+                  />
+                  {situacaoTitulo}
+                </div>
+
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold text-neutral-50 group-hover:text-white md:text-base">
+                      {cliente.razao_social}
+                    </h3>
+                    <p className="truncate text-[10px] text-neutral-500 md:text-xs">
+                      {cliente.cnpj}
+                    </p>
+                  </div>
+                  <div className="max-w-[min(240px,58%)] shrink-0">
+                    <Pill
+                      label={labelTipoUnidadeExibicao(
+                        cliente.tipo_unidade,
+                        cliente.identificacao_filial
+                      )}
+                      tone="neutral"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-2 gap-y-3 text-[10px] md:text-xs">
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-tighter text-neutral-500">
+                      Grupo
+                    </p>
+                    <p className="truncate font-medium text-neutral-300">
+                      {grupoNome}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-tighter text-neutral-500">
+                      Responsável contábil
+                    </p>
+                    <p className="truncate font-medium text-neutral-300">
+                      {responsaveis?.responsavel_contabil ?? "—"}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-tighter text-neutral-500">
+                      Responsável fiscal
+                    </p>
+                    <p className="truncate font-medium text-neutral-300">
+                      {cliente.responsavel_fiscal ??
+                        responsaveis?.responsavel_comercial ??
+                        "—"}
+                    </p>
+                  </div>
+                  {showContractValue ? (
+                    <div className="min-w-0">
+                      <p className="uppercase tracking-tighter text-neutral-500">
+                        Contrato (mensal)
+                      </p>
+                      <p className="truncate font-semibold tabular-nums text-amber-200/95">
+                        {usaContratoGrupo
+                          ? grupoValorContratoFallback != null
+                            ? formatCurrencyContrato(grupoValorContratoFallback)
+                            : "—"
+                          : formatCurrencyContrato(cliente.valor_contrato)}
+                      </p>
+                      {usaContratoGrupo ? (
+                        <p className="mt-0.5 truncate text-[9px] font-normal text-neutral-500">
+                          Cobrança pelo grupo
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap gap-1 border-t border-neutral-800/50 pt-3">
+                  {hasContabilidade ? (
+                    <Pill label="Contabilidade" tone="success" />
+                  ) : null}
+                  {hasDp ? <Pill label="DP" tone="success" /> : null}
+                  {hasPericia ? <Pill label="Perícia" tone="success" /> : null}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[9px] uppercase tracking-wider text-neutral-500 md:text-[10px]">
+                <span className="min-w-0 max-w-[65%] truncate">
+                  {cliente.cidade ?? "Local não inf."}
+                </span>
+                <span className="shrink-0 whitespace-nowrap opacity-100 transition-opacity group-hover:opacity-100 sm:opacity-0">
+                  Ver detalhes →
+                </span>
+              </div>
+            </a>
+          );
+        })}
+
+        {clientes.length === 0 && (
+          <div className="col-span-full py-12 text-center">
+            <p className="text-neutral-500">
+              Nenhuma empresa com serviços contábeis encontrada.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

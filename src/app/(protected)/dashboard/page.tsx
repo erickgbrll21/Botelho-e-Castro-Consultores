@@ -1,3 +1,4 @@
+import Link from "next/link";
 import clsx from "clsx";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
@@ -8,7 +9,6 @@ import {
   situacaoEmpresaLabels,
   applySituacaoFilter,
   parseSituacaoFiltro,
-  situacaoFilterOrClause,
   type SituacaoEmpresa,
 } from "@/lib/cliente-situacao";
 import {
@@ -25,9 +25,16 @@ import {
   UserGroupIcon,
   ChartPieIcon,
 } from "@heroicons/react/24/outline";
-import { FaturamentoMensalCard } from "@/components/dashboard/faturamento-mensal-card";
 import BoltSlashIcon from "@heroicons/react/24/outline/BoltSlashIcon";
 import ArchiveBoxXMarkIcon from "@heroicons/react/24/outline/ArchiveBoxXMarkIcon";
+import {
+  applyGrupoFilterOnClienteQuery,
+  buildGruposMaps,
+  buildSecoesPorGrupo,
+  fetchGruposParaFiltro,
+  isGrupoDetalheLinkId,
+} from "@/lib/grupos-filtro";
+import { fetchDashboardCardMetrics } from "@/lib/dashboard-metrics";
 
 const situacaoCardUi: Record<
   SituacaoEmpresa,
@@ -97,6 +104,9 @@ export default async function DashboardPage({
   const servicoFiltro = parseServicoFiltro(servicoRaw);
   const servicosEmbed = servicosContratadosEmbedAlias(!!servicoFiltro);
 
+  const gruposFiltro = await fetchGruposParaFiltro(supabase);
+  const { gruposById, gruposByNome } = buildGruposMaps(gruposFiltro);
+
   const now = new Date();
   const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const startOfNextMonth = new Date(
@@ -104,42 +114,6 @@ export default async function DashboardPage({
   );
   const inicioMes = startOfMonth.toISOString().slice(0, 10);
   const inicioProximoMes = startOfNextMonth.toISOString().slice(0, 10);
-
-  const gruposQuery = supabase
-    .from("grupos_economicos")
-    .select("id, nome, valor_contrato")
-    .order("nome", { ascending: true });
-
-  const avulsasQuery = supabase
-    .from("clientes")
-    .select("valor_contrato", { count: "exact" })
-    .is("grupo_id", null)
-    .neq("ativo", false)
-    .not("valor_contrato", "is", null);
-
-  const entradasQuery = supabase
-    .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", startOfMonth.toISOString())
-    .lt("created_at", startOfNextMonth.toISOString());
-
-  const saidasQuery = supabase
-    .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .eq("ativo", false)
-    .not("data_saida", "is", null)
-    .gte("data_saida", inicioMes)
-    .lt("data_saida", inicioProximoMes);
-
-  const paralisadasQuery = supabase
-    .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .or(situacaoFilterOrClause("paralisada"));
-
-  const desativadasQuery = supabase
-    .from("clientes")
-    .select("id", { count: "exact", head: true })
-    .or(situacaoFilterOrClause("desativada"));
 
   const clientesQuery = supabase
     .from("clientes")
@@ -187,7 +161,7 @@ export default async function DashboardPage({
     finalQuery = finalQuery.ilike("razao_social", `%${term}%`);
   }
   if (grupoId) {
-    finalQuery = finalQuery.eq("grupo_id", grupoId);
+    finalQuery = applyGrupoFilterOnClienteQuery(finalQuery, grupoId, gruposById);
   }
   finalQuery = applySituacaoFilter(finalQuery, situacaoFiltro);
   finalQuery = applyServicoContratadoFiltersOnClienteQuery(
@@ -195,22 +169,15 @@ export default async function DashboardPage({
     servicoFiltro
   );
 
-  const [
-    { data: gruposLista },
-    { data: avulsasData },
-    { count: entradasMes },
-    { count: saidasMesCount },
-    { count: paralisadasCount },
-    { count: desativadasCount },
-    { data: dataClientes },
-    profile,
-  ] = await Promise.all([
-    gruposQuery,
-    avulsasQuery,
-    entradasQuery,
-    saidasQuery,
-    paralisadasQuery,
-    desativadasQuery,
+  const [metrics, { data: dataClientes }, profile] = await Promise.all([
+    fetchDashboardCardMetrics(supabase, {
+      grupoId,
+      gruposById,
+      startOfMonth,
+      startOfNextMonth,
+      inicioMes,
+      inicioProximoMes,
+    }),
     finalQuery,
     getCurrentProfile(),
   ]);
@@ -218,46 +185,20 @@ export default async function DashboardPage({
   const showContractValue =
     profile != null && canSeeContractValue(profile.tipo_usuario);
 
-  const gruposFiltro: any[] = gruposLista ?? [];
-  const gruposById = new Map<string, { nome: string; valor_contrato: number | null }>();
-  const gruposByNome = new Map<string, { id: string; nome: string; valor_contrato: number | null }>();
-  for (const g of gruposFiltro) {
-    const id = String(g?.id ?? "");
-    const nome = String(g?.nome ?? "").trim();
-    const valor =
-      typeof g?.valor_contrato === "number"
-        ? g.valor_contrato
-        : g?.valor_contrato == null
-          ? null
-          : Number(g.valor_contrato);
-    const valor_contrato = Number.isFinite(valor) ? (valor as number) : null;
-    if (id) gruposById.set(id, { nome, valor_contrato });
-    if (nome) gruposByNome.set(nome.toLowerCase(), { id, nome, valor_contrato });
-  }
-  const totalGrupos = gruposLista?.length ?? 0;
-  const faturamentoGrupos = (gruposLista ?? []).reduce(
-    (acc: number, g: any) => acc + (Number(g?.valor_contrato) || 0),
-    0
-  );
-  const faturamentoAvulsas = (avulsasData ?? []).reduce(
-    (acc: number, c: any) => acc + (Number(c?.valor_contrato) || 0),
-    0
-  );
-  const faturamentoMensal = faturamentoGrupos + faturamentoAvulsas;
-  const saidasMes = saidasMesCount ?? 0;
-  const totalParalisadas = paralisadasCount ?? 0;
-  const totalDesativadas = desativadasCount ?? 0;
+  const {
+    entradasMes,
+    saidasMes,
+    totalParalisadas,
+    totalDesativadas,
+    totalAtivos,
+    totalGrupos,
+  } = metrics;
   const clientes: any[] = dataClientes ?? [];
 
-  /** Quando há filtro por grupo, o card de faturamento reflete o valor mensal daquele grupo */
-  const grupoFiltrado =
-    grupoId.trim() !== ""
-      ? gruposById.get(grupoId)
-      : undefined;
-  const faturamentoMensalExibicao =
-    grupoFiltrado != null
-      ? grupoFiltrado.valor_contrato
-      : faturamentoMensal;
+  const exibirPorGrupo = grupoId.trim() === "";
+  const secoesClientes = exibirPorGrupo
+    ? buildSecoesPorGrupo(clientes, gruposFiltro, gruposById, gruposByNome)
+    : [{ id: "filtro-unico", nome: "", clientes }];
 
   return (
     <div className="space-y-6">
@@ -275,23 +216,25 @@ export default async function DashboardPage({
 
       <div className="card-grid">
         <Card title="Clientes ativos" action={<UserGroupIcon className="h-4 w-4 text-emerald-500" />}>
-          <p className="text-3xl font-semibold">
-            {clientes.filter((c) => c.ativo !== false).length}
+          <p className="text-3xl font-semibold">{totalAtivos}</p>
+          <p className="text-xs text-neutral-400">
+            Clientes com situação ativa no sistema
           </p>
-          <p className="text-xs text-neutral-400">Total de clientes ativos no sistema</p>
         </Card>
         <Card title="Grupos ativos" action={<ChartPieIcon className="h-4 w-4 text-blue-500" />}>
           <p className="text-3xl font-semibold">{totalGrupos}</p>
-          <p className="text-xs text-neutral-400">Total de grupos cadastrados</p>
+          <p className="text-xs text-neutral-400">
+            Grupos com clientes ativos
+          </p>
         </Card>
         <Card title="Entradas de clientes (mês)" action={<ArrowTrendingUpIcon className="h-4 w-4 text-emerald-500" />}>
-          <p className="text-3xl font-semibold">{entradasMes ?? 0}</p>
+          <p className="text-3xl font-semibold">{entradasMes}</p>
           <p className="text-xs text-neutral-400">
             Novos cadastros no mês atual
           </p>
         </Card>
         <Card title="Saída de clientes (mês)" action={<ArrowTrendingDownIcon className="h-4 w-4 text-red-500" />}>
-          <p className="text-3xl font-semibold text-red-500">{saidasMes ?? 0}</p>
+          <p className="text-3xl font-semibold text-red-500">{saidasMes}</p>
           <p className="text-xs text-neutral-400">
             Empresas desativadas no mês atual
           </p>
@@ -318,21 +261,6 @@ export default async function DashboardPage({
             Total de empresas desativadas no sistema
           </p>
         </Card>
-        {showContractValue ? (
-          <FaturamentoMensalCard
-            title={
-              grupoFiltrado
-                ? `Faturamento mensal — ${grupoFiltrado.nome}`
-                : "Faturamento mensal"
-            }
-            valorFormatado={formatCurrencyContrato(faturamentoMensalExibicao)}
-            subtitulo={
-              grupoFiltrado
-                ? "Valor de contrato mensal cadastrado para este grupo econômico."
-                : "Soma do valor de contrato de todos os grupos e clientes avulsos."
-            }
-          />
-        ) : null}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -400,8 +328,40 @@ export default async function DashboardPage({
         </form>
       </div>
 
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {clientes.map((cliente) => {
+      <div className="space-y-10">
+        {secoesClientes.map((secao) => (
+          <section key={secao.id} className="space-y-4">
+            {exibirPorGrupo ? (
+              <div className="flex flex-col gap-2 border-b border-neutral-800/80 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-0.5">
+                  <h3 className="text-lg font-semibold text-neutral-50">
+                    {secao.nome}
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    {secao.clientes.length}{" "}
+                    {secao.clientes.length === 1 ? "empresa" : "empresas"}
+                  </p>
+                </div>
+                {isGrupoDetalheLinkId(secao.id) ? (
+                  <Link
+                    href={`/grupos/${secao.id}`}
+                    className="text-xs font-semibold text-neutral-400 underline-offset-2 hover:text-white hover:underline"
+                  >
+                    Ver página do grupo
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
+            {secao.clientes.length === 0 ? (
+              <p className="py-6 text-center text-sm text-neutral-500">
+                {exibirPorGrupo
+                  ? "Nenhuma empresa deste grupo com os filtros atuais."
+                  : "Nenhum cliente encontrado."}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {secao.clientes.map((cliente) => {
               const gruposRel = cliente.grupos_economicos;
               const grupoNome = (Array.isArray(gruposRel) ? gruposRel[0]?.nome : gruposRel?.nome) || cliente.grupo_economico || "—";
               const grupoValorContrato = Array.isArray(gruposRel)
@@ -426,11 +386,9 @@ export default async function DashboardPage({
                 ? servicosEmbed[0]
                 : servicosEmbed;
               const hasContabil =
-                !!servicos?.contabil_fiscal ||
                 !!servicos?.contabil_contabilidade ||
                 !!servicos?.contabil_dp ||
-                !!servicos?.contabil_pericia ||
-                !!servicos?.contabil_legalizacao;
+                !!servicos?.contabil_pericia;
               const hasJuridico =
                 !!servicos?.juridico_civel ||
                 !!servicos?.juridico_trabalhista ||
@@ -580,13 +538,17 @@ export default async function DashboardPage({
                   </div>
                 </a>
               );
-            })}
+                })}
+              </div>
+            )}
+          </section>
+        ))}
 
-        {clientes.length === 0 && (
-          <div className="col-span-full py-12 text-center">
+        {clientes.length === 0 && !exibirPorGrupo ? (
+          <div className="py-12 text-center">
             <p className="text-neutral-500">Nenhum cliente encontrado.</p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -9,11 +9,9 @@
 export type ServicoFiltroValor =
   | "qualquer_contabil"
   | "qualquer_juridico"
-  | "contabil_fiscal"
   | "contabil_contabilidade"
   | "contabil_dp"
   | "contabil_pericia"
-  | "contabil_legalizacao"
   | "juridico_civel"
   | "juridico_trabalhista"
   | "juridico_licitacao"
@@ -38,11 +36,9 @@ export const SERVICO_OPCOES: ServicoOpcao[] = [
   },
   { value: "bpo_financeiro", label: "BPO Financeiro", group: "Por categoria" },
 
-  { value: "contabil_fiscal", label: "Fiscal", group: "Contábil" },
   { value: "contabil_contabilidade", label: "Contabilidade", group: "Contábil" },
   { value: "contabil_dp", label: "Departamento Pessoal", group: "Contábil" },
   { value: "contabil_pericia", label: "Perícia", group: "Contábil" },
-  { value: "contabil_legalizacao", label: "Legalização", group: "Contábil" },
 
   { value: "juridico_civel", label: "Cível", group: "Jurídico" },
   { value: "juridico_trabalhista", label: "Trabalhista", group: "Jurídico" },
@@ -54,11 +50,9 @@ export const SERVICO_OPCOES: ServicoOpcao[] = [
 const VALORES_VALIDOS = new Set<string>(SERVICO_OPCOES.map((o) => o.value));
 
 const COLUNAS_CONTABIL = [
-  "contabil_fiscal",
   "contabil_contabilidade",
   "contabil_dp",
   "contabil_pericia",
-  "contabil_legalizacao",
 ] as const;
 
 const COLUNAS_JURIDICO = [
@@ -69,8 +63,29 @@ const COLUNAS_JURIDICO = [
   "juridico_empresarial",
 ] as const;
 
+const COLUNAS_JURIDICO_CIVEL_TRABALHISTA = [
+  "juridico_civel",
+  "juridico_trabalhista",
+] as const;
+
 /** Nome do relacionamento FK em PostgREST (match com FK no schema). */
 export const SERVICOS_CONTRATADOS_FK = "servicos_contratados";
+
+/** Filtro fixo: serviço jurídico Cível ou Trabalhista (Departamento Jurídico). */
+export function applyJuridicoCivelTrabalhistaFilter(query: any): any {
+  return query.or(
+    COLUNAS_JURIDICO_CIVEL_TRABALHISTA.map((c) => `${c}.eq.true`).join(","),
+    { foreignTable: SERVICOS_CONTRATADOS_FK }
+  );
+}
+
+/** Filtro fixo: qualquer serviço contábil (Departamento Contábil). */
+export function applyContabilFilter(query: any): any {
+  return query.or(
+    COLUNAS_CONTABIL.map((c) => `${c}.eq.true`).join(","),
+    { foreignTable: SERVICOS_CONTRATADOS_FK }
+  );
+}
 
 /** Embed na `select(...)`: usar `inner` quando for aplicar filtros em servicos via PostgREST. */
 export function servicosContratadosEmbedAlias(

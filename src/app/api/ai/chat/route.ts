@@ -9,6 +9,7 @@ import {
 } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { isSameOrigin } from "@/lib/assert-same-origin";
 import {
   cnpjPayloadForTool,
   lookupCnpjPublic,
@@ -217,7 +218,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
         servico: {
           type: SchemaType.STRING,
           description:
-            "Filtro por serviço contratado. Categorias: 'qualquer_contabil' (qualquer Contábil), 'qualquer_juridico' (qualquer Jurídico), 'planejamento_societario_tributario', 'bpo_financeiro'. Específicos Contábil: 'contabil_fiscal', 'contabil_contabilidade', 'contabil_dp', 'contabil_pericia', 'contabil_legalizacao'. Específicos Jurídico: 'juridico_civel', 'juridico_trabalhista', 'juridico_licitacao', 'juridico_penal', 'juridico_empresarial'.",
+            "Filtro por serviço contratado. Categorias: 'qualquer_contabil' (qualquer Contábil), 'qualquer_juridico' (qualquer Jurídico), 'planejamento_societario_tributario', 'bpo_financeiro'. Específicos Contábil: 'contabil_contabilidade', 'contabil_dp', 'contabil_pericia'. Específicos Jurídico: 'juridico_civel', 'juridico_trabalhista', 'juridico_licitacao', 'juridico_penal', 'juridico_empresarial'.",
         },
         termo: {
           type: SchemaType.STRING,
@@ -351,11 +352,9 @@ function montarServicosContratadosIa(
 function serializarServicosBooleans(s: Record<string, unknown> | null) {
   if (!s) return { contratados: [] as string[], raw: null as Record<string, unknown> | null };
   const m: { key: string; label: string }[] = [
-    { key: "contabil_fiscal", label: "Contábil-Fiscal" },
     { key: "contabil_contabilidade", label: "Contabilidade" },
     { key: "contabil_dp", label: "Contábil – DP" },
     { key: "contabil_pericia", label: "Contábil – Perícia" },
-    { key: "contabil_legalizacao", label: "Contábil – Legalização" },
     { key: "juridico_civel", label: "Jurídico – Cível" },
     { key: "juridico_trabalhista", label: "Jurídico – Trabalhista" },
     { key: "juridico_licitacao", label: "Jurídico – Licitação" },
@@ -874,13 +873,19 @@ async function listarClientes(
     );
   }
   if (args.termo && args.termo.trim()) {
-    const t = args.termo.trim().slice(0, 120);
-    const digits = t.replace(/\D/g, "");
-    if (digits.length >= 3) {
+    // Remove metacaracteres do parser de filtros do PostgREST (`,` `(` `)` `"` `'` `\`)
+    // e curingas LIKE (`%` `_`) para evitar injeção de filtro via `.or(...)`.
+    const t = args.termo
+      .trim()
+      .slice(0, 120)
+      .replace(/[,()"'\\%_]/g, "")
+      .trim();
+    const digits = (args.termo.match(/\d/g) ?? []).join("");
+    if (t && digits.length >= 3) {
       query = query.or(
         `razao_social.ilike.%${t}%,cnpj.ilike.%${digits}%`
       );
-    } else {
+    } else if (t) {
       query = query.ilike("razao_social", `%${t}%`);
     }
   }
@@ -1439,6 +1444,9 @@ function responseForGeminiFailure(err: unknown): { status: number; message: stri
 }
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Origem não permitida." }, { status: 403 });
+  }
   const profile = await getCurrentProfile();
   if (!profile) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
