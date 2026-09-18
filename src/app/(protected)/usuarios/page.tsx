@@ -18,22 +18,22 @@ async function createUser(formData: FormData) {
   await requireAdminProfile();
   const supabaseAdmin = getServiceRoleClient();
 
-  const email = String(formData.get("email") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const nome = String(formData.get("nome") ?? "");
-  const cargo = formData.get("cargo") ? String(formData.get("cargo")) : null;
+  const nome = String(formData.get("nome") ?? "").trim();
+  const cargo = formData.get("cargo") ? String(formData.get("cargo")).trim() : null;
   const tipo_usuario = parseUserRole(formData.get("tipo_usuario"));
 
   if (!email || !password || !nome) {
-    throw new Error("Preencha todos os campos obrigatórios.");
+    redirect("/usuarios?erro=campos");
   }
 
   if (password.length < 8) {
-    throw new Error("A senha inicial deve ter pelo menos 8 caracteres.");
+    redirect("/usuarios?erro=senha_curta");
   }
 
   if (password.length > 128) {
-    throw new Error("A senha inicial é longa demais (máximo 128 caracteres).");
+    redirect("/usuarios?erro=senha_longa");
   }
 
   const { data: created, error: createError } =
@@ -46,12 +46,14 @@ async function createUser(formData: FormData) {
     });
 
   if (createError || !created.user?.id) {
-    throw new Error(
-      createError?.message ?? "Não foi possível criar o usuário."
+    redirect(
+      `/usuarios?erro=criacao&detalhe=${encodeURIComponent(
+        createError?.message ?? "Não foi possível criar o usuário."
+      )}`
     );
   }
 
-  await (supabaseAdmin.from("usuarios") as any).insert({
+  const { error: insertError } = await (supabaseAdmin.from("usuarios") as any).insert({
     id: created.user.id,
     nome,
     email,
@@ -60,9 +62,20 @@ async function createUser(formData: FormData) {
     ativo: true,
   });
 
+  if (insertError) {
+    // Conta Auth criada, mas falhou o cadastro no painel — tenta limpar.
+    await supabaseAdmin.auth.admin.deleteUser(created.user.id).catch(() => {});
+    redirect(
+      `/usuarios?erro=criacao&detalhe=${encodeURIComponent(
+        insertError.message || "Não foi possível salvar o usuário no painel."
+      )}`
+    );
+  }
+
   await registrarLog("Criação de Usuário", { email, nome, tipo_usuario });
 
   await revalidatePath("/usuarios");
+  redirect("/usuarios?criado=1");
 }
 
 async function deleteUserAndAccount(formData: FormData) {
@@ -175,11 +188,17 @@ async function updateUserTipoUsuario(formData: FormData) {
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ remocao?: string; atualizacao?: string }>;
+  searchParams: Promise<{
+    remocao?: string;
+    atualizacao?: string;
+    criado?: string;
+    erro?: string;
+    detalhe?: string;
+  }>;
 }) {
   const profile = await requireAdminProfile();
   const supabase = await createSupabaseServerClient();
-  const { remocao, atualizacao } = await searchParams;
+  const { remocao, atualizacao, criado, erro, detalhe } = await searchParams;
 
   const { data: usuariosData } = await (supabase
     .from("usuarios") as any)
@@ -190,6 +209,17 @@ export default async function UsuariosPage({
   const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const canEditTipoUsuario =
     profile != null && ["admin", "diretor"].includes(profile.tipo_usuario);
+
+  const mensagemErro =
+    erro === "senha_curta"
+      ? "A senha inicial deve ter pelo menos 8 caracteres."
+      : erro === "senha_longa"
+        ? "A senha inicial é longa demais (máximo 128 caracteres)."
+        : erro === "campos"
+          ? "Preencha todos os campos obrigatórios."
+          : erro === "criacao"
+            ? detalhe?.trim() || "Não foi possível criar o usuário."
+            : null;
 
   return (
     <div className="space-y-6">
@@ -202,6 +232,22 @@ export default async function UsuariosPage({
           Apenas administradores podem criar contas. Não existe auto cadastro.
         </p>
       </div>
+
+      {criado === "1" ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+          <p className="font-semibold">Usuário criado com sucesso.</p>
+          <p className="mt-1 text-emerald-100/90">
+            A conta já pode acessar o painel com a senha inicial informada.
+          </p>
+        </div>
+      ) : null}
+
+      {mensagemErro ? (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
+          <p className="font-semibold">Não foi possível criar o usuário</p>
+          <p className="mt-1 text-red-100/90">{mensagemErro}</p>
+        </div>
+      ) : null}
 
       {atualizacao === "tipo_ok" ? (
         <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 text-sm text-sky-100">
@@ -284,11 +330,14 @@ export default async function UsuariosPage({
                 name="password"
                 type="password"
                 required
+                minLength={8}
+                maxLength={128}
                 className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                placeholder="Senha temporária"
+                placeholder="Mínimo 8 caracteres"
               />
               <p className="text-xs text-neutral-500">
-                Solicite que o usuário altere após o primeiro acesso.
+                Mínimo de 8 caracteres. Solicite que o usuário altere após o
+                primeiro acesso.
               </p>
             </div>
             <div className="flex items-end">
