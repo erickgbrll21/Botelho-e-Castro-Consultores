@@ -61,14 +61,14 @@ const SYSTEM = `O objetivo do Assistente é responder perguntas com base EXCLUSI
 O CONTEXTO disponível para você é SOMENTE:
 - As mensagens desta conversa (usuário/assistente) enviadas pelo sistema.
 - Blocos anexados pelo servidor no formato "[Pré-carga BCC ...]" (cadastro interno / grupo econômico).
-- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes, grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), grupo, cidade, estado, atividade, regime tributário ou serviço contratado (Contábil/Jurídico/Planejamento/BPO Financeiro, em geral ou serviço específico).
+- Dados de consultas internas: CNPJ (bases públicas), cadastro de clientes (pessoa jurídica e **pessoa física**), grupos económicos, estatísticas globais do painel e listas filtradas por situação (ativa/paralisada/desativada), tipo de pessoa (PF/PJ), grupo, cidade, estado, atividade, regime tributário ou serviço contratado (Contábil/Jurídico/Planejamento/BPO Financeiro, em geral ou serviço específico).
 - Ficha e listagens incluem **BPO Financeiro** (contratado ou não); o valor mensal aparece apenas para Diretor/Financeiro. Estatísticas globais podem trazer quantas empresas têm BPO ativo e a soma dos valores mensais, quando autorizado.
 
 CONHECIMENTO DO PAINEL (importante)
 - O sistema classifica cada empresa em uma de três situações: **ativa**, **paralisada** ou **desativada/inativa**. Empresas sem situação preenchida são tratadas como ativas (a menos que estejam marcadas como inativas).
 - O dashboard apresenta os totais: clientes ativos, grupos cadastrados, entradas e saídas no mês, empresas paralisadas, empresas inativas e (para Diretor/Financeiro) faturamento mensal.
-- Para perguntas como "quantas empresas paralisadas/inativas/ativas temos?" você deve usar a ferramenta de estatísticas globais.
-- Para perguntas como "quais empresas estão paralisadas?", "liste as empresas inativas", "empresas paralisadas em São Paulo", "clientes do Lucro Real" — use a ferramenta de listagem com os filtros adequados.
+- Para perguntas como "quantas empresas paralisadas/inativas/ativas temos?" ou **"quantas pessoas físicas temos?"** / **"pessoas físicas por grupo"** você deve usar a ferramenta de estatísticas globais.
+- Para perguntas como "quais empresas estão paralisadas?", "liste as pessoas físicas", "clientes PF do grupo X" — use a ferramenta de listagem com os filtros adequados (incluindo tipo_pessoa quando for PF ou PJ).
 
 TOM E LINGUAGEM (falar com o utilizador)
 - Português do Brasil, tom **profissional, cordial e natural** — evite respostas frias, excessivamente burocráticas ou de manual técnico.
@@ -110,8 +110,8 @@ USO DE FERRAMENTAS (uso interno — não falar disso ao utilizador)
 - CNPJ público: chame a função apropriada; nunca invente dados.
 - Cadastro: só busque de novo se a pré-carga ainda for insuficiente.
 - Grupo econômico: para contagens, contrato ou listas, quando faltar contexto.
-- Estatísticas globais (totais do painel, contagem por situação, faturamento, entradas/saídas do mês): chame a função de estatísticas — não some nem invente. Se o utilizador não puder ver valores de contrato, esses campos virão nulos com aviso de restrição.
-- Listagem por filtros (situação ativa/paralisada/desativada, grupo, cidade, estado, atividade, regime, **serviço contratado**): chame a função de listagem com os filtros corretos. Para perguntas como "quem tem BPO Financeiro?", "empresas com serviço Trabalhista", "clientes com Planejamento Tributário", use o argumento de serviço apropriado. Use limite razoável (10–25). Se houver mais resultados, informe quantos e ofereça refinar.
+- Estatísticas globais (totais do painel, contagem por situação, **pessoas físicas/jurídicas no total e por grupo econômico**, faturamento, entradas/saídas do mês): chame a função de estatísticas — não some nem invente. Se o utilizador não puder ver valores de contrato, esses campos virão nulos com aviso de restrição.
+- Listagem por filtros (situação ativa/paralisada/desativada, **tipo_pessoa pf/pj**, grupo, cidade, estado, atividade, regime, **serviço contratado**): chame a função de listagem com os filtros corretos. Para perguntas como "quem tem BPO Financeiro?", "liste pessoas físicas", "empresas com serviço Trabalhista", "clientes com Planejamento Tributário", use o argumento de serviço ou tipo_pessoa apropriado. Use limite razoável (10–25). Se houver mais resultados, informe quantos e ofereça refinar.
 
 SEGURANÇA
 - Não exponha chaves, tokens, nem detalhes técnicos do servidor.
@@ -151,7 +151,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "consultar_grupo_economico",
     description:
-      "Consulta um grupo econômico pelo nome e retorna contagem de empresas (e, opcionalmente, uma lista resumida). Use para perguntas como: 'quantas empresas tem no grupo X?'.",
+      "Consulta um grupo econômico pelo nome e retorna contagem de clientes (PJ e PF), incluindo pessoas físicas no grupo, e opcionalmente uma lista resumida. Use para perguntas como: 'quantas empresas tem no grupo X?' ou 'quantas pessoas físicas no grupo Y?'.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
@@ -174,7 +174,7 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "estatisticas_painel",
     description:
-      "Retorna métricas globais do painel: total de clientes, totais por situação (ativas, paralisadas, desativadas/inativas), total de grupos econômicos, entradas e saídas no mês corrente, contagens relacionadas ao serviço BPO Financeiro (e, para Diretor/Financeiro, soma dos valores mensais cadastrados) e (se autorizado) faturamento mensal e quebra por grupo/avulsas. Use também para perguntas como quantas empresas têm BPO Financeiro ou qual a soma dos valores do BPO.",
+      "Retorna métricas globais do painel: total de clientes, totais por situação (ativas, paralisadas, desativadas/inativas), total de pessoas físicas e pessoas jurídicas, pessoas físicas por grupo econômico, total de grupos econômicos, entradas e saídas no mês corrente, contagens relacionadas ao serviço BPO Financeiro (e, para Diretor/Financeiro, soma dos valores mensais cadastrados) e (se autorizado) faturamento mensal e quebra por grupo/avulsas. Use para 'quantas pessoas físicas temos?' e 'pessoas físicas em cada grupo'.",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {},
@@ -183,10 +183,15 @@ const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "listar_clientes",
     description:
-      "Lista clientes do cadastro com filtros opcionais e devolve o total que casa com o filtro. Use para perguntas como 'liste as empresas paralisadas', 'quais empresas inativas', 'clientes do Lucro Real em SP', 'empresas de São Paulo no grupo X'. Não use para detalhe de uma única empresa pelo nome (use buscar_empresas_sistema).",
+      "Lista clientes do cadastro com filtros opcionais e devolve o total que casa com o filtro. Use para perguntas como 'liste as empresas paralisadas', 'quais pessoas físicas', 'clientes PF do grupo', 'clientes do Lucro Real em SP'. Não use para detalhe de uma única empresa pelo nome (use buscar_empresas_sistema).",
     parameters: {
       type: SchemaType.OBJECT,
       properties: {
+        tipo_pessoa: {
+          type: SchemaType.STRING,
+          description:
+            "Tipo de cadastro: 'pf' (pessoa física) ou 'pj' (pessoa jurídica/empresa). Aceita sinônimos como 'pessoa física', 'pessoa juridica'.",
+        },
         situacao: {
           type: SchemaType.STRING,
           description:
@@ -546,6 +551,7 @@ type GrupoEconomicoEmpresaResumo = {
   id: string;
   razao_social: string | null;
   cnpj: string | null;
+  tipo_pessoa: string | null;
   cidade: string | null;
   estado: string | null;
   ativo: boolean | null;
@@ -569,6 +575,13 @@ function serializeClienteResumo(
     detalhe_url: `/clientes/${c.id}`,
     razao_social: c.razao_social ?? null,
     cnpj: c.cnpj ?? null,
+    tipo_pessoa: c.tipo_pessoa ?? null,
+    documento:
+      c.tipo_pessoa === "pf"
+        ? "CPF"
+        : c.tipo_pessoa === "pj"
+          ? "CNPJ"
+          : null,
     cidade: c.cidade ?? null,
     estado: c.estado ?? null,
     atividade: c.atividade ?? null,
@@ -605,6 +618,192 @@ function parseSituacaoToolArg(
     return "desativada";
   }
   return "";
+}
+
+type TipoPessoaFiltro = "pf" | "pj";
+
+function parseTipoPessoaToolArg(
+  raw: string | undefined | null
+): TipoPessoaFiltro | "" {
+  const v = (raw ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  if (
+    v === "pf" ||
+    v === "pessoa_fisica" ||
+    v === "pessoa fisica" ||
+    v === "pessoas_fisicas" ||
+    v === "pessoas fisicas" ||
+    v === "fisica" ||
+    v === "fisicas"
+  ) {
+    return "pf";
+  }
+  if (
+    v === "pj" ||
+    v === "pessoa_juridica" ||
+    v === "pessoa juridica" ||
+    v === "pessoas_juridicas" ||
+    v === "pessoas juridicas" ||
+    v === "empresa" ||
+    v === "empresas" ||
+    v === "juridica" ||
+    v === "juridicas"
+  ) {
+    return "pj";
+  }
+  return "";
+}
+
+function applyTipoPessoaFilter(query: any, tipo: TipoPessoaFiltro | ""): any {
+  if (tipo === "pf") return query.eq("tipo_pessoa", "pf");
+  if (tipo === "pj") return query.eq("tipo_pessoa", "pj");
+  return query;
+}
+
+async function contarClientesPorTipoPessoa(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tipo: TipoPessoaFiltro
+) {
+  return (supabase.from("clientes") as any)
+    .select("id", { count: "exact", head: true })
+    .eq("tipo_pessoa", tipo);
+}
+
+async function agregarTipoPessoaPorGrupo(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+): Promise<{
+  erro: string | null;
+  total_pf: number;
+  total_pj: number;
+  pf_sem_grupo: number;
+  por_grupo: Array<{
+    grupo_id: string;
+    nome: string;
+    nome_exibicao: string;
+    total_clientes: number;
+    pessoas_fisicas: number;
+    pessoas_juridicas: number;
+  }>;
+}> {
+  const [{ data: grupos, error: gErr }, { data: clientes, error: cErr }] =
+    await Promise.all([
+      (supabase.from("grupos_economicos") as any)
+        .select("id, nome")
+        .order("nome", { ascending: true }),
+      (supabase.from("clientes") as any).select(
+        "grupo_id, tipo_pessoa, grupo_economico"
+      ),
+    ]);
+
+  if (gErr || cErr) {
+    return {
+      erro: gErr?.message ?? cErr?.message ?? "Erro ao agregar por grupo.",
+      total_pf: 0,
+      total_pj: 0,
+      pf_sem_grupo: 0,
+      por_grupo: [],
+    };
+  }
+
+  const gs = (Array.isArray(grupos) ? grupos : []) as Array<{
+    id: string;
+    nome: string;
+  }>;
+  const rows = (Array.isArray(clientes) ? clientes : []) as Array<{
+    grupo_id?: string | null;
+    tipo_pessoa?: string | null;
+    grupo_economico?: string | null;
+  }>;
+
+  const grupoById = new Map(gs.map((g) => [String(g.id), g]));
+  const grupoByNome = new Map(
+    gs.map((g) => [g.nome.trim().toLowerCase(), String(g.id)])
+  );
+  const agg = new Map<string, { pf: number; pj: number }>();
+
+  const ensure = (grupoId: string) => {
+    if (!agg.has(grupoId)) agg.set(grupoId, { pf: 0, pj: 0 });
+    return agg.get(grupoId)!;
+  };
+
+  let totalPf = 0;
+  let totalPj = 0;
+  let pfSemGrupo = 0;
+
+  for (const row of rows) {
+    const isPf = row.tipo_pessoa === "pf";
+    if (isPf) totalPf += 1;
+    else totalPj += 1;
+
+    let grupoId = row.grupo_id ? String(row.grupo_id).trim() : "";
+    if (!grupoId && typeof row.grupo_economico === "string") {
+      grupoId =
+        grupoByNome.get(row.grupo_economico.trim().toLowerCase()) ?? "";
+    }
+
+    if (grupoId && grupoById.has(grupoId)) {
+      const bucket = ensure(grupoId);
+      if (isPf) bucket.pf += 1;
+      else bucket.pj += 1;
+    } else if (isPf) {
+      pfSemGrupo += 1;
+    }
+  }
+
+  const por_grupo = gs.map((g) => {
+    const bucket = agg.get(String(g.id)) ?? { pf: 0, pj: 0 };
+    return {
+      grupo_id: g.id,
+      nome: g.nome,
+      nome_exibicao: nomeGrupoExibicaoParaResposta(g.nome) ?? g.nome,
+      total_clientes: bucket.pf + bucket.pj,
+      pessoas_fisicas: bucket.pf,
+      pessoas_juridicas: bucket.pj,
+    };
+  });
+
+  return {
+    erro: null,
+    total_pf: totalPf,
+    total_pj: totalPj,
+    pf_sem_grupo: pfSemGrupo,
+    por_grupo,
+  };
+}
+
+async function contarTipoPessoaNoGrupo(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  grupoId: string,
+  grupoNome: string
+): Promise<{ pf_fk: number; pj_fk: number; pf_texto: number; pj_texto: number }> {
+  const [pfFk, pjFk, pfTxt, pjTxt] = await Promise.all([
+    (supabase.from("clientes") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("grupo_id", grupoId)
+      .eq("tipo_pessoa", "pf"),
+    (supabase.from("clientes") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("grupo_id", grupoId)
+      .eq("tipo_pessoa", "pj"),
+    (supabase.from("clientes") as any)
+      .select("id", { count: "exact", head: true })
+      .ilike("grupo_economico", grupoNome)
+      .eq("tipo_pessoa", "pf"),
+    (supabase.from("clientes") as any)
+      .select("id", { count: "exact", head: true })
+      .ilike("grupo_economico", grupoNome)
+      .eq("tipo_pessoa", "pj"),
+  ]);
+
+  return {
+    pf_fk: Number(pfFk.count ?? 0),
+    pj_fk: Number(pjFk.count ?? 0),
+    pf_texto: Number(pfTxt.count ?? 0),
+    pj_texto: Number(pjTxt.count ?? 0),
+  };
 }
 
 async function estatisticasPainel(
@@ -664,6 +863,10 @@ async function estatisticasPainel(
     .select("cliente_id", { count: "exact", head: true })
     .eq("bpo_financeiro", true);
 
+  const totalPfPromise = contarClientesPorTipoPessoa(supabase, "pf");
+  const totalPjPromise = contarClientesPorTipoPessoa(supabase, "pj");
+  const agregacaoGrupoPromise = agregarTipoPessoaPorGrupo(supabase);
+
   const valoresBpoPromise = canSeeContrato
     ? (supabase.from("servicos_contratados") as any)
         .select("valor_bpo_financeiro")
@@ -682,6 +885,9 @@ async function estatisticasPainel(
     rAvulsasFat,
     rBpoCount,
     rBpoVals,
+    rPf,
+    rPj,
+    agregacaoGrupo,
   ] = await Promise.all([
     totalClientes,
     totalAtivas,
@@ -694,6 +900,9 @@ async function estatisticasPainel(
     avulsasFatPromise,
     totalComBpoFinanceiro,
     valoresBpoPromise,
+    totalPfPromise,
+    totalPjPromise,
+    agregacaoGrupoPromise,
   ]);
 
   const erros: string[] = [];
@@ -712,6 +921,15 @@ async function estatisticasPainel(
   }
   if ((rBpoCount as any).error) {
     erros.push(`bpo_financeiro_count: ${(rBpoCount as any).error.message}`);
+  }
+  if ((rPf as any).error) {
+    erros.push(`total_pessoas_fisicas: ${(rPf as any).error.message}`);
+  }
+  if ((rPj as any).error) {
+    erros.push(`total_pessoas_juridicas: ${(rPj as any).error.message}`);
+  }
+  if (agregacaoGrupo.erro) {
+    erros.push(`tipo_pessoa_por_grupo: ${agregacaoGrupo.erro}`);
   }
   if (canSeeContrato && (rBpoVals as any).error) {
     erros.push(`bpo_financeiro_valores: ${(rBpoVals as any).error.message}`);
@@ -771,6 +989,22 @@ async function estatisticasPainel(
       paralisadas: rParal.count ?? null,
       desativadas_inativas: rDes.count ?? null,
       grupos_economicos: rGrupos.count ?? null,
+      pessoas_fisicas: (rPf as any).count ?? agregacaoGrupo.total_pf ?? null,
+      pessoas_juridicas: (rPj as any).count ?? agregacaoGrupo.total_pj ?? null,
+    },
+    pessoas_fisicas: {
+      total: (rPf as any).count ?? agregacaoGrupo.total_pf ?? null,
+      sem_grupo_vinculado: agregacaoGrupo.pf_sem_grupo,
+      por_grupo: agregacaoGrupo.por_grupo.map((g) => ({
+        grupo_id: g.grupo_id,
+        nome: g.nome,
+        nome_exibicao: g.nome_exibicao,
+        pessoas_fisicas: g.pessoas_fisicas,
+        pessoas_juridicas: g.pessoas_juridicas,
+        total_clientes: g.total_clientes,
+      })),
+      observacao:
+        "Contagem por tipo_pessoa no cadastro. por_grupo inclui todos os grupos (mesmo com zero pessoas físicas).",
     },
     fluxo_mes: {
       entradas: rEntradas.count ?? null,
@@ -807,6 +1041,7 @@ async function estatisticasPainel(
 async function listarClientes(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   args: {
+    tipo_pessoa?: TipoPessoaFiltro | "";
     situacao?: SituacaoFiltroValor | "";
     grupo_id?: string | null;
     cidade?: string | null;
@@ -830,7 +1065,7 @@ async function listarClientes(
   );
 
   const baseSelect = `
-    id, razao_social, cnpj, cidade, estado, atividade,
+    id, razao_social, cnpj, tipo_pessoa, cidade, estado, atividade,
     regime_tributario, situacao_empresa, ativo, grupo_economico, grupo_id,
     grupos_economicos ( id, nome ),
     ${servicosEmbed}
@@ -844,6 +1079,7 @@ async function listarClientes(
 
   query = applySituacaoFilter(query, args.situacao ?? "");
   query = applyServicoContratadoFiltersOnClienteQuery(query, servicoFiltro);
+  query = applyTipoPessoaFilter(query, args.tipo_pessoa ?? "");
 
   if (args.grupo_id) {
     query = query.eq("grupo_id", args.grupo_id);
@@ -907,6 +1143,7 @@ async function listarClientes(
     limite: lim,
     offset: off,
     filtros: {
+      tipo_pessoa: args.tipo_pessoa || null,
       situacao: args.situacao || null,
       grupo_id: args.grupo_id || null,
       cidade: args.cidade || null,
@@ -966,7 +1203,7 @@ async function consultarGrupoEconomico(
   // Para cada grupo encontrado, contar empresas relacionadas via FK (join) e também via texto (fallback).
   const resultados: any[] = [];
   for (const g of gs) {
-    const baseSelect = "id, razao_social, cnpj, cidade, estado, ativo, situacao_empresa";
+    const baseSelect = "id, razao_social, cnpj, tipo_pessoa, cidade, estado, ativo, situacao_empresa";
 
     const { count: countFk, error: cFkErr } = await (supabase.from("clientes") as any)
       .select(`id, grupos_economicos!inner(nome)`, { count: "exact", head: true })
@@ -985,6 +1222,10 @@ async function consultarGrupoEconomico(
     }
 
     const total = Math.max(Number(countFk ?? 0), Number(countTxt ?? 0));
+    const tipoCounts = await contarTipoPessoaNoGrupo(supabase, g.id, g.nome);
+    const pessoasFisicas = Math.max(tipoCounts.pf_fk, tipoCounts.pf_texto);
+    const pessoasJuridicas = Math.max(tipoCounts.pj_fk, tipoCounts.pj_texto);
+
     const payload: Record<string, unknown> = {
       grupo: {
         id: g.id,
@@ -995,9 +1236,16 @@ async function consultarGrupoEconomico(
       },
       valor_contrato_disponivel: canSeeContrato ? g.valor_contrato != null : false,
       total_empresas: total,
+      total_clientes: total,
+      pessoas_fisicas: pessoasFisicas,
+      pessoas_juridicas: pessoasJuridicas,
       contagem_origem: {
         fk: Number(countFk ?? 0),
         texto_grupo_economico: Number(countTxt ?? 0),
+        pessoas_fisicas_fk: tipoCounts.pf_fk,
+        pessoas_fisicas_texto: tipoCounts.pf_texto,
+        pessoas_juridicas_fk: tipoCounts.pj_fk,
+        pessoas_juridicas_texto: tipoCounts.pj_texto,
       },
       restricoes: canSeeContrato
         ? null
@@ -1022,6 +1270,7 @@ async function consultarGrupoEconomico(
           id: String(x.id),
           razao_social: x.razao_social ?? null,
           cnpj: x.cnpj ?? null,
+          tipo_pessoa: x.tipo_pessoa ?? null,
           cidade: x.cidade ?? null,
           estado: x.estado ?? null,
           ativo: x.ativo ?? null,
@@ -1040,6 +1289,7 @@ async function consultarGrupoEconomico(
           id: String(x.id),
           razao_social: x.razao_social ?? null,
           cnpj: x.cnpj ?? null,
+          tipo_pessoa: x.tipo_pessoa ?? null,
           cidade: x.cidade ?? null,
           estado: x.estado ?? null,
           ativo: x.ativo ?? null,
@@ -1205,12 +1455,38 @@ function shouldPrefetchGrupoEconomico(msg: string): boolean {
 function shouldPrefetchEstatisticas(msg: string): boolean {
   const t = msg.trim().toLowerCase();
   if (t.length < 4) return false;
+  if (
+    /\bpessoa\s+f[ií]sica|\bpessoas\s+f[ií]sicas|\bpessoas\s+fisicas|\bpf\b/.test(
+      t
+    )
+  ) {
+    return true;
+  }
   if (/\bgrupo\b/.test(t)) return false; // perguntas sobre grupo já têm pré-carga própria
   const palavrasMetrica =
     /(total|totais|quant[ao]s?|qtd|m[eé]dia|m[ée]tricas?|m[ée]tricos?|estat[ií]sticas?|painel|dashboard|faturamento|fatura[cç][aã]o|receita|mensal|entradas?|sa[ií]das?)/;
   const palavrasEntidade =
     /(empresas?|clientes?|paralisad[ao]s?|inativ[ao]s?|desativad[ao]s?|ativ[ao]s?|grupos?|cadastr[ao]s?)/;
   return palavrasMetrica.test(t) && palavrasEntidade.test(t);
+}
+
+/**
+ * Detecta perguntas que pedem listagem por tipo de pessoa.
+ */
+function detectTipoPessoaDoTexto(msg: string): TipoPessoaFiltro | "" {
+  const t = msg.trim().toLowerCase();
+  if (t.length < 4) return "";
+  const intencao =
+    /(liste|listar|mostre|mostrar|quais|quem|relacione|relacionar|filtre|filtrar|clientes|cadastrad)/;
+  if (!intencao.test(t)) return "";
+  if (
+    /\bpessoa\s+f[ií]sica|\bpessoas\s+f[ií]sicas|\bpessoas\s+fisicas|\bpf\b/.test(
+      t
+    )
+  ) {
+    return "pf";
+  }
+  return "";
 }
 
 /**
@@ -1564,13 +1840,17 @@ export async function POST(req: Request) {
 
   let listaSituacaoPreloadJson: string | null = null;
   let listaSituacaoPreloadValor: SituacaoFiltroValor | "" = "";
+  let listaTipoPessoaPreloadValor: TipoPessoaFiltro | "" = "";
   const situacaoDetectada = detectSituacaoFiltroDoTexto(lastUserText);
-  if (situacaoDetectada) {
+  const tipoPessoaDetectado = detectTipoPessoaDoTexto(lastUserText);
+  if (situacaoDetectada || tipoPessoaDetectado) {
     listaSituacaoPreloadValor = situacaoDetectada;
+    listaTipoPessoaPreloadValor = tipoPessoaDetectado;
     try {
       listaSituacaoPreloadJson = await listarClientes(
         supabase,
         {
+          tipo_pessoa: tipoPessoaDetectado,
           situacao: situacaoDetectada,
           limite: 25,
           offset: 0,
@@ -1602,15 +1882,16 @@ ${grupoPreloadJson}`
     estatisticasPreloadJson != null
       ? `${lastUserComPreload2}
 
-[Pré-carga BCC — Estatísticas globais do painel (totais por situação, fluxo do mês, faturamento se permitido). Use estes números diretamente para responder; não chame estatisticas_painel novamente, salvo se o utilizador pedir actualização explícita.]
+[Pré-carga BCC — Estatísticas globais do painel (totais por situação, pessoas físicas/jurídicas e por grupo, fluxo do mês, faturamento se permitido). Use estes números diretamente para responder; não chame estatisticas_painel novamente, salvo se o utilizador pedir actualização explícita.]
 ${estatisticasPreloadJson}`
       : lastUserComPreload2;
 
   const lastUserComPreload4 =
-    listaSituacaoPreloadJson != null && listaSituacaoPreloadValor
+    listaSituacaoPreloadJson != null &&
+    (listaSituacaoPreloadValor || listaTipoPessoaPreloadValor)
       ? `${lastUserComPreload3}
 
-[Pré-carga BCC — Lista de empresas (situação=${listaSituacaoPreloadValor}). Para outros filtros (cidade, estado, grupo, atividade, regime) chame listar_clientes com os argumentos adequados. Mostre uma lista enxuta ao utilizador (razão social, CNPJ, cidade/UF) e ofereça refinar.]
+[Pré-carga BCC — Lista de clientes (situação=${listaSituacaoPreloadValor || "qualquer"}, tipo_pessoa=${listaTipoPessoaPreloadValor || "qualquer"}). Para outros filtros (cidade, estado, grupo, atividade, regime) chame listar_clientes com os argumentos adequados. Mostre uma lista enxuta ao utilizador (nome, documento, cidade/UF) e ofereça refinar.]
 ${listaSituacaoPreloadJson}`
       : lastUserComPreload3;
 
@@ -1701,6 +1982,7 @@ ${listaSituacaoPreloadJson}`
         limite?: number;
         offset?: number;
         situacao?: string;
+        tipo_pessoa?: string;
         grupo_id?: string;
         cidade?: string;
         estado?: string;
@@ -1745,9 +2027,11 @@ ${listaSituacaoPreloadJson}`
         toolText = await estatisticasPainel(supabase, canSeeContrato);
       } else if (name === "listar_clientes") {
         const situacao = parseSituacaoToolArg(args.situacao);
+        const tipo_pessoa = parseTipoPessoaToolArg(args.tipo_pessoa);
         toolText = await listarClientes(
           supabase,
           {
+            tipo_pessoa,
             situacao,
             grupo_id: args.grupo_id ? String(args.grupo_id) : null,
             cidade: args.cidade ? String(args.cidade) : null,

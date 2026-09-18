@@ -317,6 +317,120 @@ export interface Database {
           created_at?: string
         }
       }
+      tipos_servico: {
+        Row: {
+          id: string
+          nome: string
+          ativo: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          ativo?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      demandas: {
+        Row: {
+          id: string
+          titulo: string
+          descricao: string | null
+          tipo_servico_id: string | null
+          responsavel_id: string | null
+          criado_por: string | null
+          prazo_final: string
+          protocolo: string | null
+          status: DemandaStatus
+          url_pasta: string | null
+          caminho_pasta: string | null
+          observacoes: string | null
+          concluida_em: string | null
+          concluida_por: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          descricao?: string | null
+          tipo_servico_id?: string | null
+          responsavel_id?: string | null
+          criado_por?: string | null
+          prazo_final: string
+          protocolo?: string | null
+          status?: DemandaStatus
+          url_pasta?: string | null
+          caminho_pasta?: string | null
+          observacoes?: string | null
+          concluida_em?: string | null
+          concluida_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          descricao?: string | null
+          tipo_servico_id?: string | null
+          responsavel_id?: string | null
+          criado_por?: string | null
+          prazo_final?: string
+          protocolo?: string | null
+          status?: DemandaStatus
+          url_pasta?: string | null
+          caminho_pasta?: string | null
+          observacoes?: string | null
+          concluida_em?: string | null
+          concluida_por?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      historico_demandas: {
+        Row: {
+          id: string
+          demanda_id: string
+          usuario_id: string | null
+          usuario_nome: string | null
+          acao: string
+          campo_alterado: string | null
+          valor_anterior: string | null
+          valor_novo: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          demanda_id: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          acao: string
+          campo_alterado?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          demanda_id?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          acao?: string
+          campo_alterado?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+          created_at?: string
+        }
+      }
       logs_sistema: {
         Row: {
           id: string
@@ -345,13 +459,38 @@ export interface Database {
       }
     }
     Views: {
-      [_ in never]: never
+      demandas_view: {
+        Row: {
+          id: string
+          titulo: string
+          descricao: string | null
+          tipo_servico_id: string | null
+          tipo_servico_nome: string | null
+          responsavel_id: string | null
+          responsavel_nome: string | null
+          criado_por: string | null
+          criado_por_nome: string | null
+          prazo_final: string
+          protocolo: string | null
+          status: DemandaStatus
+          url_pasta: string | null
+          caminho_pasta: string | null
+          observacoes: string | null
+          concluida_em: string | null
+          concluida_por: string | null
+          concluida_por_nome: string | null
+          created_at: string
+          updated_at: string
+          atrasada: boolean
+        }
+      }
     }
     Functions: {
       [_ in never]: never
     }
     Enums: {
       user_role: UserRole
+      demanda_status: DemandaStatus
     }
   }
 }
@@ -363,7 +502,15 @@ export type UserRole =
   | "financeiro"
   | "controladoria"
 
+export type DemandaStatus =
+  | "pendente"
+  | "em_andamento"
+  | "aguardando_confirmacao"
+  | "concluida"
+
 export type Tables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Row"]
+export type Views<T extends keyof Database["public"]["Views"]> =
+  Database["public"]["Views"][T]["Row"]
 export type Enums<T extends keyof Database["public"]["Enums"]> =
   Database["public"]["Enums"][T]

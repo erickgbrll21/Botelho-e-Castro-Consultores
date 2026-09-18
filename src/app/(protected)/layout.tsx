@@ -5,6 +5,7 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 import { loadServerAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AssistantChat } from "@/components/ai/assistant-chat";
+import { fetchDemandasPendentesCount } from "@/lib/demandas-queries";
 
 export default async function ProtectedLayout({
   children,
@@ -39,14 +40,29 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
+  // Contador de demandas que precisam de atenção do usuário logado.
+  // Resiliente: volta 0 se o módulo ainda não estiver instalado no banco.
+  const supabaseLeitura = await createSupabaseServerClient();
+  const demandasPendentes = await fetchDemandasPendentesCount(
+    supabaseLeitura,
+    profile.id
+  );
+
   return (
     <div className="min-h-screen bg-neutral-950 p-3 sm:p-4 md:p-8 text-neutral-50">
       <div className="mx-auto flex min-w-0 max-w-7xl flex-col gap-4 md:flex-row md:gap-6">
-        <Sidebar role={profile.tipo_usuario} />
+        <Sidebar
+          role={profile.tipo_usuario}
+          demandasPendentes={demandasPendentes}
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-4">
           <header className="glass-panel flex min-w-0 items-center justify-between gap-2 rounded-2xl border border-neutral-800/80 px-3 py-3 md:px-5 md:py-4">
             <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-4">
-              <MobileNav role={profile.tipo_usuario} signOutAction={signOut} />
+              <MobileNav
+                role={profile.tipo_usuario}
+                signOutAction={signOut}
+                demandasPendentes={demandasPendentes}
+              />
               <div className="min-w-0 flex-1 space-y-0.5 md:space-y-1">
                 <p className="text-[9px] md:text-xs uppercase tracking-[0.2em] md:tracking-[0.3em] text-neutral-500">
                   Painel

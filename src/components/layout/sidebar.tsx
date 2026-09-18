@@ -12,6 +12,7 @@ import {
   DocumentTextIcon,
   IdentificationIcon,
   ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
   ScaleIcon,
   ChartBarIcon,
   Bars3Icon,
@@ -21,10 +22,44 @@ import type { UserRole } from "@/types/database";
 
 type SidebarProps = {
   role: UserRole;
+  /** Demandas do próprio usuário que precisam de atenção (badge). */
+  demandasPendentes?: number;
 };
 
-const links = [
+type SubLink = {
+  href: string;
+  label: string;
+  adminOnly?: boolean;
+};
+
+type NavLink = {
+  href: string;
+  label: string;
+  icon: typeof HomeIcon;
+  adminOnly?: boolean;
+  /** Rota base do módulo (para submenu e estado ativo). */
+  secao?: string;
+  filhos?: SubLink[];
+};
+
+const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
+  {
+    href: "/demandas",
+    label: "Demandas",
+    icon: ClipboardDocumentListIcon,
+    secao: "/demandas",
+    filhos: [
+      { href: "/demandas", label: "Dashboard", adminOnly: true },
+      { href: "/demandas/todas", label: "Todas as Demandas", adminOnly: true },
+      { href: "/demandas/minhas", label: "Minhas Demandas" },
+      {
+        href: "/demandas/tipos-servico",
+        label: "Tipos de Serviço",
+        adminOnly: true,
+      },
+    ],
+  },
   {
     href: "/departamento-juridico",
     label: "Departamento Jurídico",
@@ -48,11 +83,14 @@ const links = [
   { href: "/perfil", label: "Meu Perfil", icon: UserIcon },
 ];
 
+const PAPEIS_ELEVADOS = ["admin", "diretor", "financeiro", "controladoria"];
+
 const STORAGE_KEY = "bcc:sidebar-expanded";
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, demandasPendentes = 0 }: SidebarProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
+  const elevado = PAPEIS_ELEVADOS.includes(role);
 
   useEffect(() => {
     try {
@@ -129,36 +167,76 @@ export function Sidebar({ role }: SidebarProps) {
         )}
       >
         {links
-          .filter(
-            (link) =>
-              !link.adminOnly ||
-              ["admin", "diretor", "financeiro", "controladoria"].includes(role)
-          )
+          .filter((link) => !link.adminOnly || elevado)
           .map((link) => {
-            const isActive = pathname === link.href;
             const Icon = link.icon;
+            const naSecao = link.secao
+              ? pathname === link.secao || pathname.startsWith(`${link.secao}/`)
+              : false;
+            const isActive = link.secao ? naSecao : pathname === link.href;
+            const filhos = (link.filhos ?? []).filter(
+              (filho) => !filho.adminOnly || elevado
+            );
+            // Usuário comum entra direto em "Minhas Demandas".
+            const destino =
+              link.secao && filhos.length > 0 ? filhos[0].href : link.href;
+            const badge = link.secao === "/demandas" ? demandasPendentes : 0;
 
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                title={!expanded ? link.label : undefined}
-                aria-label={link.label}
-                className={clsx(
-                  "group flex items-center rounded-xl text-sm transition",
-                  isActive
-                    ? "bg-neutral-800 text-white"
-                    : "text-neutral-300 hover:bg-neutral-900 hover:text-white",
-                  expanded
-                    ? "gap-3 px-3 py-2 w-full"
-                    : "h-10 w-10 justify-center"
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {expanded ? (
-                  <span className="truncate">{link.label}</span>
+              <div key={link.href} className={expanded ? "w-full" : undefined}>
+                <Link
+                  href={destino}
+                  title={!expanded ? link.label : undefined}
+                  aria-label={link.label}
+                  className={clsx(
+                    "group relative flex items-center rounded-xl text-sm transition",
+                    isActive
+                      ? "bg-neutral-800 text-white"
+                      : "text-neutral-300 hover:bg-neutral-900 hover:text-white",
+                    expanded
+                      ? "gap-3 px-3 py-2 w-full"
+                      : "h-10 w-10 justify-center"
+                  )}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  {expanded ? (
+                    <>
+                      <span className="truncate">{link.label}</span>
+                      {badge > 0 ? (
+                        <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-amber-100">
+                          {badge}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : badge > 0 ? (
+                    <span
+                      className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold tabular-nums text-black"
+                      aria-label={`${badge} demandas pendentes`}
+                    >
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  ) : null}
+                </Link>
+
+                {expanded && filhos.length > 1 && naSecao ? (
+                  <div className="mt-1 ml-4 flex flex-col gap-0.5 border-l border-neutral-800 pl-3">
+                    {filhos.map((filho) => (
+                      <Link
+                        key={filho.href}
+                        href={filho.href}
+                        className={clsx(
+                          "truncate rounded-lg px-2 py-1.5 text-xs transition",
+                          pathname === filho.href
+                            ? "bg-neutral-900 text-white"
+                            : "text-neutral-400 hover:bg-neutral-900/60 hover:text-neutral-100"
+                        )}
+                      >
+                        {filho.label}
+                      </Link>
+                    ))}
+                  </div>
                 ) : null}
-              </Link>
+              </div>
             );
           })}
       </nav>
