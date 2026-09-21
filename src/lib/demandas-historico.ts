@@ -87,6 +87,12 @@ type CamposComparaveis = {
   url_pasta: string | null;
   caminho_pasta: string | null;
   status: DemandaStatus;
+  cnpj: string | null;
+  empresa_nome: string | null;
+  empresa_fantasia: string | null;
+  empresa_situacao: string | null;
+  empresa_cidade: string | null;
+  empresa_uf: string | null;
 };
 
 /**
@@ -211,6 +217,75 @@ export function diffDemanda(
       valorAnterior: textoOuVazio(antes.caminho_pasta),
       valorNovo: textoOuVazio(depois.caminho_pasta),
     });
+  }
+
+  if (depois.cnpj !== undefined && (depois.cnpj ?? "") !== (antes.cnpj ?? "")) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "CNPJ",
+      valorAnterior: textoOuVazio(antes.cnpj),
+      valorNovo: textoOuVazio(depois.cnpj),
+    });
+  }
+
+  if (
+    depois.empresa_nome !== undefined &&
+    (depois.empresa_nome ?? "") !== (antes.empresa_nome ?? "")
+  ) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Razão social",
+      valorAnterior: textoOuVazio(antes.empresa_nome),
+      valorNovo: textoOuVazio(depois.empresa_nome),
+    });
+  }
+
+  if (
+    depois.empresa_fantasia !== undefined &&
+    (depois.empresa_fantasia ?? "") !== (antes.empresa_fantasia ?? "")
+  ) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Nome fantasia",
+      valorAnterior: textoOuVazio(antes.empresa_fantasia),
+      valorNovo: textoOuVazio(depois.empresa_fantasia),
+    });
+  }
+
+  if (
+    depois.empresa_situacao !== undefined &&
+    (depois.empresa_situacao ?? "") !== (antes.empresa_situacao ?? "")
+  ) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Situação cadastral",
+      valorAnterior: textoOuVazio(antes.empresa_situacao),
+      valorNovo: textoOuVazio(depois.empresa_situacao),
+    });
+  }
+
+  const cidadeDepois =
+    depois.empresa_cidade !== undefined || depois.empresa_uf !== undefined;
+  if (cidadeDepois) {
+    const antesLoc = [antes.empresa_cidade, antes.empresa_uf]
+      .filter(Boolean)
+      .join(" / ");
+    const depoisLoc = [
+      depois.empresa_cidade !== undefined
+        ? depois.empresa_cidade
+        : antes.empresa_cidade,
+      depois.empresa_uf !== undefined ? depois.empresa_uf : antes.empresa_uf,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+    if (antesLoc !== depoisLoc) {
+      entradas.push({
+        acao: "Alteração de dados",
+        campo: "Cidade / UF",
+        valorAnterior: textoOuVazio(antesLoc || null),
+        valorNovo: textoOuVazio(depoisLoc || null),
+      });
+    }
   }
 
   if (depois.status !== undefined && depois.status !== antes.status) {

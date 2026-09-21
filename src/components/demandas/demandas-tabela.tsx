@@ -11,6 +11,7 @@ import {
 } from "@/components/demandas/demanda-acoes";
 import { PrazoDestaque, StatusBadge } from "@/components/demandas/demanda-badges";
 import { formatDateTimePtBR } from "@/lib/format-date";
+import { formatCnpjDisplay } from "@/lib/brasilapi-cnpj";
 import { urlPastaNavegavel } from "@/lib/demandas";
 import type { DemandaRow } from "@/lib/demandas-queries";
 
@@ -123,6 +124,16 @@ export function DemandasTabela({
                     >
                       {demanda.titulo}
                     </Link>
+                    {demanda.empresa_nome || demanda.cnpj ? (
+                      <p className="mt-1 text-xs text-neutral-400">
+                        {demanda.empresa_nome?.trim() || "Empresa"}
+                        {demanda.cnpj ? (
+                          <span className="ml-1.5 font-mono tabular-nums text-neutral-500">
+                            {formatCnpjDisplay(demanda.cnpj)}
+                          </span>
+                        ) : null}
+                      </p>
+                    ) : null}
                     {demanda.descricao ? (
                       <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
                         {demanda.descricao}
@@ -201,6 +212,16 @@ export function DemandasTabela({
                   >
                     {demanda.titulo}
                   </Link>
+                  {demanda.empresa_nome || demanda.cnpj ? (
+                    <p className="mt-0.5 text-xs text-neutral-400">
+                      {demanda.empresa_nome?.trim() || "Empresa"}
+                      {demanda.cnpj ? (
+                        <span className="ml-1 font-mono tabular-nums text-neutral-500">
+                          {formatCnpjDisplay(demanda.cnpj)}
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
                   <p className="mt-0.5 text-xs text-neutral-500">
                     {demanda.tipo_servico_nome ?? "Sem tipo"}
                     {gestor

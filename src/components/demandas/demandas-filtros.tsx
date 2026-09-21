@@ -117,7 +117,7 @@ export function DemandasFiltros({
             id="filtro-q"
             name="q"
             defaultValue={filtros.q}
-            placeholder="Pesquisar título, descrição ou protocolo..."
+            placeholder="Pesquisar título, empresa, CNPJ ou protocolo..."
             className={INPUT}
           />
         </div>

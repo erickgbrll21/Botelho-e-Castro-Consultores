@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { UsuarioPicker } from "@/components/demandas/usuario-picker";
+import { DemandaCnpjField } from "@/components/demandas/demanda-cnpj-field";
 import { paraDatetimeLocal } from "@/lib/demandas";
 import type { TipoServicoRow, UsuarioAtribuivel } from "@/lib/demandas-queries";
 import type { DemandaStatus } from "@/types/database";
@@ -21,6 +22,12 @@ export type DemandaFormValores = {
   prazo_final?: string | null;
   caminho_pasta?: string | null;
   observacoes?: string | null;
+  cnpj?: string | null;
+  empresa_nome?: string | null;
+  empresa_fantasia?: string | null;
+  empresa_situacao?: string | null;
+  empresa_cidade?: string | null;
+  empresa_uf?: string | null;
   status?: DemandaStatus;
 };
 
@@ -41,9 +48,25 @@ function CamposDemanda({
   const tiposDisponiveis = tipos.filter(
     (tipo) => tipo.ativo || tipo.id === valores?.tipo_servico_id
   );
+  const [titulo, setTitulo] = useState(valores?.titulo ?? "");
+  const [tituloManual, setTituloManual] = useState(Boolean(valores?.titulo));
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      <DemandaCnpjField
+        defaultCnpj={valores?.cnpj}
+        defaultEmpresaNome={valores?.empresa_nome}
+        defaultEmpresaFantasia={valores?.empresa_fantasia}
+        defaultEmpresaSituacao={valores?.empresa_situacao}
+        defaultEmpresaCidade={valores?.empresa_cidade}
+        defaultEmpresaUf={valores?.empresa_uf}
+        onEmpresaCarregada={(nome) => {
+          if (!tituloManual && !titulo.trim()) {
+            setTitulo(nome.slice(0, 180));
+          }
+        }}
+      />
+
       <div className="space-y-2 md:col-span-2">
         <label className={ROTULO} htmlFor="demanda-titulo">
           Título da demanda<span className="text-red-400"> *</span>
@@ -53,10 +76,17 @@ function CamposDemanda({
           name="titulo"
           required
           maxLength={180}
-          defaultValue={valores?.titulo ?? ""}
+          value={titulo}
+          onChange={(event) => {
+            setTituloManual(true);
+            setTitulo(event.target.value);
+          }}
           placeholder="Ex.: Realizar Alteração Contratual"
           className={CAMPO}
         />
+        <p className="text-xs text-neutral-500">
+          Se estiver vazio, a razão social do CNPJ pode preencher o título.
+        </p>
       </div>
 
       <div className="space-y-2 md:col-span-2">

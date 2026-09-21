@@ -11,6 +11,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isGestorDemandas, requireDemandasProfile } from "@/lib/demandas-access";
 import { formatDateTimePtBR } from "@/lib/format-date";
+import { formatCnpjDisplay } from "@/lib/brasilapi-cnpj";
 import {
   fetchDemandaPorId,
   fetchHistoricoDemanda,
@@ -186,6 +187,35 @@ export default async function DemandaDetalhePage({
         <div className="space-y-4 lg:col-span-2">
           <Card title="Dados da demanda">
             <div className="grid gap-4 sm:grid-cols-2">
+              {demanda.cnpj ? (
+                <>
+                  <Campo rotulo="CNPJ">
+                    <span className="font-mono tabular-nums">
+                      {formatCnpjDisplay(demanda.cnpj)}
+                    </span>
+                  </Campo>
+                  <Campo rotulo="Empresa">
+                    <div>
+                      <p>{demanda.empresa_nome?.trim() || "—"}</p>
+                      {demanda.empresa_fantasia?.trim() ? (
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                          Fantasia: {demanda.empresa_fantasia}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {[
+                          demanda.empresa_situacao,
+                          [demanda.empresa_cidade, demanda.empresa_uf]
+                            .filter(Boolean)
+                            .join(" / "),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || null}
+                      </p>
+                    </div>
+                  </Campo>
+                </>
+              ) : null}
               <Campo rotulo="Tipo de serviço">
                 {demanda.tipo_servico_nome ?? "—"}
               </Campo>
@@ -320,6 +350,12 @@ export default async function DemandaDetalhePage({
                       prazo_final: demanda.prazo_final,
                       caminho_pasta: demanda.caminho_pasta,
                       observacoes: demanda.observacoes,
+                      cnpj: demanda.cnpj,
+                      empresa_nome: demanda.empresa_nome,
+                      empresa_fantasia: demanda.empresa_fantasia,
+                      empresa_situacao: demanda.empresa_situacao,
+                      empresa_cidade: demanda.empresa_cidade,
+                      empresa_uf: demanda.empresa_uf,
                       status: demanda.status,
                     }}
                     action={atualizarDemanda}

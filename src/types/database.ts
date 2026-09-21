@@ -354,6 +354,12 @@ export interface Database {
           url_pasta: string | null
           caminho_pasta: string | null
           observacoes: string | null
+          cnpj: string | null
+          empresa_nome: string | null
+          empresa_fantasia: string | null
+          empresa_situacao: string | null
+          empresa_cidade: string | null
+          empresa_uf: string | null
           concluida_em: string | null
           concluida_por: string | null
           created_at: string
@@ -372,6 +378,12 @@ export interface Database {
           url_pasta?: string | null
           caminho_pasta?: string | null
           observacoes?: string | null
+          cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_fantasia?: string | null
+          empresa_situacao?: string | null
+          empresa_cidade?: string | null
+          empresa_uf?: string | null
           concluida_em?: string | null
           concluida_por?: string | null
           created_at?: string
@@ -390,6 +402,12 @@ export interface Database {
           url_pasta?: string | null
           caminho_pasta?: string | null
           observacoes?: string | null
+          cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_fantasia?: string | null
+          empresa_situacao?: string | null
+          empresa_cidade?: string | null
+          empresa_uf?: string | null
           concluida_em?: string | null
           concluida_por?: string | null
           created_at?: string
@@ -476,6 +494,12 @@ export interface Database {
           url_pasta: string | null
           caminho_pasta: string | null
           observacoes: string | null
+          cnpj: string | null
+          empresa_nome: string | null
+          empresa_fantasia: string | null
+          empresa_situacao: string | null
+          empresa_cidade: string | null
+          empresa_uf: string | null
           concluida_em: string | null
           concluida_por: string | null
           concluida_por_nome: string | null

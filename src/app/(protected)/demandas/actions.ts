@@ -22,6 +22,7 @@ import {
 } from "@/lib/demandas-historico";
 import type { DemandaStatus } from "@/types/database";
 import type { CurrentProfile } from "@/lib/auth";
+import { onlyDigits } from "@/lib/brasilapi-cnpj";
 
 type SupabaseCliente = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -29,6 +30,29 @@ const LIMITE_TITULO = 180;
 const LIMITE_PROTOCOLO = 60;
 const LIMITE_TEXTO_LONGO = 4000;
 const LIMITE_CAMINHO = 600;
+
+function parseCnpjForm(formData: FormData): {
+  cnpj: string | null;
+  empresa_nome: string | null;
+  empresa_fantasia: string | null;
+  empresa_situacao: string | null;
+  empresa_cidade: string | null;
+  empresa_uf: string | null;
+} {
+  const cnpj = onlyDigits(String(formData.get("cnpj") ?? "")).slice(0, 14);
+  if (cnpj && cnpj.length !== 14) {
+    throw new Error("Informe um CNPJ válido com 14 dígitos, ou deixe em branco.");
+  }
+
+  return {
+    cnpj: cnpj || null,
+    empresa_nome: textoOpcional(formData, "empresa_nome", 220),
+    empresa_fantasia: textoOpcional(formData, "empresa_fantasia", 220),
+    empresa_situacao: textoOpcional(formData, "empresa_situacao", 80),
+    empresa_cidade: textoOpcional(formData, "empresa_cidade", 120),
+    empresa_uf: textoOpcional(formData, "empresa_uf", 2)?.toUpperCase() ?? null,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -98,6 +122,12 @@ type DemandaAtual = {
   url_pasta: string | null;
   caminho_pasta: string | null;
   observacoes: string | null;
+  cnpj: string | null;
+  empresa_nome: string | null;
+  empresa_fantasia: string | null;
+  empresa_situacao: string | null;
+  empresa_cidade: string | null;
+  empresa_uf: string | null;
 };
 
 /**
@@ -126,7 +156,7 @@ async function carregarDemandaParaEdicao(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await (supabase.from("demandas") as any)
     .select(
-      "id, titulo, descricao, tipo_servico_id, responsavel_id, criado_por, prazo_final, protocolo, status, url_pasta, caminho_pasta, observacoes"
+      "id, titulo, descricao, tipo_servico_id, responsavel_id, criado_por, prazo_final, protocolo, status, url_pasta, caminho_pasta, observacoes, cnpj, empresa_nome, empresa_fantasia, empresa_situacao, empresa_cidade, empresa_uf"
     )
     .eq("id", demandaId)
     .maybeSingle();
@@ -214,6 +244,7 @@ export async function criarDemanda(formData: FormData) {
   const descricao = textoOpcional(formData, "descricao", LIMITE_TEXTO_LONGO);
   const observacoes = textoOpcional(formData, "observacoes", LIMITE_TEXTO_LONGO);
   const caminho_pasta = textoOpcional(formData, "caminho_pasta", LIMITE_CAMINHO);
+  const empresa = parseCnpjForm(formData);
 
   const { data, error } = await (supabase.from("demandas") as any)
     .insert({
@@ -226,6 +257,7 @@ export async function criarDemanda(formData: FormData) {
       status: "pendente",
       caminho_pasta,
       observacoes,
+      ...empresa,
     })
     .select("id")
     .maybeSingle();
@@ -249,12 +281,23 @@ export async function criarDemanda(formData: FormData) {
         campo: "Responsável",
         valorNovo: nomesUsuarios.get(responsavel_id) ?? "Usuário",
       },
+      ...(empresa.cnpj
+        ? [
+            {
+              acao: "Alteração de dados" as const,
+              campo: "CNPJ",
+              valorNovo: empresa.cnpj,
+            },
+          ]
+        : []),
     ]
   );
 
   await registrarLog("Criação de Demanda", {
     demanda_id: data.id,
     titulo,
+    cnpj: empresa.cnpj,
+    empresa: empresa.empresa_nome,
     tipo_servico: nomesTipos.get(tipo_servico_id) ?? tipo_servico_id,
     responsavel: nomesUsuarios.get(responsavel_id) ?? responsavel_id,
   });
@@ -285,6 +328,7 @@ export async function atualizarDemanda(formData: FormData) {
   const descricao = textoOpcional(formData, "descricao", LIMITE_TEXTO_LONGO);
   const observacoes = textoOpcional(formData, "observacoes", LIMITE_TEXTO_LONGO);
   const caminho_pasta = textoOpcional(formData, "caminho_pasta", LIMITE_CAMINHO);
+  const empresa = parseCnpjForm(formData);
   const status = parseStatus(formData.get("status")) ?? demanda.status;
 
   // Gestor pode confirmar direto na edição; usuário nunca chega aqui (exigirGestor).
@@ -297,6 +341,7 @@ export async function atualizarDemanda(formData: FormData) {
       prazo_final,
       observacoes,
       caminho_pasta,
+      ...empresa,
       status,
       ...camposConclusao(status, demanda.status, profile.id),
     })
@@ -319,6 +364,7 @@ export async function atualizarDemanda(formData: FormData) {
       prazo_final,
       observacoes,
       caminho_pasta,
+      ...empresa,
       status,
     },
     dicts

@@ -96,9 +96,18 @@ function aplicarFiltros(
 
   const termo = filtros.q ? termoSeguro(filtros.q) : "";
   if (termo) {
-    query = query.or(
-      `titulo.ilike.%${termo}%,protocolo.ilike.%${termo}%,descricao.ilike.%${termo}%`
-    );
+    const digits = termo.replace(/\D/g, "");
+    const partes = [
+      `titulo.ilike.%${termo}%`,
+      `protocolo.ilike.%${termo}%`,
+      `descricao.ilike.%${termo}%`,
+      `empresa_nome.ilike.%${termo}%`,
+      `empresa_fantasia.ilike.%${termo}%`,
+    ];
+    if (digits.length >= 8) {
+      partes.push(`cnpj.ilike.%${digits}%`);
+    }
+    query = query.or(partes.join(","));
   }
 
   return query;
