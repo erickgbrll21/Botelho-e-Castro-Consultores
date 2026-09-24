@@ -37,6 +37,11 @@ import {
   ModuloNaoInstalado,
 } from "@/components/demandas/demandas-avisos";
 import {
+  caminhosSetor,
+  isDemandaSetor,
+  SETOR_META,
+} from "@/lib/demanda-setor";
+import {
   alterarResponsavel,
   atualizarDemanda,
   atualizarObservacoes,
@@ -108,11 +113,14 @@ export default async function DemandaDetalhePage({
   const gestor = isGestorDemandas(profile.tipo_usuario);
   const souResponsavel = demanda.responsavel_id === profile.id;
   const podeExecutar = gestor || souResponsavel;
+  const setor = isDemandaSetor(demanda.setor) ? demanda.setor : "legalizacao";
+  const caminhos = caminhosSetor(setor);
+  const meta = SETOR_META[setor];
 
   const [historico, tiposServico, usuarios] = await Promise.all([
     fetchHistoricoDemanda(supabase, demanda.id),
     gestor
-      ? fetchTiposServico(supabase)
+      ? fetchTiposServico(supabase, { setor })
       : Promise.resolve({ tipos: [], erro: null, moduloAusente: false }),
     gestor ? fetchUsuariosAtribuiveis(supabase) : Promise.resolve([]),
   ]);
@@ -122,7 +130,7 @@ export default async function DemandaDetalhePage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <Link
-            href={gestor ? "/demandas/todas" : "/demandas/minhas"}
+            href={gestor ? caminhos.todas : caminhos.minhas}
             className="inline-flex items-center gap-1.5 text-xs text-neutral-400 transition hover:text-neutral-100"
           >
             <ArrowLeftIcon className="h-4 w-4" aria-hidden />
@@ -132,6 +140,7 @@ export default async function DemandaDetalhePage({
             {demanda.titulo}
           </h1>
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Pill label={`${meta.area} · ${meta.departamento}`} tone="neutral" />
             <StatusBadge status={demanda.status} atrasada={demanda.atrasada} />
             <Pill
               label={demanda.tipo_servico_nome ?? "Sem tipo de serviço"}
@@ -216,9 +225,33 @@ export default async function DemandaDetalhePage({
                   </Campo>
                 </>
               ) : null}
-              <Campo rotulo="Tipo de serviço">
-                {demanda.tipo_servico_nome ?? "—"}
-              </Campo>
+              {setor === "civel" ? (
+                <>
+                  <Campo rotulo="Parte contrária">
+                    {demanda.parte_contraria?.trim() || "—"}
+                  </Campo>
+                  <Campo rotulo="Nº do processo">
+                    {demanda.numero_processo?.trim() || "—"}
+                  </Campo>
+                  <Campo rotulo="Tarefa">
+                    {demanda.titulo}
+                  </Campo>
+                  <Campo rotulo="Tratado">
+                    {demanda.tratado ? "Sim" : "Não"}
+                  </Campo>
+                  <Campo rotulo="E-mail respondido">
+                    {demanda.email_respondido === true
+                      ? "Sim"
+                      : demanda.email_respondido === false
+                        ? "Não"
+                        : "—"}
+                  </Campo>
+                </>
+              ) : (
+                <Campo rotulo="Tipo de serviço">
+                  {demanda.tipo_servico_nome ?? "—"}
+                </Campo>
+              )}
               <Campo rotulo="Responsável">
                 <span className="flex items-center gap-1.5">
                   <UserCircleIcon
@@ -350,6 +383,10 @@ export default async function DemandaDetalhePage({
                       prazo_final: demanda.prazo_final,
                       caminho_pasta: demanda.caminho_pasta,
                       observacoes: demanda.observacoes,
+                      parte_contraria: demanda.parte_contraria,
+                      numero_processo: demanda.numero_processo,
+                      tratado: demanda.tratado,
+                      email_respondido: demanda.email_respondido,
                       cnpj: demanda.cnpj,
                       empresa_nome: demanda.empresa_nome,
                       empresa_fantasia: demanda.empresa_fantasia,
@@ -358,6 +395,7 @@ export default async function DemandaDetalhePage({
                       empresa_uf: demanda.empresa_uf,
                       status: demanda.status,
                     }}
+                    setor={setor}
                     action={atualizarDemanda}
                   />
                 </div>

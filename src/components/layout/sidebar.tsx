@@ -22,8 +22,8 @@ import type { UserRole } from "@/types/database";
 
 type SidebarProps = {
   role: UserRole;
-  /** Demandas do próprio usuário que precisam de atenção (badge). */
-  demandasPendentes?: number;
+  /** Pendências do usuário, separadas por setor. */
+  demandasPendentes?: { civel: number; legalizacao: number };
 };
 
 type SubLink = {
@@ -39,22 +39,45 @@ type NavLink = {
   adminOnly?: boolean;
   /** Rota base do módulo (para submenu e estado ativo). */
   secao?: string;
+  badge?: "civel" | "legalizacao";
   filhos?: SubLink[];
 };
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   {
-    href: "/demandas",
-    label: "Demandas",
-    icon: ClipboardDocumentListIcon,
-    secao: "/demandas",
+    href: "/demandas/civel",
+    label: "Demandas Cível",
+    icon: ScaleIcon,
+    secao: "/demandas/civel",
+    badge: "civel",
     filhos: [
-      { href: "/demandas", label: "Dashboard", adminOnly: true },
-      { href: "/demandas/todas", label: "Todas as Demandas", adminOnly: true },
-      { href: "/demandas/minhas", label: "Minhas Demandas" },
+      { href: "/demandas/civel", label: "Dashboard", adminOnly: true },
+      { href: "/demandas/civel/todas", label: "Todas as Demandas", adminOnly: true },
+      { href: "/demandas/civel/minhas", label: "Minhas Demandas" },
       {
-        href: "/demandas/tipos-servico",
+        href: "/demandas/civel/tipos-servico",
+        label: "Tipos de Serviço",
+        adminOnly: true,
+      },
+    ],
+  },
+  {
+    href: "/demandas/legalizacao",
+    label: "Demandas Legalização",
+    icon: ClipboardDocumentListIcon,
+    secao: "/demandas/legalizacao",
+    badge: "legalizacao",
+    filhos: [
+      { href: "/demandas/legalizacao", label: "Dashboard", adminOnly: true },
+      {
+        href: "/demandas/legalizacao/todas",
+        label: "Todas as Demandas",
+        adminOnly: true,
+      },
+      { href: "/demandas/legalizacao/minhas", label: "Minhas Demandas" },
+      {
+        href: "/demandas/legalizacao/tipos-servico",
         label: "Tipos de Serviço",
         adminOnly: true,
       },
@@ -87,7 +110,10 @@ const PAPEIS_ELEVADOS = ["admin", "diretor", "financeiro", "controladoria"];
 
 const STORAGE_KEY = "bcc:sidebar-expanded";
 
-export function Sidebar({ role, demandasPendentes = 0 }: SidebarProps) {
+export function Sidebar({
+  role,
+  demandasPendentes = { civel: 0, legalizacao: 0 },
+}: SidebarProps) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const elevado = PAPEIS_ELEVADOS.includes(role);
@@ -180,7 +206,7 @@ export function Sidebar({ role, demandasPendentes = 0 }: SidebarProps) {
             // Usuário comum entra direto em "Minhas Demandas".
             const destino =
               link.secao && filhos.length > 0 ? filhos[0].href : link.href;
-            const badge = link.secao === "/demandas" ? demandasPendentes : 0;
+            const badge = link.badge ? demandasPendentes[link.badge] : 0;
 
             return (
               <div key={link.href} className={expanded ? "w-full" : undefined}>

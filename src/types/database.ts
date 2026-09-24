@@ -322,6 +322,7 @@ export interface Database {
           id: string
           nome: string
           ativo: boolean
+          setor: string
           created_at: string
           updated_at: string
         }
@@ -329,6 +330,7 @@ export interface Database {
           id?: string
           nome: string
           ativo?: boolean
+          setor?: string
           created_at?: string
           updated_at?: string
         }
@@ -336,6 +338,7 @@ export interface Database {
           id?: string
           nome?: string
           ativo?: boolean
+          setor?: string
           created_at?: string
           updated_at?: string
         }
@@ -360,6 +363,11 @@ export interface Database {
           empresa_situacao: string | null
           empresa_cidade: string | null
           empresa_uf: string | null
+          setor: string
+          parte_contraria: string | null
+          numero_processo: string | null
+          tratado: boolean
+          email_respondido: boolean | null
           concluida_em: string | null
           concluida_por: string | null
           created_at: string
@@ -384,6 +392,11 @@ export interface Database {
           empresa_situacao?: string | null
           empresa_cidade?: string | null
           empresa_uf?: string | null
+          setor?: string
+          parte_contraria?: string | null
+          numero_processo?: string | null
+          tratado?: boolean
+          email_respondido?: boolean | null
           concluida_em?: string | null
           concluida_por?: string | null
           created_at?: string
@@ -408,6 +421,11 @@ export interface Database {
           empresa_situacao?: string | null
           empresa_cidade?: string | null
           empresa_uf?: string | null
+          setor?: string
+          parte_contraria?: string | null
+          numero_processo?: string | null
+          tratado?: boolean
+          email_respondido?: boolean | null
           concluida_em?: string | null
           concluida_por?: string | null
           created_at?: string
@@ -500,6 +518,11 @@ export interface Database {
           empresa_situacao: string | null
           empresa_cidade: string | null
           empresa_uf: string | null
+          setor: string
+          parte_contraria: string | null
+          numero_processo: string | null
+          tratado: boolean
+          email_respondido: boolean | null
           concluida_em: string | null
           concluida_por: string | null
           concluida_por_nome: string | null

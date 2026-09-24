@@ -23,6 +23,12 @@ import {
 import type { DemandaStatus } from "@/types/database";
 import type { CurrentProfile } from "@/lib/auth";
 import { onlyDigits } from "@/lib/brasilapi-cnpj";
+import {
+  caminhosSetor,
+  DEMANDA_SETORES,
+  parseSetorForm,
+  type DemandaSetor,
+} from "@/lib/demanda-setor";
 
 type SupabaseCliente = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -102,8 +108,13 @@ function prazoValidado(formData: FormData): string {
 
 function revalidarModulo(demandaId?: string) {
   revalidatePath("/demandas");
-  revalidatePath("/demandas/todas");
-  revalidatePath("/demandas/minhas");
+  for (const setor of DEMANDA_SETORES) {
+    const caminhos = caminhosSetor(setor);
+    revalidatePath(caminhos.base);
+    revalidatePath(caminhos.todas);
+    revalidatePath(caminhos.minhas);
+    revalidatePath(caminhos.tipos);
+  }
   if (demandaId) {
     revalidatePath(`/demandas/${demandaId}`);
   }
@@ -128,6 +139,11 @@ type DemandaAtual = {
   empresa_situacao: string | null;
   empresa_cidade: string | null;
   empresa_uf: string | null;
+  setor: DemandaSetor;
+  parte_contraria: string | null;
+  numero_processo: string | null;
+  tratado: boolean;
+  email_respondido: boolean | null;
 };
 
 /**
@@ -156,7 +172,7 @@ async function carregarDemandaParaEdicao(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await (supabase.from("demandas") as any)
     .select(
-      "id, titulo, descricao, tipo_servico_id, responsavel_id, criado_por, prazo_final, protocolo, status, url_pasta, caminho_pasta, observacoes, cnpj, empresa_nome, empresa_fantasia, empresa_situacao, empresa_cidade, empresa_uf"
+      "id, titulo, descricao, tipo_servico_id, responsavel_id, criado_por, prazo_final, protocolo, status, url_pasta, caminho_pasta, observacoes, cnpj, empresa_nome, empresa_fantasia, empresa_situacao, empresa_cidade, empresa_uf, setor, parte_contraria, numero_processo, tratado, email_respondido"
     )
     .eq("id", demandaId)
     .maybeSingle();
@@ -229,12 +245,18 @@ export async function criarDemanda(formData: FormData) {
   const profile = await assertGestorDemandas();
   const supabase = await createSupabaseServerClient();
 
-  const titulo = textoObrigatorio(formData, "titulo", "O título", LIMITE_TITULO);
-  const tipo_servico_id = idObrigatorio(
+  const setor = parseSetorForm(formData.get("setor"));
+  const titulo = textoObrigatorio(
     formData,
-    "tipo_servico_id",
-    "O tipo de serviço"
+    "titulo",
+    setor === "civel" ? "A tarefa" : "O título",
+    LIMITE_TITULO
   );
+  const tipoInformado = String(formData.get("tipo_servico_id") ?? "").trim();
+  const tipo_servico_id =
+    setor === "civel"
+      ? tipoInformado || null
+      : idObrigatorio(formData, "tipo_servico_id", "O tipo de serviço");
   const responsavel_id = idObrigatorio(
     formData,
     "responsavel_id",
@@ -245,6 +267,10 @@ export async function criarDemanda(formData: FormData) {
   const observacoes = textoOpcional(formData, "observacoes", LIMITE_TEXTO_LONGO);
   const caminho_pasta = textoOpcional(formData, "caminho_pasta", LIMITE_CAMINHO);
   const empresa = parseCnpjForm(formData);
+  const civel = dadosCivel(formData, setor);
+  if (tipo_servico_id) {
+    await assertTipoDoSetor(supabase, tipo_servico_id, setor);
+  }
 
   const { data, error } = await (supabase.from("demandas") as any)
     .insert({
@@ -257,7 +283,9 @@ export async function criarDemanda(formData: FormData) {
       status: "pendente",
       caminho_pasta,
       observacoes,
+      setor,
       ...empresa,
+      ...civel,
     })
     .select("id")
     .maybeSingle();
@@ -298,7 +326,10 @@ export async function criarDemanda(formData: FormData) {
     titulo,
     cnpj: empresa.cnpj,
     empresa: empresa.empresa_nome,
-    tipo_servico: nomesTipos.get(tipo_servico_id) ?? tipo_servico_id,
+    setor,
+    tipo_servico: tipo_servico_id
+      ? (nomesTipos.get(tipo_servico_id) ?? tipo_servico_id)
+      : null,
     responsavel: nomesUsuarios.get(responsavel_id) ?? responsavel_id,
   });
 
@@ -313,12 +344,17 @@ export async function atualizarDemanda(formData: FormData) {
     { exigirGestor: true }
   );
 
-  const titulo = textoObrigatorio(formData, "titulo", "O título", LIMITE_TITULO);
-  const tipo_servico_id = idObrigatorio(
+  const titulo = textoObrigatorio(
     formData,
-    "tipo_servico_id",
-    "O tipo de serviço"
+    "titulo",
+    demanda.setor === "civel" ? "A tarefa" : "O título",
+    LIMITE_TITULO
   );
+  const tipoInformado = String(formData.get("tipo_servico_id") ?? "").trim();
+  const tipo_servico_id =
+    demanda.setor === "civel"
+      ? tipoInformado || null
+      : idObrigatorio(formData, "tipo_servico_id", "O tipo de serviço");
   const responsavel_id = idObrigatorio(
     formData,
     "responsavel_id",
@@ -329,6 +365,14 @@ export async function atualizarDemanda(formData: FormData) {
   const observacoes = textoOpcional(formData, "observacoes", LIMITE_TEXTO_LONGO);
   const caminho_pasta = textoOpcional(formData, "caminho_pasta", LIMITE_CAMINHO);
   const empresa = parseCnpjForm(formData);
+  const setor = parseSetorForm(formData.get("setor"));
+  if (setor !== demanda.setor) {
+    throw new Error("Não é possível mover a demanda de setor.");
+  }
+  const civel = dadosCivel(formData, setor);
+  if (tipo_servico_id) {
+    await assertTipoDoSetor(supabase, tipo_servico_id, setor);
+  }
   const status = parseStatus(formData.get("status")) ?? demanda.status;
 
   // Gestor pode confirmar direto na edição; usuário nunca chega aqui (exigirGestor).
@@ -342,6 +386,7 @@ export async function atualizarDemanda(formData: FormData) {
       observacoes,
       caminho_pasta,
       ...empresa,
+      ...civel,
       status,
       ...camposConclusao(status, demanda.status, profile.id),
     })
@@ -365,6 +410,7 @@ export async function atualizarDemanda(formData: FormData) {
       observacoes,
       caminho_pasta,
       ...empresa,
+      ...civel,
       status,
     },
     dicts
@@ -454,7 +500,7 @@ export async function excluirDemanda(formData: FormData) {
   });
 
   revalidarModulo();
-  redirect("/demandas/todas?excluida=1");
+  redirect(`${caminhosSetor(demanda.setor).todas}?excluida=1`);
 }
 
 // ---------------------------------------------------------------------------
@@ -657,9 +703,11 @@ export async function criarTipoServico(formData: FormData) {
   const supabase = await createSupabaseServerClient();
 
   const nome = textoObrigatorio(formData, "nome", "O nome do tipo de serviço", 120);
+  const setor = parseSetorForm(formData.get("setor"));
 
   const { error } = await (supabase.from("tipos_servico") as any).insert({
     nome,
+    setor,
   });
 
   if (error) {
@@ -676,11 +724,10 @@ export async function criarTipoServico(formData: FormData) {
     );
   }
 
-  await registrarLog("Criação de Tipo de Serviço", { nome, actor: profile.email });
+  await registrarLog("Criação de Tipo de Serviço", { nome, setor, actor: profile.email });
 
-  revalidatePath("/demandas/tipos-servico");
   revalidarModulo();
-  redirect("/demandas/tipos-servico?criado=1");
+  redirect(`${caminhosSetor(setor).tipos}?criado=1`);
 }
 
 export async function alternarTipoServico(formData: FormData) {
@@ -709,7 +756,6 @@ export async function alternarTipoServico(formData: FormData) {
     actor: profile.email,
   });
 
-  revalidatePath("/demandas/tipos-servico");
   revalidarModulo();
 }
 
@@ -719,6 +765,7 @@ export async function renomearTipoServico(formData: FormData) {
 
   const id = idObrigatorio(formData, "tipo_id", "O tipo de serviço");
   const nome = textoObrigatorio(formData, "nome", "O nome do tipo de serviço", 120);
+  const setor = parseSetorForm(formData.get("setor"));
 
   const { error } = await (supabase.from("tipos_servico") as any)
     .update({ nome })
@@ -744,7 +791,40 @@ export async function renomearTipoServico(formData: FormData) {
     actor: profile.email,
   });
 
-  revalidatePath("/demandas/tipos-servico");
   revalidarModulo();
-  redirect("/demandas/tipos-servico?renomeado=1");
+  redirect(`${caminhosSetor(setor).tipos}?renomeado=1`);
+}
+
+function dadosCivel(formData: FormData, setor: DemandaSetor) {
+  if (setor !== "civel") {
+    return {
+      parte_contraria: null,
+      numero_processo: null,
+      tratado: false,
+      email_respondido: null,
+    };
+  }
+  const email = String(formData.get("email_respondido") ?? "");
+  return {
+    parte_contraria: textoOpcional(formData, "parte_contraria", 220),
+    numero_processo: textoOpcional(formData, "numero_processo", 60),
+    tratado: String(formData.get("tratado") ?? "") === "1",
+    email_respondido: email === "1" ? true : email === "0" ? false : null,
+  };
+}
+
+async function assertTipoDoSetor(
+  supabase: SupabaseCliente,
+  tipoId: string,
+  setor: DemandaSetor
+) {
+  const { data, error } = await supabase
+    .from("tipos_servico")
+    .select("setor")
+    .eq("id", tipoId)
+    .maybeSingle();
+
+  if (error || !data || (data as { setor: string }).setor !== setor) {
+    throw new Error("O tipo de serviço não pertence a este setor.");
+  }
 }

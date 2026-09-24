@@ -26,7 +26,7 @@ import { useTransition } from "react";
 type MobileNavProps = {
   role: UserRole;
   signOutAction: () => Promise<void>;
-  demandasPendentes?: number;
+  demandasPendentes?: { civel: number; legalizacao: number };
 };
 
 type SubLink = {
@@ -41,22 +41,45 @@ type NavLink = {
   icon: typeof HomeIcon;
   adminOnly?: boolean;
   secao?: string;
+  badge?: "civel" | "legalizacao";
   filhos?: SubLink[];
 };
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
   {
-    href: "/demandas",
-    label: "Demandas",
-    icon: ClipboardDocumentListIcon,
-    secao: "/demandas",
+    href: "/demandas/civel",
+    label: "Demandas Cível",
+    icon: ScaleIcon,
+    secao: "/demandas/civel",
+    badge: "civel",
     filhos: [
-      { href: "/demandas", label: "Dashboard", adminOnly: true },
-      { href: "/demandas/todas", label: "Todas as Demandas", adminOnly: true },
-      { href: "/demandas/minhas", label: "Minhas Demandas" },
+      { href: "/demandas/civel", label: "Dashboard", adminOnly: true },
+      { href: "/demandas/civel/todas", label: "Todas as Demandas", adminOnly: true },
+      { href: "/demandas/civel/minhas", label: "Minhas Demandas" },
       {
-        href: "/demandas/tipos-servico",
+        href: "/demandas/civel/tipos-servico",
+        label: "Tipos de Serviço",
+        adminOnly: true,
+      },
+    ],
+  },
+  {
+    href: "/demandas/legalizacao",
+    label: "Demandas Legalização",
+    icon: ClipboardDocumentListIcon,
+    secao: "/demandas/legalizacao",
+    badge: "legalizacao",
+    filhos: [
+      { href: "/demandas/legalizacao", label: "Dashboard", adminOnly: true },
+      {
+        href: "/demandas/legalizacao/todas",
+        label: "Todas as Demandas",
+        adminOnly: true,
+      },
+      { href: "/demandas/legalizacao/minhas", label: "Minhas Demandas" },
+      {
+        href: "/demandas/legalizacao/tipos-servico",
         label: "Tipos de Serviço",
         adminOnly: true,
       },
@@ -90,7 +113,7 @@ const PAPEIS_ELEVADOS = ["admin", "diretor", "financeiro", "controladoria"];
 export function MobileNav({
   role,
   signOutAction,
-  demandasPendentes = 0,
+  demandasPendentes = { civel: 0, legalizacao: 0 },
 }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -113,9 +136,11 @@ export function MobileNav({
         aria-label="Abrir menu"
       >
         <Bars3Icon className="h-6 w-6" />
-        {demandasPendentes > 0 ? (
+        {demandasPendentes.civel + demandasPendentes.legalizacao > 0 ? (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold tabular-nums text-black">
-            {demandasPendentes > 9 ? "9+" : demandasPendentes}
+            {demandasPendentes.civel + demandasPendentes.legalizacao > 9
+              ? "9+"
+              : demandasPendentes.civel + demandasPendentes.legalizacao}
           </span>
         ) : null}
       </button>
@@ -157,8 +182,7 @@ export function MobileNav({
                 const isActive = link.secao ? naSecao : pathname === link.href;
                 const destino =
                   link.secao && filhos.length > 0 ? filhos[0].href : link.href;
-                const badge =
-                  link.secao === "/demandas" ? demandasPendentes : 0;
+                const badge = link.badge ? demandasPendentes[link.badge] : 0;
 
                 return (
                   <div key={link.href}>

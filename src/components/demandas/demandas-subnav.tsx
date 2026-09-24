@@ -1,5 +1,6 @@
 import Link from "next/link";
 import clsx from "clsx";
+import { caminhosSetor, type DemandaSetor } from "@/lib/demanda-setor";
 
 export type AbaDemandas = "dashboard" | "todas" | "minhas" | "tipos";
 
@@ -15,28 +16,31 @@ export function DemandasSubnav({
   atual,
   gestor,
   pendentes = 0,
+  setor,
 }: {
   atual: AbaDemandas;
   gestor: boolean;
   pendentes?: number;
+  setor: DemandaSetor;
 }) {
+  const caminhos = caminhosSetor(setor);
   const itens: Item[] = [
-    { aba: "dashboard", href: "/demandas", label: "Dashboard", somenteGestor: true },
+    { aba: "dashboard", href: caminhos.base, label: "Dashboard", somenteGestor: true },
     {
       aba: "todas",
-      href: "/demandas/todas",
+      href: caminhos.todas,
       label: "Todas as demandas",
       somenteGestor: true,
     },
     {
       aba: "minhas",
-      href: "/demandas/minhas",
+      href: caminhos.minhas,
       label: "Minhas demandas",
       badge: pendentes,
     },
     {
       aba: "tipos",
-      href: "/demandas/tipos-servico",
+      href: caminhos.tipos,
       label: "Tipos de serviço",
       somenteGestor: true,
     },

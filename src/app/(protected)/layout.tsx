@@ -5,7 +5,7 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 import { loadServerAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AssistantChat } from "@/components/ai/assistant-chat";
-import { fetchDemandasPendentesCount } from "@/lib/demandas-queries";
+import { fetchDemandasPendentesPorSetor } from "@/lib/demandas-queries";
 
 export default async function ProtectedLayout({
   children,
@@ -43,7 +43,7 @@ export default async function ProtectedLayout({
   // Contador de demandas que precisam de atenção do usuário logado.
   // Resiliente: volta 0 se o módulo ainda não estiver instalado no banco.
   const supabaseLeitura = await createSupabaseServerClient();
-  const demandasPendentes = await fetchDemandasPendentesCount(
+  const demandasPendentes = await fetchDemandasPendentesPorSetor(
     supabaseLeitura,
     profile.id
   );

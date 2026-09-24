@@ -8,18 +8,45 @@ export function isStaleRefreshAuthError(message: string | undefined): boolean {
   );
 }
 
+/**
+ * O cliente do Supabase faz `console.error(AuthApiError)` antes de devolver
+ * o erro. O overlay do Next trata isso como falha mesmo quando a sessão
+ * inválida já foi tratada. Silencia só essa mensagem.
+ */
+async function semLogDeRefreshInvalido<T>(executar: () => Promise<T>): Promise<T> {
+  const original = console.error;
+  console.error = (...args: unknown[]) => {
+    const texto = args
+      .map((item) => {
+        if (item instanceof Error) return `${item.name} ${item.message}`;
+        return typeof item === "string" ? item : "";
+      })
+      .join(" ");
+    if (isStaleRefreshAuthError(texto)) return;
+    original.apply(console, args);
+  };
+  try {
+    return await executar();
+  } finally {
+    console.error = original;
+  }
+}
+
+async function limparSessaoLocal(supabase: SupabaseClient) {
+  // `scope: 'local'` só apaga cookies/storage, sem nova chamada ao Supabase.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+}
+
 export async function getSessionClearingStaleRefresh(
   supabase: SupabaseClient
 ): Promise<Session | null> {
   const {
     data: { session },
     error,
-  } = await supabase.auth.getSession();
+  } = await semLogDeRefreshInvalido(() => supabase.auth.getSession());
 
   if (error && isStaleRefreshAuthError(error.message)) {
-    // `scope: 'local'` apenas remove cookies/storage; sem chamada ao Supabase
-    // (evita "AuthApiError: Refresh Token Not Found" no console do servidor).
-    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    await limparSessaoLocal(supabase);
     return null;
   }
 
@@ -32,10 +59,10 @@ export async function getUserClearingStaleRefresh(
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = await semLogDeRefreshInvalido(() => supabase.auth.getUser());
 
   if (error && isStaleRefreshAuthError(error.message)) {
-    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    await limparSessaoLocal(supabase);
     return { user: null };
   }
 

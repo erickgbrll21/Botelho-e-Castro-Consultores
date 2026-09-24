@@ -24,7 +24,8 @@ export const loadServerAuth = cache(async () => {
 
   const { user } = await getUserClearingStaleRefresh(supabase);
   if (!user) {
-    return { session, profile: null as CurrentProfile | null };
+    // Refresh inválido: não tratar como perfil ausente (evita /login?erro=perfil).
+    return { session: null as Session | null, profile: null as CurrentProfile | null };
   }
 
   const { data: profile } = await supabase

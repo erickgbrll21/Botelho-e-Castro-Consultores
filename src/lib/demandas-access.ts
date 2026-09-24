@@ -22,10 +22,12 @@ export async function requireDemandasProfile(): Promise<CurrentProfile> {
 }
 
 /** Ações/telas administrativas do módulo. */
-export async function requireGestorDemandas(): Promise<CurrentProfile> {
+export async function requireGestorDemandas(
+  fallback = "/demandas"
+): Promise<CurrentProfile> {
   const profile = await requireDemandasProfile();
   if (!isGestorDemandas(profile.tipo_usuario)) {
-    redirect("/demandas/minhas");
+    redirect(fallback);
   }
   return profile;
 }

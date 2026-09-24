@@ -2,15 +2,23 @@
 
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { SubmitButton } from "@/components/ui/submit-button";
+import type { DemandaSetor } from "@/lib/demanda-setor";
 
 type Acao = (formData: FormData) => Promise<void>;
 
 const CAMPO =
   "w-full min-w-0 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-100 focus:outline-none";
 
-export function NovoTipoServicoForm({ action }: { action: Acao }) {
+export function NovoTipoServicoForm({
+  action,
+  setor,
+}: {
+  action: Acao;
+  setor: DemandaSetor;
+}) {
   return (
     <form action={action} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <input type="hidden" name="setor" value={setor} />
       <div className="min-w-0 flex-1 space-y-2">
         <label className="text-sm text-neutral-300" htmlFor="novo-tipo-nome">
           Nome do tipo de serviço
@@ -35,15 +43,18 @@ export function NovoTipoServicoForm({ action }: { action: Acao }) {
 export function RenomearTipoForm({
   tipoId,
   nome,
+  setor,
   action,
 }: {
   tipoId: string;
   nome: string;
+  setor: DemandaSetor;
   action: Acao;
 }) {
   return (
     <form action={action} className="flex min-w-0 items-center gap-2">
       <input type="hidden" name="tipo_id" value={tipoId} />
+      <input type="hidden" name="setor" value={setor} />
       <label className="sr-only" htmlFor={`tipo-nome-${tipoId}`}>
         Nome do tipo de serviço
       </label>

@@ -93,6 +93,10 @@ type CamposComparaveis = {
   empresa_situacao: string | null;
   empresa_cidade: string | null;
   empresa_uf: string | null;
+  parte_contraria: string | null;
+  numero_processo: string | null;
+  tratado: boolean;
+  email_respondido: boolean | null;
 };
 
 /**
@@ -216,6 +220,53 @@ export function diffDemanda(
       campo: "Caminho da pasta",
       valorAnterior: textoOuVazio(antes.caminho_pasta),
       valorNovo: textoOuVazio(depois.caminho_pasta),
+    });
+  }
+
+  if (
+    depois.parte_contraria !== undefined &&
+    (depois.parte_contraria ?? "") !== (antes.parte_contraria ?? "")
+  ) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Parte contrária",
+      valorAnterior: textoOuVazio(antes.parte_contraria),
+      valorNovo: textoOuVazio(depois.parte_contraria),
+    });
+  }
+
+  if (
+    depois.numero_processo !== undefined &&
+    (depois.numero_processo ?? "") !== (antes.numero_processo ?? "")
+  ) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Nº do processo",
+      valorAnterior: textoOuVazio(antes.numero_processo),
+      valorNovo: textoOuVazio(depois.numero_processo),
+    });
+  }
+
+  if (
+    depois.email_respondido !== undefined &&
+    depois.email_respondido !== antes.email_respondido
+  ) {
+    const simNao = (valor: boolean | null | undefined) =>
+      valor === true ? "Sim" : valor === false ? "Não" : "—";
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "E-mail respondido",
+      valorAnterior: simNao(antes.email_respondido),
+      valorNovo: simNao(depois.email_respondido),
+    });
+  }
+
+  if (depois.tratado !== undefined && depois.tratado !== antes.tratado) {
+    entradas.push({
+      acao: "Alteração de dados",
+      campo: "Tratado",
+      valorAnterior: antes.tratado ? "Sim" : "Não",
+      valorNovo: depois.tratado ? "Sim" : "Não",
     });
   }
 

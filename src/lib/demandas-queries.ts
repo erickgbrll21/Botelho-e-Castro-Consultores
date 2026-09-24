@@ -1,4 +1,5 @@
 import type { Tables, Views } from "@/types/database";
+import type { DemandaSetor } from "@/lib/demanda-setor";
 import { getServiceRoleClient } from "@/lib/auth";
 import {
   diaEmBrasilia,
@@ -113,6 +114,10 @@ function aplicarFiltros(
   return query;
 }
 
+function comSetor(query: SupabaseLike, setor?: DemandaSetor): SupabaseLike {
+  return setor ? query.eq("setor", setor) : query;
+}
+
 export type ListaDemandas = {
   itens: DemandaRow[];
   total: number;
@@ -129,7 +134,7 @@ export type ListaDemandas = {
 export async function fetchDemandas(
   supabase: SupabaseLike,
   filtros: DemandaFiltros,
-  opts: { responsavelId?: string; agora?: Date; porPagina?: number } = {}
+  opts: { responsavelId?: string; agora?: Date; porPagina?: number; setor?: DemandaSetor } = {}
 ): Promise<ListaDemandas> {
   const agora = opts.agora ?? new Date();
   const porPagina = opts.porPagina ?? DEMANDAS_POR_PAGINA;
@@ -145,6 +150,7 @@ export async function fetchDemandas(
   if (opts.responsavelId) {
     query = query.eq("responsavel_id", opts.responsavelId);
   }
+  query = comSetor(query, opts.setor);
 
   query = aplicarFiltros(query, filtros, agora).range(
     inicio,
@@ -197,7 +203,7 @@ export type DemandasParaMetricas = {
 export async function fetchDemandasParaMetricas(
   supabase: SupabaseLike,
   filtros: DemandaFiltros,
-  opts: { responsavelId?: string; agora?: Date; limite?: number } = {}
+  opts: { responsavelId?: string; agora?: Date; limite?: number; setor?: DemandaSetor } = {}
 ): Promise<DemandasParaMetricas> {
   const agora = opts.agora ?? new Date();
 
@@ -206,6 +212,7 @@ export async function fetchDemandasParaMetricas(
   if (opts.responsavelId) {
     query = query.eq("responsavel_id", opts.responsavelId);
   }
+  query = comSetor(query, opts.setor);
 
   query = aplicarFiltros(query, filtros, agora).limit(opts.limite ?? 5000);
 
@@ -233,7 +240,7 @@ export async function fetchDemandasParaMetricas(
 export async function fetchDemandasUltimosMeses(
   supabase: SupabaseLike,
   filtros: DemandaFiltros,
-  opts: { meses?: number; responsavelId?: string; agora?: Date } = {}
+  opts: { meses?: number; responsavelId?: string; agora?: Date; setor?: DemandaSetor } = {}
 ): Promise<DemandasParaMetricas> {
   const agora = opts.agora ?? new Date();
   const meses = opts.meses ?? 6;
@@ -251,6 +258,7 @@ export async function fetchDemandasUltimosMeses(
   if (opts.responsavelId) {
     query = query.eq("responsavel_id", opts.responsavelId);
   }
+  query = comSetor(query, opts.setor);
   if (filtros.responsavel) {
     query = query.eq("responsavel_id", filtros.responsavel);
   }
@@ -312,13 +320,16 @@ export async function fetchHistoricoDemanda(
 
 export async function fetchTiposServico(
   supabase: SupabaseLike,
-  opts: { apenasAtivos?: boolean } = {}
+  opts: { apenasAtivos?: boolean; setor?: DemandaSetor } = {}
 ): Promise<{ tipos: TipoServicoRow[]; erro: string | null; moduloAusente: boolean }> {
   let query = supabase
     .from("tipos_servico")
     .select("*")
     .order("nome", { ascending: true });
 
+  if (opts.setor) {
+    query = query.eq("setor", opts.setor);
+  }
   if (opts.apenasAtivos) {
     query = query.eq("ativo", true);
   }
@@ -377,20 +388,29 @@ export async function fetchUsuariosAtribuiveis(
  * Só a contagem de pendências do usuário (badge do menu). Mantida em uma única
  * consulta porque roda no layout, em toda navegação do painel.
  */
-export async function fetchDemandasPendentesCount(
+export type PendentesPorSetor = Record<DemandaSetor, number>;
+
+export async function fetchDemandasPendentesPorSetor(
   supabase: SupabaseLike,
   usuarioId: string
-): Promise<number> {
+): Promise<PendentesPorSetor> {
+  const vazio: PendentesPorSetor = { civel: 0, legalizacao: 0 };
   try {
-    const { count } = await supabase
+    const { data, error } = await supabase
       .from("demandas_view")
-      .select("id", { count: "exact", head: true })
+      .select("setor")
       .eq("responsavel_id", usuarioId)
       .neq("status", "concluida")
       .neq("status", "aguardando_confirmacao");
-    return count ?? 0;
+    if (error || !data) return vazio;
+    for (const row of data as { setor: string }[]) {
+      if (row.setor === "civel" || row.setor === "legalizacao") {
+        vazio[row.setor] += 1;
+      }
+    }
+    return vazio;
   } catch {
-    return 0;
+    return { civel: 0, legalizacao: 0 };
   }
 }
 
@@ -404,31 +424,41 @@ export type ResumoUsuario = {
 export async function fetchResumoDemandasUsuario(
   supabase: SupabaseLike,
   usuarioId: string,
-  agora: Date = new Date()
+  agora: Date = new Date(),
+  setor?: DemandaSetor
 ): Promise<ResumoUsuario> {
   const hoje = diaEmBrasilia(agora);
 
   try {
     const [pendentes, venceHoje, atrasadas] = await Promise.all([
-      supabase
-        .from("demandas_view")
-        .select("id", { count: "exact", head: true })
-        .eq("responsavel_id", usuarioId)
-        .neq("status", "concluida")
-        .neq("status", "aguardando_confirmacao"),
-      supabase
-        .from("demandas_view")
-        .select("id", { count: "exact", head: true })
-        .eq("responsavel_id", usuarioId)
-        .neq("status", "concluida")
-        .neq("status", "aguardando_confirmacao")
-        .gte("prazo_final", inicioDoDiaISO(hoje))
-        .lt("prazo_final", inicioDoDiaSeguinteISO(hoje)),
-      supabase
-        .from("demandas_view")
-        .select("id", { count: "exact", head: true })
-        .eq("responsavel_id", usuarioId)
-        .eq("atrasada", true),
+      comSetor(
+        supabase
+          .from("demandas_view")
+          .select("id", { count: "exact", head: true })
+          .eq("responsavel_id", usuarioId)
+          .neq("status", "concluida")
+          .neq("status", "aguardando_confirmacao"),
+        setor
+      ),
+      comSetor(
+        supabase
+          .from("demandas_view")
+          .select("id", { count: "exact", head: true })
+          .eq("responsavel_id", usuarioId)
+          .neq("status", "concluida")
+          .neq("status", "aguardando_confirmacao")
+          .gte("prazo_final", inicioDoDiaISO(hoje))
+          .lt("prazo_final", inicioDoDiaSeguinteISO(hoje)),
+        setor
+      ),
+      comSetor(
+        supabase
+          .from("demandas_view")
+          .select("id", { count: "exact", head: true })
+          .eq("responsavel_id", usuarioId)
+          .eq("atrasada", true),
+        setor
+      ),
     ]);
 
     return {
