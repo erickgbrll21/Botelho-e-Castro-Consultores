@@ -60,3 +60,30 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .app-shell {
+    background: #fff !important;
+    padding: 0 !important;
+    color: #111 !important;
+  }
+
+  .relatorio-papel {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  .relatorio-logo {
+    filter: brightness(0) !important;
+  }
+}
+
+.relatorio-logo {
+  filter: brightness(0);
+}

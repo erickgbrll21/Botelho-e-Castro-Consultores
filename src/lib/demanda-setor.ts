@@ -46,5 +46,6 @@ export function caminhosSetor(setor: DemandaSetor) {
     todas: `${base}/todas`,
     minhas: `${base}/minhas`,
     tipos: `${base}/tipos-servico`,
+    relatorio: `${base}/relatorio`,
   };
 }

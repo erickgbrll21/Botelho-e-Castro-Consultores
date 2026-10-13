@@ -84,6 +84,13 @@ export async function TodasAsDemandas({
         setor={setor}
       />
 
+      {setor === "legalizacao" ? (
+        <p className="text-xs text-neutral-500">
+          Demandas confirmadas pelo gestor são apagadas 60 dias depois da
+          confirmação. O registro do mês permanece no relatório mensal.
+        </p>
+      ) : null}
+
       {params.excluida === "1" ? (
         <AvisoSucesso mensagem="Demanda excluída com sucesso." />
       ) : null}

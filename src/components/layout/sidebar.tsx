@@ -77,6 +77,11 @@ const links: NavLink[] = [
       },
       { href: "/demandas/legalizacao/minhas", label: "Minhas Demandas" },
       {
+        href: "/demandas/legalizacao/relatorio",
+        label: "Relatório mensal",
+        adminOnly: true,
+      },
+      {
         href: "/demandas/legalizacao/tipos-servico",
         label: "Tipos de Serviço",
         adminOnly: true,

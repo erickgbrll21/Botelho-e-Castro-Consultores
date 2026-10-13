@@ -2,7 +2,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { caminhosSetor, type DemandaSetor } from "@/lib/demanda-setor";
 
-export type AbaDemandas = "dashboard" | "todas" | "minhas" | "tipos";
+export type AbaDemandas = "dashboard" | "todas" | "minhas" | "tipos" | "relatorio";
 
 type Item = {
   aba: AbaDemandas;
@@ -44,6 +44,16 @@ export function DemandasSubnav({
       label: "Tipos de serviço",
       somenteGestor: true,
     },
+    ...(setor === "legalizacao"
+      ? [
+          {
+            aba: "relatorio" as const,
+            href: caminhos.relatorio,
+            label: "Relatório mensal",
+            somenteGestor: true,
+          },
+        ]
+      : []),
   ];
 
   const visiveis = itens.filter((item) => gestor || !item.somenteGestor);
