@@ -38,7 +38,13 @@ yarn-error.log*
 .env.local
 
 # vercel
+/.vercel
 web/.vercel
+
+# secrets
+*.key
+credentials*.json
+service-account*.json
 
 # typescript
 *.tsbuildinfo

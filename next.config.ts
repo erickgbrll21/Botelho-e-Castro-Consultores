@@ -11,11 +11,12 @@ const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 // (clickjacking, exfiltração, base-uri, etc.).
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  `connect-src 'self' https://*.supabase.co https://*.supabase.in https://brasilapi.com.br https://receitaws.com.br https://publica.cnpj.ws https://api-publica.datajud.cnj.jus.br https://generativelanguage.googleapis.com${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self' https://*.supabase.co https://*.supabase.in https://brasilapi.com.br https://receitaws.com.br https://publica.cnpj.ws https://api-publica.datajud.cnj.jus.br https://generativelanguage.googleapis.com https://challenges.cloudflare.com${isDev ? " ws: wss:" : ""}`,
+  "frame-src https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

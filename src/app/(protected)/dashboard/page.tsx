@@ -517,7 +517,7 @@ export default async function DashboardPage({
                           Sem serviços ativos
                         </p>
                       ) : null}
-                      {hasBpo && valorBpoFinanceiroOk != null ? (
+                      {showContractValue && hasBpo && valorBpoFinanceiroOk != null ? (
                         <p className="w-full pt-1 text-[10px] text-neutral-300 tabular-nums">
                           <span className="text-neutral-500">BPO Financeiro:</span>{" "}
                           <span className="font-semibold text-fuchsia-200/90">

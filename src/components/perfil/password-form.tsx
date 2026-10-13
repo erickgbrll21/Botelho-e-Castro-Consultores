@@ -18,8 +18,8 @@ export function PasswordForm({
     const password = String(formData.get("password"));
     const confirm = String(formData.get("confirmPassword"));
 
-    if (password.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres.");
+    if (password.length < 8) {
+      setError("A senha deve ter pelo menos 8 caracteres.");
       return;
     }
 
@@ -49,7 +49,7 @@ export function PasswordForm({
           type="password"
           required
           className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-          placeholder="Minimo 6 caracteres"
+          placeholder="Mínimo 8 caracteres"
         />
       </div>
       <div className="space-y-2">

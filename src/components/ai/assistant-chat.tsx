@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { assistantHistoryKey, clearAssistantHistory } from "@/lib/assistant-history-storage";
 
 /** Ícone cérebro (baseado no path do Lucide "Brain", ISC). */
 function BrainIcon({ className }: { className?: string }) {
@@ -39,8 +40,6 @@ type Session = {
   createdAt: string;
   messages: ChatMsg[];
 };
-
-const STORAGE_KEY = "bcc_assistant_widget_sessions_v1";
 
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -84,7 +83,8 @@ const CATEGORIES: { label: string; prompt: string }[] = [
   { label: "Painel", prompt: "Quero aprender a usar melhor o painel BCC." },
 ];
 
-export function AssistantChat() {
+export function AssistantChat({ userId }: { userId: string }) {
+  const storageKey = assistantHistoryKey(userId);
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -95,7 +95,8 @@ export function AssistantChat() {
   const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = safeJsonParse<Session[]>(localStorage.getItem(STORAGE_KEY));
+    clearAssistantHistory(userId);
+    const stored = safeJsonParse<Session[]>(localStorage.getItem(storageKey));
     if (stored?.length) {
       setSessions(stored);
       setActiveId(stored[0]!.id);
@@ -109,12 +110,12 @@ export function AssistantChat() {
     };
     setSessions([first]);
     setActiveId(first.id);
-  }, []);
+  }, [userId, storageKey]);
 
   useEffect(() => {
     if (!sessions.length) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  }, [sessions]);
+    localStorage.setItem(storageKey, JSON.stringify(sessions));
+  }, [sessions, storageKey]);
 
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? null,

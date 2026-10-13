@@ -86,7 +86,7 @@ export default async function ProtectedLayout({
             {children}
           </main>
           <div className="no-print">
-            <AssistantChat />
+            <AssistantChat userId={profile.id} />
           </div>
         </div>
       </div>

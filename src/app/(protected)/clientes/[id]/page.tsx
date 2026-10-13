@@ -291,7 +291,9 @@ export default async function ClienteDetalhe({
                 <p className="text-xs font-bold text-fuchsia-500 uppercase tracking-widest">4. BPO</p>
                 <div className="flex flex-wrap gap-2">
                   {servicos?.bpo_financeiro && <Pill label="Financeiro" tone="neutral" />}
-                  {servicos?.bpo_financeiro && servicos?.valor_bpo_financeiro != null ? (
+                  {showContractValue &&
+                  servicos?.bpo_financeiro &&
+                  servicos?.valor_bpo_financeiro != null ? (
                     <p className="w-full text-xs text-neutral-300 tabular-nums">
                       <span className="text-neutral-500">Valor:</span>{" "}
                       <span className="font-semibold text-fuchsia-200/90">

@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeInternalRedirectPath } from "@/lib/safe-redirect-path";
+import { signInAction } from "@/app/(auth)/login/actions";
+import { Turnstile, type TurnstileHandle } from "@/components/auth/turnstile";
 
-const SUPABASE_NETWORK_HINT =
-  "Não foi possível conectar ao Supabase. No .env.local use a URL https://…supabase.co e a chave publishable (sb_publishable_…) ou anon (eyJ…), nunca sb_secret_. Confira em Dashboard → Settings → API, reinicie npm run dev após mudar o .env e verifique se a rede não bloqueia *.supabase.co.";
-
-function isLikelyNetworkFailure(message: string | undefined) {
-  if (!message) return false;
-  return (
-    message === "Failed to fetch" ||
-    /network|fetch|load failed|networkerror/i.test(message)
-  );
-}
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 export function LoginForm() {
   const router = useRouter();
@@ -27,47 +19,58 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [enviando, setEnviando] = useState(false);
+  const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
+  const aguardandoCaptcha = Boolean(TURNSTILE_SITE_KEY) && !captchaToken;
+
+  useEffect(() => {
+    if (!bloqueadoAte) return;
+    const t = setInterval(() => {
+      const n = Date.now();
+      setAgora(n);
+      if (n >= bloqueadoAte) {
+        setBloqueadoAte(null);
+        setError(null);
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [bloqueadoAte]);
+
+  const segundosBloqueio = bloqueadoAte
+    ? Math.max(0, Math.ceil((bloqueadoAte - agora) / 1000))
+    : 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-
-    let supabase;
-    try {
-      supabase = createSupabaseBrowserClient();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Configuração do Supabase inválida."
-      );
+    if (enviando || segundosBloqueio > 0) return;
+    if (aguardandoCaptcha) {
+      setError("Conclua a verificação de segurança abaixo.");
       return;
     }
+    setError(null);
+    setEnviando(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        setError(
-          isLikelyNetworkFailure(signInError.message)
-            ? SUPABASE_NETWORK_HINT
-            : signInError.message
-        );
+      const result = await signInAction(email, password, captchaToken);
+      // O token do Turnstile é de uso único.
+      captchaRef.current?.reset();
+      if (!result.ok) {
+        setError(result.error);
+        if (result.bloqueadoPorSeg) {
+          setAgora(Date.now());
+          setBloqueadoAte(Date.now() + result.bloqueadoPorSeg * 1000);
+        }
+        setPassword("");
         return;
       }
-    } catch (err) {
-      const isNetwork =
-        err instanceof TypeError ||
-        (err instanceof Error && isLikelyNetworkFailure(err.message));
-      setError(
-        isNetwork
-          ? SUPABASE_NETWORK_HINT
-          : err instanceof Error
-            ? err.message
-            : "Erro ao entrar. Tente de novo."
-      );
+    } catch {
+      setError("Não foi possível conectar ao servidor. Tente de novo.");
       return;
+    } finally {
+      setEnviando(false);
     }
 
     startTransition(() => {
@@ -75,6 +78,8 @@ export function LoginForm() {
       router.refresh();
     });
   }
+
+  const ocupado = isPending || enviando;
 
   return (
     <form
@@ -128,6 +133,17 @@ export function LoginForm() {
         />
       </div>
 
+      {TURNSTILE_SITE_KEY ? (
+        <Turnstile
+          ref={captchaRef}
+          siteKey={TURNSTILE_SITE_KEY}
+          onToken={setCaptchaToken}
+          onError={() =>
+            setError("Não foi possível carregar a verificação de segurança. Recarregue a página.")
+          }
+        />
+      ) : null}
+
       {error ? (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100 break-words sm:text-sm">
           {error}
@@ -136,10 +152,14 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={ocupado || segundosBloqueio > 0 || aguardandoCaptcha}
         className="w-full rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-neutral-200 disabled:opacity-60"
       >
-        {isPending ? "Entrando..." : "Entrar"}
+        {segundosBloqueio > 0
+          ? `Aguarde ${Math.floor(segundosBloqueio / 60)}:${String(segundosBloqueio % 60).padStart(2, "0")}`
+          : ocupado
+            ? "Entrando..."
+            : "Entrar"}
       </button>
     </form>
   );

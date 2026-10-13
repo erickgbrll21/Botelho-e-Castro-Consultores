@@ -524,6 +524,10 @@ export async function atualizarStatus(formData: FormData) {
     );
   }
 
+  if (!gestor && demanda.status === "concluida" && status !== "concluida") {
+    throw new Error("Somente o gestor pode reabrir uma demanda confirmada.");
+  }
+
   if (status === demanda.status) {
     revalidarModulo(demandaId);
     return;

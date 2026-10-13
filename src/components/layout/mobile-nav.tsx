@@ -22,6 +22,7 @@ import {
 import type { UserRole } from "@/types/database";
 
 import { useTransition } from "react";
+import { clearAssistantHistory } from "@/lib/assistant-history-storage";
 
 type MobileNavProps = {
   role: UserRole;
@@ -127,6 +128,7 @@ export function MobileNav({
 
   const handleSignOut = () => {
     if (confirm("Deseja realmente sair?")) {
+      clearAssistantHistory();
       startTransition(async () => {
         await signOutAction();
       });

@@ -10,8 +10,12 @@ async function updatePassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!password || password.length < 6) {
-    throw new Error("A senha deve ter pelo menos 6 caracteres.");
+  if (!password || password.length < 8) {
+    throw new Error("A senha deve ter pelo menos 8 caracteres.");
+  }
+
+  if (password.length > 128) {
+    throw new Error("A senha é longa demais (máximo 128 caracteres).");
   }
 
   if (password !== confirmPassword) {

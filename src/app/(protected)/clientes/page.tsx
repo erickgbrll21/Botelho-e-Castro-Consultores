@@ -48,7 +48,8 @@ function parseOptionalMoney(formData: FormData, key: string): number | null {
 
 async function createCliente(formData: FormData) {
   "use server";
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
+  const podeEditarValores = canSeeContractValue(profile.tipo_usuario);
   const supabase = await createSupabaseServerClient();
 
   const razao_social = String(formData.get("razao_social") ?? "").trim();
@@ -139,9 +140,10 @@ async function createCliente(formData: FormData) {
     "planejamento_societario_tributario"
   );
   const bpo_financeiro = parseFormCheckbox(formData, "bpo_financeiro");
-  const valor_bpo_financeiro = bpo_financeiro
-    ? parseOptionalMoney(formData, "valor_bpo_financeiro")
-    : null;
+  const valor_bpo_financeiro =
+    bpo_financeiro && podeEditarValores
+      ? parseOptionalMoney(formData, "valor_bpo_financeiro")
+      : null;
 
   if (!razao_social || !cnpj || cnpj.length !== 14) {
     throw new Error("Razão social e CNPJ válido (14 dígitos) são obrigatórios.");
@@ -175,8 +177,8 @@ async function createCliente(formData: FormData) {
       regime_tributario: regime_tributario || null,
       contato_nome: contato_nome || null,
       contato_telefone: contato_telefone || null,
-      valor_contrato,
-      cobranca_por_grupo,
+      valor_contrato: podeEditarValores ? valor_contrato : null,
+      cobranca_por_grupo: podeEditarValores ? cobranca_por_grupo : false,
       ativo: true,
       situacao_empresa: "ativa",
       tipo_pessoa: "pj",
@@ -393,10 +395,13 @@ async function createPessoaFisica(formData: FormData) {
 
 async function createGrupo(formData: FormData) {
   "use server";
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
+  const podeEditarValores = canSeeContractValue(profile.tipo_usuario);
   const supabase = await createSupabaseServerClient();
   const nome = String(formData.get("nome") ?? "").trim();
-  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
+  const valor_contrato = podeEditarValores
+    ? parseOptionalMoney(formData, "valor_contrato")
+    : null;
 
   if (!nome) {
     throw new Error("Nome do grupo é obrigatório.");
@@ -411,18 +416,18 @@ async function createGrupo(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await registrarLog("Criação de Grupo", { nome, valor_contrato });
+  await registrarLog("Criação de Grupo", { nome });
 
   await revalidatePath("/clientes");
 }
 
 async function updateGrupo(formData: FormData) {
   "use server";
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
+  const podeEditarValores = canSeeContractValue(profile.tipo_usuario);
   const supabase = await createSupabaseServerClient();
   const id = String(formData.get("grupo_id"));
   const nome = String(formData.get("nome") ?? "").trim();
-  const valor_contrato = parseOptionalMoney(formData, "valor_contrato");
 
   if (!id || !nome) {
     throw new Error("ID e nome do grupo são obrigatórios.");
@@ -431,7 +436,9 @@ async function updateGrupo(formData: FormData) {
   const { error } = await (supabase.from("grupos_economicos") as any)
     .update({
       nome,
-      valor_contrato,
+      ...(podeEditarValores
+        ? { valor_contrato: parseOptionalMoney(formData, "valor_contrato") }
+        : {}),
     })
     .eq("id", id);
 
@@ -439,7 +446,7 @@ async function updateGrupo(formData: FormData) {
     throw new Error(error.message);
   }
 
-  await registrarLog("Edição de Grupo", { id, nome, valor_contrato });
+  await registrarLog("Edição de Grupo", { id, nome });
 
   await revalidatePath("/clientes");
 }
@@ -533,7 +540,7 @@ export default async function ClientesPage({
 
   const gruposQuery = supabase
     .from("grupos_economicos")
-    .select("id, nome, descricao, valor_contrato")
+    .select(showContractValue ? "id, nome, descricao, valor_contrato" : "id, nome, descricao")
     .order("nome", { ascending: true });
 
   const { data: gruposData } = await gruposQuery;
@@ -1154,21 +1161,23 @@ export default async function ClientesPage({
                       <input type="checkbox" name="bpo_financeiro" className="accent-fuchsia-500 h-4 w-4" />
                       Financeiro
                     </label>
-                    <div className="space-y-2 pt-2">
-                      <label className="text-xs text-neutral-400">
-                        Valor do BPO Financeiro (mensal)
-                      </label>
-                      <CurrencyInput
-                        name="valor_bpo_financeiro"
-                        className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                        placeholder="0,00"
-                        showSymbol
-                        min={0}
-                      />
-                      <p className="text-xs text-neutral-500">
-                        Preencha apenas se o serviço de BPO Financeiro estiver contratado.
-                      </p>
-                    </div>
+                    {showContractValue && (
+                      <div className="space-y-2 pt-2">
+                        <label className="text-xs text-neutral-400">
+                          Valor do BPO Financeiro (mensal)
+                        </label>
+                        <CurrencyInput
+                          name="valor_bpo_financeiro"
+                          className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                          placeholder="0,00"
+                          showSymbol
+                          min={0}
+                        />
+                        <p className="text-xs text-neutral-500">
+                          Preencha apenas se o serviço de BPO Financeiro estiver contratado.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1234,17 +1243,21 @@ export default async function ClientesPage({
                 placeholder="Ex.: Grupo XPTO"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
-              <CurrencyInput
-                name="valor_contrato"
-                defaultValue={editingGrupo?.valor_contrato ?? ""}
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
-                placeholder="R$ 0,00"
-                showSymbol
-                min={0}
-              />
-            </div>
+            {showContractValue ? (
+              <div className="space-y-2">
+                <label className="text-sm text-neutral-300">Valor do Contrato (Mensal)</label>
+                <CurrencyInput
+                  name="valor_contrato"
+                  defaultValue={editingGrupo?.valor_contrato ?? ""}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 focus:border-neutral-100 focus:outline-none"
+                  placeholder="R$ 0,00"
+                  showSymbol
+                  min={0}
+                />
+              </div>
+            ) : (
+              <div className="hidden sm:block" />
+            )}
             <div className="flex items-end">
               <button
                 type="submit"

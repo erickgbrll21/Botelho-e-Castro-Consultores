@@ -15,7 +15,7 @@ import { registrarLog } from "@/lib/logs";
 async function createUser(formData: FormData) {
   "use server";
 
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
   const supabaseAdmin = getServiceRoleClient();
 
   const email = String(formData.get("email") ?? "").trim();
@@ -26,6 +26,10 @@ async function createUser(formData: FormData) {
 
   if (!email || !password || !nome) {
     redirect("/usuarios?erro=campos");
+  }
+
+  if (isGestorDeUsuarios(tipo_usuario) && !isGestorDeUsuarios(profile.tipo_usuario)) {
+    redirect("/usuarios?erro=permissao");
   }
 
   if (password.length < 8) {
@@ -80,7 +84,7 @@ async function createUser(formData: FormData) {
 
 async function deleteUserAndAccount(formData: FormData) {
   "use server";
-  await requireAdminProfile();
+  const profile = await requireAdminProfile();
   const supabaseAdmin = getServiceRoleClient();
 
   const serviceKeyPresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -91,7 +95,29 @@ async function deleteUserAndAccount(formData: FormData) {
   }
 
   const userId = String(formData.get("user_id") ?? "").trim();
-  if (!userId) throw new Error("ID do usuário é obrigatório.");
+  if (!UUID_RE.test(userId)) throw new Error("ID do usuário inválido.");
+  if (userId === profile.id) {
+    redirect("/usuarios?erro=auto_exclusao");
+  }
+
+  const { data: alvo } = await (supabaseAdmin.from("usuarios") as any)
+    .select("tipo_usuario")
+    .eq("id", userId)
+    .maybeSingle();
+  const alvoRole = (alvo?.tipo_usuario ?? "user") as UserRole;
+
+  if (isGestorDeUsuarios(alvoRole) && !isGestorDeUsuarios(profile.tipo_usuario)) {
+    redirect("/usuarios?erro=permissao");
+  }
+
+  if (alvoRole === "admin") {
+    const { count } = await (supabaseAdmin.from("usuarios") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("tipo_usuario", "admin");
+    if ((count ?? 0) <= 1) {
+      redirect("/usuarios?erro=ultimo_admin");
+    }
+  }
 
   // 1) Exclui no Auth
   const { error: authErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
@@ -108,9 +134,19 @@ async function deleteUserAndAccount(formData: FormData) {
     throw new Error(cadastroErr.message || "Não foi possível excluir o usuário.");
   }
 
-  await registrarLog("Exclusão Definitiva de Usuário", { user_id: userId });
+  await registrarLog("Exclusão Definitiva de Usuário", {
+    user_id: userId,
+    tipo_usuario: alvoRole,
+  });
   await revalidatePath("/usuarios");
   redirect("/usuarios?remocao=excluido");
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Papéis que gerenciam usuários; só eles podem conceder ou remover esses papéis. */
+function isGestorDeUsuarios(role: UserRole): boolean {
+  return role === "admin" || role === "diretor";
 }
 
 function parseUserRole(raw: unknown): UserRole {
@@ -155,8 +191,23 @@ async function updateUserTipoUsuario(formData: FormData) {
   const userId = String(formData.get("user_id") ?? "").trim();
   const tipo_usuario = parseUserRole(formData.get("tipo_usuario"));
 
-  if (!userId) {
-    throw new Error("ID do usuário é obrigatório.");
+  if (!UUID_RE.test(userId)) {
+    throw new Error("ID do usuário inválido.");
+  }
+
+  if (tipo_usuario !== "admin") {
+    const { data: alvo } = await (supabaseAdmin.from("usuarios") as any)
+      .select("tipo_usuario")
+      .eq("id", userId)
+      .maybeSingle();
+    if (alvo?.tipo_usuario === "admin") {
+      const { count } = await (supabaseAdmin.from("usuarios") as any)
+        .select("id", { count: "exact", head: true })
+        .eq("tipo_usuario", "admin");
+      if ((count ?? 0) <= 1) {
+        redirect("/usuarios?erro=ultimo_admin");
+      }
+    }
   }
 
   const { error: updErr } = await (supabaseAdmin.from("usuarios") as any)
@@ -219,7 +270,18 @@ export default async function UsuariosPage({
           ? "Preencha todos os campos obrigatórios."
           : erro === "criacao"
             ? detalhe?.trim() || "Não foi possível criar o usuário."
-            : null;
+            : erro === "permissao"
+              ? "Somente Administradores e Diretores podem conceder ou remover contas de Administrador ou Diretor."
+              : erro === "auto_exclusao"
+                ? "Você não pode excluir a sua própria conta."
+                : erro === "ultimo_admin"
+                  ? "Não é possível remover ou rebaixar o último Administrador."
+                  : null;
+  const tituloErro =
+    erro === "permissao" || erro === "auto_exclusao" || erro === "ultimo_admin"
+      ? "Operação não permitida"
+      : "Não foi possível criar o usuário";
+  const podeConcederGestao = isGestorDeUsuarios(profile.tipo_usuario);
 
   return (
     <div className="space-y-6">
@@ -244,7 +306,7 @@ export default async function UsuariosPage({
 
       {mensagemErro ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
-          <p className="font-semibold">Não foi possível criar o usuário</p>
+          <p className="font-semibold">{tituloErro}</p>
           <p className="mt-1 text-red-100/90">{mensagemErro}</p>
         </div>
       ) : null}
@@ -318,8 +380,12 @@ export default async function UsuariosPage({
                 defaultValue="user"
               >
                 <option value="user">Usuário (Comum)</option>
-                <option value="admin">Administrador (TI)</option>
-                <option value="diretor">Diretor</option>
+                {podeConcederGestao ? (
+                  <>
+                    <option value="admin">Administrador (TI)</option>
+                    <option value="diretor">Diretor</option>
+                  </>
+                ) : null}
                 <option value="financeiro">Financeiro</option>
                 <option value="controladoria">Controladoria</option>
               </select>
